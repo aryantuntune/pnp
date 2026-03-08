@@ -371,25 +371,31 @@ export default function BookingViewPage() {
                         "/api/portal/payment/create-order",
                         { booking_id: Number(bookingId), platform: "web" }
                       );
-                      // Create hidden form and POST to CCAvenue
-                      const form = document.createElement("form");
-                      form.method = "POST";
-                      form.action = res.data.ccavenue_url;
 
-                      const encInput = document.createElement("input");
-                      encInput.type = "hidden";
-                      encInput.name = "encRequest";
-                      encInput.value = res.data.enc_request;
-                      form.appendChild(encInput);
+                      if (res.data.simulated) {
+                        // Simulated mode — redirect to mock checkout page
+                        window.location.href = res.data.ccavenue_url;
+                      } else {
+                        // Real CCAvenue — create hidden form and POST
+                        const form = document.createElement("form");
+                        form.method = "POST";
+                        form.action = res.data.ccavenue_url;
 
-                      const codeInput = document.createElement("input");
-                      codeInput.type = "hidden";
-                      codeInput.name = "access_code";
-                      codeInput.value = res.data.access_code;
-                      form.appendChild(codeInput);
+                        const encInput = document.createElement("input");
+                        encInput.type = "hidden";
+                        encInput.name = "encRequest";
+                        encInput.value = res.data.enc_request;
+                        form.appendChild(encInput);
 
-                      document.body.appendChild(form);
-                      form.submit();
+                        const codeInput = document.createElement("input");
+                        codeInput.type = "hidden";
+                        codeInput.name = "access_code";
+                        codeInput.value = res.data.access_code;
+                        form.appendChild(codeInput);
+
+                        document.body.appendChild(form);
+                        form.submit();
+                      }
                     } catch {
                       setErrorMsg("Unable to initiate payment. Please try again.");
                       setTimeout(() => setErrorMsg(null), 4000);
