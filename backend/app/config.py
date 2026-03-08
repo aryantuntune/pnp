@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     CCAVENUE_WORKING_KEY: str = ""
     CCAVENUE_BASE_URL: str = "https://test.ccavenue.com"
 
+    # Payment simulation — allows testing the payment flow without real CCAvenue credentials.
+    # Set to true in any environment (including production) to enable simulated payments.
+    # Automatically disabled when CCAvenue credentials are configured.
+    PAYMENT_SIMULATION: bool = False
+
     # Email (SMTP)
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

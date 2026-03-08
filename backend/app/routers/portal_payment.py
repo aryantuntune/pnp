@@ -62,11 +62,17 @@ def _redirect_to_frontend(
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 
+def _simulation_allowed() -> bool:
+    """Simulation is allowed when CCAvenue is NOT configured AND either DEBUG or PAYMENT_SIMULATION is on."""
+    return not ccavenue_service.is_configured() and (settings.DEBUG or settings.PAYMENT_SIMULATION)
+
+
 @router.get("/config", summary="Get payment gateway config")
 async def payment_config():
     return {
         "gateway": "ccavenue",
         "configured": ccavenue_service.is_configured(),
+        "simulation": _simulation_allowed(),
     }
 
 
@@ -82,8 +88,8 @@ async def create_order(
 ):
     is_configured = ccavenue_service.is_configured()
 
-    # Block if not configured AND not in debug mode (no simulation in prod)
-    if not is_configured and not settings.DEBUG:
+    # Block if not configured AND simulation not allowed
+    if not is_configured and not _simulation_allowed():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Payment gateway is not configured",
@@ -180,7 +186,7 @@ async def initiate_checkout(
         return HTMLResponse("<h1>Invalid or expired payment link</h1>", status_code=404)
 
     # Simulation mode — redirect to mock checkout page
-    if not ccavenue_service.is_configured() and settings.DEBUG:
+    if not ccavenue_service.is_configured() and _simulation_allowed():
         backend_base = settings.BACKEND_URL.rstrip("/")
         sim_url = f"{backend_base}/api/portal/payment/simulate/{order_id}"
         return RedirectResponse(url=sim_url, status_code=302)
@@ -253,8 +259,8 @@ async def simulate_checkout(
 
     Only works when DEBUG=true. Shows booking details with Pay / Cancel buttons.
     """
-    if not settings.DEBUG:
-        return HTMLResponse("<h1>Not available in production</h1>", status_code=403)
+    if not _simulation_allowed():
+        return HTMLResponse("<h1>Not available — simulation mode is off</h1>", status_code=403)
 
     txn_result = await db.execute(
         select(PaymentTransaction).where(
@@ -364,8 +370,8 @@ async def simulate_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """Process simulated payment callback. Only works when DEBUG=true."""
-    if not settings.DEBUG:
-        return HTMLResponse("<h1>Not available in production</h1>", status_code=403)
+    if not _simulation_allowed():
+        return HTMLResponse("<h1>Not available — simulation mode is off</h1>", status_code=403)
 
     form = await request.form()
     order_id = form.get("order_id", "")

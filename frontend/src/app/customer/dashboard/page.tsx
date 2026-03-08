@@ -80,7 +80,7 @@ export default function BookingPage() {
 
     // Check if payment gateway is in simulation mode
     api.get("/api/portal/payment/config")
-      .then((res) => setPaymentSimulated(!res.data.configured))
+      .then((res) => setPaymentSimulated(res.data.simulation === true))
       .catch(() => {});
   }, []);
 

@@ -1,6 +1,8 @@
+import asyncio
 import html
 import json
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -10,13 +12,36 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import get_db
+from app.database import engine, get_db
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler, RateLimitExceeded, SLOWAPI_AVAILABLE
 from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import auth, users, boats, branches, routes, items, item_rates, ferry_schedules, payment_modes, tickets, portal_auth, company, booking, portal_bookings, reports, verification, contact, dashboard, portal_payment, portal_theme
 
+logger = logging.getLogger("ssmspl")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    from app.services.booking_expiry_service import expiry_loop
+    task = asyncio.create_task(expiry_loop())
+    logger.info("Booking expiry background task started")
+
+    yield
+
+    # --- Shutdown: clean up connections ---
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    await engine.dispose()
+    logger.info("Database connections disposed")
+
+
 app = FastAPI(
     title=settings.APP_NAME,
+    lifespan=lifespan,
     redirect_slashes=False,
     version=settings.APP_VERSION,
     description=(
@@ -133,8 +158,6 @@ app.add_middleware(
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-logger = logging.getLogger("ssmspl")
-
 
 def _sanitize_errors(errors: list[dict]) -> list[dict]:
     """Strip raw user input and HTML-escape error messages to prevent XSS."""
@@ -212,13 +235,6 @@ app.include_router(contact.router)
 app.include_router(dashboard.router)
 app.include_router(portal_payment.router)
 app.include_router(portal_theme.router)
-
-
-@app.on_event("startup")
-async def start_booking_expiry():
-    from app.services.booking_expiry_service import expiry_loop
-    import asyncio
-    asyncio.create_task(expiry_loop())
 
 
 @app.get("/health", tags=["Health"])

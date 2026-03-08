@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ssmspl_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ssmspl_prod_pass}
@@ -13,6 +13,15 @@ services:
       - ./backend/scripts/ddl.sql:/docker-entrypoint-initdb.d/01_ddl.sql
       - ./backend/scripts/seed_data.sql:/docker-entrypoint-initdb.d/02_seed.sql
     # No port exposure — only reachable internally
+    # Kill idle connections after 10 min to prevent stale connection buildup
+    command: >
+      postgres
+        -c idle_in_transaction_session_timeout=600000
+        -c tcp_keepalives_idle=60
+        -c tcp_keepalives_interval=10
+        -c tcp_keepalives_count=6
+        -c shared_buffers=256MB
+        -c log_min_duration_statement=1000
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ssmspl_user} -d ${POSTGRES_DB:-ssmspl_db_prod}"]
       interval: 10s
@@ -27,8 +36,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
-    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    restart: always
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --tcp-keepalive 60 --timeout 300
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -45,7 +54,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    restart: unless-stopped
+    restart: always
     environment:
       APP_ENV: production
       POSTGRES_USER: ${POSTGRES_USER:-ssmspl_user}
@@ -80,7 +89,7 @@ services:
         NEXT_PUBLIC_APP_URL: https://carferry.online
         NEXT_PUBLIC_APP_NAME: SSMSPL
         INTERNAL_API_URL: http://backend:8000
-    restart: unless-stopped
+    restart: always
     environment:
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
@@ -102,7 +111,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    restart: unless-stopped
+    restart: always
     ports:
       - "80:80"
       - "443:443"
