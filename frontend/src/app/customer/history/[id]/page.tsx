@@ -371,8 +371,25 @@ export default function BookingViewPage() {
                         "/api/portal/payment/create-order",
                         { booking_id: Number(bookingId), platform: "web" }
                       );
-                      // Redirect to SabPaisa checkout
-                      window.location.href = res.data.payment_url;
+                      // Create hidden form and POST to SabPaisa
+                      const form = document.createElement("form");
+                      form.method = "POST";
+                      form.action = res.data.sabpaisa_url;
+
+                      const encInput = document.createElement("input");
+                      encInput.type = "hidden";
+                      encInput.name = "encData";
+                      encInput.value = res.data.enc_data;
+                      form.appendChild(encInput);
+
+                      const codeInput = document.createElement("input");
+                      codeInput.type = "hidden";
+                      codeInput.name = "clientCode";
+                      codeInput.value = res.data.client_code;
+                      form.appendChild(codeInput);
+
+                      document.body.appendChild(form);
+                      form.submit();
                     } catch {
                       setErrorMsg("Unable to initiate payment. Please try again.");
                       setTimeout(() => setErrorMsg(null), 4000);

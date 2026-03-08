@@ -33,7 +33,7 @@ import {
   clearBookingForm,
   createBooking,
 } from '../../store/slices/bookingSlice';
-import { createPaymentOrder } from '../../services/paymentService';
+import { createPaymentOrder, getCheckoutUrl } from '../../services/paymentService';
 import { HomeStackParamList, Branch, ScheduleItem, BookableItem } from '../../types';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import Button from '../../components/common/Button';
@@ -208,19 +208,23 @@ export default function BookingScreen() {
         }),
       ).unwrap();
 
-      // Initiate SabPaisa payment
+      // Create payment order on backend (returns encrypted SabPaisa data)
       const order = await createPaymentOrder(result.id);
       setIsProcessingPayment(false);
 
-      // Open SabPaisa checkout in external browser
-      const canOpen = await Linking.canOpenURL(order.payment_url);
+      // Build the backend-hosted checkout URL that auto-submits to SabPaisa
+      const checkoutUrl = getCheckoutUrl(order.client_txn_id);
+
+      // Open in external browser — the backend serves an auto-submitting
+      // HTML form that POSTs the encrypted payload to SabPaisa.
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
       if (canOpen) {
-        await Linking.openURL(order.payment_url);
+        await Linking.openURL(checkoutUrl);
       } else {
         Alert.alert('Error', 'Unable to open payment page. Please try from the bookings list.');
       }
 
-      // Clear form — user will return via deep link
+      // Clear form — user will return via deep link after payment
       dispatch(clearBookingForm());
       navigation.goBack();
     } catch (err: any) {

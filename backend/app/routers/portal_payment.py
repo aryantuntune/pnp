@@ -1,8 +1,9 @@
+import html as html_mod
 import logging
 from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from typing import Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -16,6 +17,7 @@ from app.models.payment_transaction import PaymentTransaction
 from app.models.portal_user import PortalUser
 from app.services import sabpaisa_service, booking_service
 from app.services.email_service import send_booking_confirmation
+from app.services.sabpaisa_service import is_payment_successful
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +33,10 @@ class CreateOrderRequest(BaseModel):
 
 
 class CreateOrderResponse(BaseModel):
-    payment_url: str
+    sabpaisa_url: str
+    enc_data: str
+    client_code: str
     client_txn_id: str
-    method: str  # always "redirect"
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -103,6 +106,7 @@ async def create_order(
 
     # 6. Build payment request
     payer_name = f"{current_user.first_name} {current_user.last_name}".strip()
+    channel_id = "M" if body.platform == "mobile" else "W"
     result = sabpaisa_service.build_payment_request(
         client_txn_id=client_txn_id,
         amount=float(booking_data["net_amount"]),
@@ -110,6 +114,7 @@ async def create_order(
         payer_email=current_user.email,
         payer_mobile=current_user.mobile,
         callback_url=callback_url,
+        channel_id=channel_id,
     )
 
     # 7. Create PaymentTransaction record
@@ -134,26 +139,115 @@ async def create_order(
 
 
 @router.get(
+    "/initiate/{client_txn_id}",
+    include_in_schema=False,
+)
+async def initiate_checkout(
+    client_txn_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Serve auto-submitting HTML form for SabPaisa checkout.
+
+    Used by the mobile app: after calling /create-order, the app opens this
+    URL via Linking.openURL to POST the encrypted payment data to SabPaisa
+    without needing a WebView or native SDK.
+    """
+    # 1. Look up the INITIATED transaction
+    txn_result = await db.execute(
+        select(PaymentTransaction).where(
+            PaymentTransaction.client_txn_id == client_txn_id,
+            PaymentTransaction.status == "INITIATED",
+        )
+    )
+    txn = txn_result.scalar_one_or_none()
+    if not txn:
+        return HTMLResponse("<h1>Invalid or expired payment link</h1>", status_code=404)
+
+    # 2. Fetch the related booking and portal user for payer details
+    booking_result = await db.execute(
+        select(Booking).where(Booking.id == txn.booking_id)
+    )
+    booking = booking_result.scalar_one_or_none()
+    if not booking:
+        return HTMLResponse("<h1>Booking not found</h1>", status_code=404)
+
+    portal_user_result = await db.execute(
+        select(PortalUser).where(PortalUser.id == booking.portal_user_id)
+    )
+    portal_user = portal_user_result.scalar_one_or_none()
+
+    # 3. Rebuild encrypted payment request
+    callback_url = f"{settings.BACKEND_URL.rstrip('/')}/api/portal/payment/callback"
+    channel_id = "M" if txn.platform == "mobile" else "W"
+
+    result = sabpaisa_service.build_payment_request(
+        client_txn_id=client_txn_id,
+        amount=float(txn.amount),
+        payer_name=(
+            f"{portal_user.first_name} {portal_user.last_name}".strip()
+            if portal_user
+            else "Customer"
+        ),
+        payer_email=portal_user.email if portal_user else "",
+        payer_mobile=portal_user.mobile if portal_user else "",
+        callback_url=callback_url,
+        channel_id=channel_id,
+    )
+
+    # 4. Return an auto-submitting HTML form
+    sabpaisa_url = html_mod.escape(result["sabpaisa_url"])
+    enc_data = html_mod.escape(result["enc_data"])
+    client_code = html_mod.escape(result["client_code"])
+
+    html_content = (
+        "<!DOCTYPE html>"
+        "<html>"
+        "<head><title>Redirecting to payment...</title>"
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        "<style>body{display:flex;align-items:center;justify-content:center;"
+        "min-height:100vh;margin:0;font-family:sans-serif;background:#f5f5f5}"
+        "p{font-size:18px;color:#333}</style>"
+        "</head>"
+        '<body onload="document.getElementById(\'pf\').submit()">'
+        "<p>Redirecting to payment gateway&#8230;</p>"
+        f'<form id="pf" method="POST" action="{sabpaisa_url}">'
+        f'<input type="hidden" name="encData" value="{enc_data}">'
+        f'<input type="hidden" name="clientCode" value="{client_code}">'
+        "</form>"
+        "</body>"
+        "</html>"
+    )
+    return HTMLResponse(html_content)
+
+
+@router.post(
     "/callback",
     summary="SabPaisa payment callback",
     include_in_schema=False,
 )
 async def payment_callback(
+    request: Request,
     background_tasks: BackgroundTasks,
-    encData: str = Query(..., description="Encrypted callback data from SabPaisa"),
-    clientCode: str = Query(None, description="Client code from SabPaisa"),
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. Decrypt callback data
-    parsed = sabpaisa_service.decrypt_callback(encData)
+    # 1. Decrypt callback data (SabPaisa POSTs form with encResponse)
+    form = await request.form()
+    enc_response = form.get("encResponse", "")
+
+    if not enc_response:
+        logger.error("Callback missing encResponse form field")
+        return _redirect_to_frontend(success=False, error="Missing encResponse")
+
+    parsed = sabpaisa_service.decrypt_callback(enc_response)
 
     client_txn_id = parsed.get("client_txn_id", "")
-    sabpaisa_status = parsed.get("status", "").upper()
+    status_code = parsed.get("status_code", "")
 
     logger.info(
-        "Payment callback received — client_txn_id=%s sabpaisa_status=%s",
+        "Payment callback received — client_txn_id=%s status_code=%s status=%s",
         client_txn_id,
-        sabpaisa_status,
+        status_code,
+        parsed.get("status", ""),
     )
 
     if not client_txn_id:
@@ -191,17 +285,18 @@ async def payment_callback(
     txn.bank_name = parsed.get("bank_name", "")
     txn.sabpaisa_message = parsed.get("sabpaisa_message", "")
 
-    # Strip sensitive fields (positions 0-4: clientCode, username, password, authKey, authIV)
+    # Strip sensitive fields from raw response (key=value& format)
     raw = parsed.get("raw", "")
     if raw:
-        parts = raw.split("|")
-        if len(parts) > 5:
-            parts[:5] = ["***"] * 5
-        raw = "|".join(parts)
+        pairs = raw.split("&")
+        safe_pairs = [p for p in pairs if not any(
+            p.startswith(k) for k in ("transUserName=", "transUserPassword=", "authKey=", "authIV=")
+        )]
+        raw = "&".join(safe_pairs)
     txn.raw_response = raw
 
-    # 6. Set status based on SabPaisa response
-    is_success = sabpaisa_status == "SUCCESS"
+    # 6. Set status based on SabPaisa response (status_code "0000" = success)
+    is_success = is_payment_successful(parsed.get("status_code", ""))
     if is_success:
         callback_amount = parsed.get("amount", "")
         if callback_amount:
@@ -218,7 +313,7 @@ async def payment_callback(
 
     if is_success:
         txn.status = "SUCCESS"
-    elif sabpaisa_status == "ABORTED":
+    elif parsed.get("status_code") == "0200":
         txn.status = "ABORTED"
     else:
         txn.status = "FAILED"
