@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # Backend URL (used for payment callbacks, etc.)
     BACKEND_URL: str = "http://localhost:8000"
 
+    # CCAvenue Payment Gateway
+    CCAVENUE_MERCHANT_ID: str = ""
+    CCAVENUE_ACCESS_CODE: str = ""
+    CCAVENUE_WORKING_KEY: str = ""
+    CCAVENUE_BASE_URL: str = "https://test.ccavenue.com"
+
     # Email (SMTP)
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

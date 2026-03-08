@@ -13,6 +13,7 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -32,6 +33,7 @@ import {
   clearBookingForm,
   createBooking,
 } from '../../store/slices/bookingSlice';
+import { createPaymentOrder, getCheckoutUrl } from '../../services/paymentService';
 import { HomeStackParamList, Branch, ScheduleItem, BookableItem } from '../../types';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import Button from '../../components/common/Button';
@@ -94,7 +96,7 @@ export default function BookingScreen() {
   const [showToModal, setShowToModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [vehicleInputs, setVehicleInputs] = useState<Record<number, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
     dispatch(fetchBranches());
@@ -173,7 +175,7 @@ export default function BookingScreen() {
     return formItems.length > 0 && totalAmount > 0;
   };
 
-  const handleBook = async () => {
+  const handlePay = async () => {
     if (!fromBranch || !toBranch || !travelDate || !departure) return;
     if (formItems.length === 0) {
       Alert.alert('No Items', 'Please add at least one passenger or vehicle.');
@@ -188,7 +190,7 @@ export default function BookingScreen() {
       }
     }
 
-    setIsSubmitting(true);
+    setIsProcessingPayment(true);
     try {
       const bookingItems = formItems.map((fi) => ({
         item_id: fi.id,
@@ -196,7 +198,7 @@ export default function BookingScreen() {
         vehicle_no: fi.is_vehicle ? fi.vehicle_no : null,
       }));
 
-      await dispatch(
+      const result = await dispatch(
         createBooking({
           from_branch_id: fromBranch.id,
           to_branch_id: toBranch.id,
@@ -206,13 +208,27 @@ export default function BookingScreen() {
         }),
       ).unwrap();
 
-      Alert.alert('Booking Confirmed!', 'Your booking has been created. View it in My Bookings.', [
-        { text: 'OK' },
-      ]);
+      // Create payment order on backend (returns encrypted CCAvenue data)
+      const order = await createPaymentOrder(result.id);
+      setIsProcessingPayment(false);
+
+      // Build the backend-hosted checkout URL that auto-submits to CCAvenue
+      const checkoutUrl = getCheckoutUrl(order.order_id);
+
+      // Open in external browser — the backend serves an auto-submitting
+      // HTML form that POSTs the encrypted payload to CCAvenue.
+      const canOpen = await Linking.canOpenURL(checkoutUrl);
+      if (canOpen) {
+        await Linking.openURL(checkoutUrl);
+      } else {
+        Alert.alert('Error', 'Unable to open payment page. Please try from the bookings list.');
+      }
+
+      // Clear form — user will return via deep link after payment
       dispatch(clearBookingForm());
       navigation.goBack();
     } catch (err: any) {
-      setIsSubmitting(false);
+      setIsProcessingPayment(false);
       const message = typeof err === 'string' ? err : err?.message || 'Booking failed. Please try again.';
       Alert.alert('Booking Failed', message);
     }
@@ -545,10 +561,10 @@ export default function BookingScreen() {
             />
           ) : (
             <Button
-              title={isSubmitting ? 'Booking...' : `Book Rs. ${totalAmount.toFixed(2)}`}
-              onPress={handleBook}
-              disabled={!canPay() || isSubmitting || isCreating}
-              loading={isSubmitting || isCreating}
+              title={isProcessingPayment ? 'Processing...' : `Pay Rs. ${totalAmount.toFixed(2)}`}
+              onPress={handlePay}
+              disabled={!canPay() || isProcessingPayment || isCreating}
+              loading={isProcessingPayment || isCreating}
               style={styles.actionBtn}
             />
           )}
