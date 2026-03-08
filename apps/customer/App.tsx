@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Linking, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { Provider } from 'react-redux';
@@ -37,6 +37,44 @@ function App() {
     const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
       appState.current = nextState;
     });
+    return () => sub.remove();
+  }, []);
+
+  // Handle ssmspl://payment-callback deep link from SabPaisa payment flow
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      try {
+        const url = new URL(event.url);
+        if (url.hostname === 'payment-callback' || url.pathname === '/payment-callback') {
+          const status = url.searchParams.get('status');
+          const bookingId = url.searchParams.get('booking_id');
+
+          if (status === 'success') {
+            Alert.alert(
+              'Payment Successful!',
+              'Your booking has been confirmed. View it in My Bookings.',
+              [{ text: 'OK' }],
+            );
+          } else {
+            Alert.alert(
+              'Payment Failed',
+              'Your payment could not be processed. You can retry from My Bookings.',
+              [{ text: 'OK' }],
+            );
+          }
+        }
+      } catch {
+        // Ignore malformed URLs
+      }
+    };
+
+    const sub = Linking.addEventListener('url', handleDeepLink);
+
+    // Handle cold start deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
     return () => sub.remove();
   }, []);
 

@@ -214,6 +214,13 @@ app.include_router(portal_payment.router)
 app.include_router(portal_theme.router)
 
 
+@app.on_event("startup")
+async def start_booking_expiry():
+    from app.services.booking_expiry_service import expiry_loop
+    import asyncio
+    asyncio.create_task(expiry_loop())
+
+
 @app.get("/health", tags=["Health"])
 async def health(db: AsyncSession = Depends(get_db)):
     result = {"status": "ok", "app": settings.APP_NAME}

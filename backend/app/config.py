@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Backend (used for payment callbacks)
+    BACKEND_URL: str = "http://localhost:8000"
+
     # Razorpay
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
@@ -48,6 +51,8 @@ class Settings(BaseSettings):
     SABPAISA_AUTH_KEY: str = ""
     SABPAISA_AUTH_IV: str = ""
     SABPAISA_BASE_URL: str = "https://securepay.sabpaisa.in"
+    SABPAISA_USERNAME: str = ""
+    SABPAISA_PASSWORD: str = ""
 
     # Email (SMTP)
     SMTP_HOST: str = ""

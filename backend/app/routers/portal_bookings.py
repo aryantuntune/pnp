@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +8,6 @@ from app.models.portal_user import PortalUser
 from app.schemas.booking import BookingCreate, BookingRead, BookingListResponse
 from app.services import booking_service
 from app.services.qr_service import generate_qr_png
-from app.services.email_service import send_booking_confirmation
 
 router = APIRouter(prefix="/api/portal/bookings", tags=["Portal Bookings"])
 
@@ -55,31 +54,6 @@ async def get_booking(
     current_user: PortalUser = Depends(get_current_portal_user),
 ):
     return await booking_service.get_booking_by_id(db, booking_id, current_user.id)
-
-
-@router.post(
-    "/{booking_id}/pay",
-    response_model=BookingRead,
-    summary="Simulate payment for a booking",
-    description="Simulates payment and moves booking from PENDING to CONFIRMED. "
-                "In production, this will be replaced by Razorpay integration.",
-    responses={
-        400: {"description": "Booking not in PENDING status"},
-        404: {"description": "Booking not found"},
-    },
-)
-async def pay_booking(
-    booking_id: int,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    current_user: PortalUser = Depends(get_current_portal_user),
-):
-    result = await booking_service.confirm_booking_payment(db, booking_id, current_user.id)
-
-    # Send confirmation email after successful payment
-    background_tasks.add_task(send_booking_confirmation, result, current_user.email)
-
-    return result
 
 
 @router.post(

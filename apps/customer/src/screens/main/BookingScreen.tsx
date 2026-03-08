@@ -13,6 +13,7 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -32,7 +33,7 @@ import {
   clearBookingForm,
   createBooking,
 } from '../../store/slices/bookingSlice';
-import { simulatePayment } from '../../services/paymentService';
+import { createPaymentOrder } from '../../services/paymentService';
 import { HomeStackParamList, Branch, ScheduleItem, BookableItem } from '../../types';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import Button from '../../components/common/Button';
@@ -207,23 +208,21 @@ export default function BookingScreen() {
         }),
       ).unwrap();
 
-      // Simulate payment since SabPaisa is not configured
-      await simulatePayment(result.id);
-
+      // Initiate SabPaisa payment
+      const order = await createPaymentOrder(result.id);
       setIsProcessingPayment(false);
-      Alert.alert(
-        'Booking Confirmed!',
-        `Your booking #${result.booking_no} has been confirmed. You can view your ticket in My Bookings.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              dispatch(clearBookingForm());
-              navigation.goBack();
-            },
-          },
-        ],
-      );
+
+      // Open SabPaisa checkout in external browser
+      const canOpen = await Linking.canOpenURL(order.payment_url);
+      if (canOpen) {
+        await Linking.openURL(order.payment_url);
+      } else {
+        Alert.alert('Error', 'Unable to open payment page. Please try from the bookings list.');
+      }
+
+      // Clear form — user will return via deep link
+      dispatch(clearBookingForm());
+      navigation.goBack();
     } catch (err: any) {
       setIsProcessingPayment(false);
       const message = typeof err === 'string' ? err : err?.message || 'Booking failed. Please try again.';

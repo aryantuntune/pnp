@@ -368,20 +368,22 @@ export default function BookingViewPage() {
                     setPaying(true);
                     try {
                       const res = await api.post(
-                        `/api/portal/bookings/${bookingId}/pay`
+                        "/api/portal/payment/create-order",
+                        { booking_id: Number(bookingId), platform: "web" }
                       );
-                      setBooking(res.data);
+                      // Redirect to SabPaisa checkout
+                      window.location.href = res.data.payment_url;
                     } catch {
-                      setErrorMsg("Payment failed. Please try again.");
+                      setErrorMsg("Unable to initiate payment. Please try again.");
                       setTimeout(() => setErrorMsg(null), 4000);
+                      setPaying(false);
                     }
-                    setPaying(false);
                   }}
                   disabled={paying}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
                   <IndianRupee className="w-5 h-5" />
-                  <span>{paying ? "Processing..." : "Pay Now"}</span>
+                  <span>{paying ? "Redirecting to payment..." : "Pay Now"}</span>
                 </button>
               )}
               <button
