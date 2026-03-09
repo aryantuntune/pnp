@@ -564,6 +564,7 @@ async def get_itemwise_levy_summary(
                 )
             ), 0).label("amount"),
         )
+        .select_from(Ticket)
         .join(TicketItem, TicketItem.ticket_id == Ticket.id)
         .join(Item, Item.id == TicketItem.item_id)
         .where(Ticket.is_cancelled == False)
@@ -729,6 +730,7 @@ async def get_branch_item_summary(
                 case((TicketItem.is_cancelled == False, TicketItem.quantity), else_=0)
             ), 0).label("quantity"),
         )
+        .select_from(Ticket)
         .join(TicketItem, TicketItem.ticket_id == Ticket.id)
         .join(Item, Item.id == TicketItem.item_id)
         .where(Ticket.is_cancelled == False)
