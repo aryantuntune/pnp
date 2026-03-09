@@ -37,7 +37,7 @@ _ticket_roles = require_roles(
 )
 async def list_tickets(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(5, ge=1, le=200, description="Maximum number of records to return"),
+    limit: int = Query(5, ge=1, le=5000, description="Maximum number of records to return"),
     sort_by: str = Query("id", description="Column to sort by (id, ticket_no, ticket_date, branch_id, route_id, amount, net_amount, is_cancelled)"),
     sort_order: str = Query("desc", description="Sort direction (asc or desc)"),
     status: str | None = Query(None, description="Filter by status: active, cancelled, or all (default all)"),
