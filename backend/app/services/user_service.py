@@ -6,10 +6,14 @@ from sqlalchemy import select, func, or_
 
 from app.core.security import get_password_hash, verify_password
 from app.core.rbac import UserRole
+from app.core.route_scope import needs_route_scope
 from app.models.user import User
 from app.models.route import Route
 from app.models.branch import Branch
 from app.schemas.user import UserCreate, UserUpdate
+
+# Roles a MANAGER is allowed to see when browsing the user list
+_MANAGER_VISIBLE_ROLES = {UserRole.BILLING_OPERATOR, UserRole.TICKET_CHECKER}
 
 
 async def _resolve_route_name(db: AsyncSession, route_id: int | None) -> str | None:
@@ -79,6 +83,10 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID, current_user: Use
     # Non-SUPER_ADMIN cannot view SUPER_ADMIN users
     if current_user and user.role == UserRole.SUPER_ADMIN and current_user.role != UserRole.SUPER_ADMIN:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    # MANAGER can only view BILLING_OPERATOR / TICKET_CHECKER on their own route
+    if current_user and current_user.role == UserRole.MANAGER:
+        if user.role not in _MANAGER_VISIBLE_ROLES or user.route_id != current_user.route_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     route_name = await _resolve_route_name(db, user.route_id)
     return _user_with_route_name(user, route_name)
 
@@ -137,6 +145,10 @@ async def count_users(
     # Non-SUPER_ADMIN users never see SUPER_ADMIN accounts
     if current_user and current_user.role != UserRole.SUPER_ADMIN:
         query = query.where(User.role != UserRole.SUPER_ADMIN)
+    # MANAGER sees only BILLING_OPERATOR and TICKET_CHECKER on their route
+    if current_user and current_user.role == UserRole.MANAGER:
+        query = query.where(User.role.in_(_MANAGER_VISIBLE_ROLES))
+        query = query.where(User.route_id == current_user.route_id)
     result = await db.execute(query)
     return result.scalar()
 
@@ -185,6 +197,10 @@ async def get_all_users(
     # Non-SUPER_ADMIN users never see SUPER_ADMIN accounts
     if current_user and current_user.role != UserRole.SUPER_ADMIN:
         query = query.where(User.role != UserRole.SUPER_ADMIN)
+    # MANAGER sees only BILLING_OPERATOR and TICKET_CHECKER on their route
+    if current_user and current_user.role == UserRole.MANAGER:
+        query = query.where(User.role.in_(_MANAGER_VISIBLE_ROLES))
+        query = query.where(User.route_id == current_user.route_id)
     result = await db.execute(query.order_by(order).offset(skip).limit(limit))
     rows = result.all()
     return [

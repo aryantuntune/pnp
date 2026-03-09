@@ -1,25 +1,55 @@
+from __future__ import annotations
+
 from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.route_scope import get_route_branch_ids, needs_route_scope
 from app.models.ticket import Ticket
 from app.models.boat import Boat
 from app.models.branch import Branch
 from app.models.payment_mode import PaymentMode
 
+# TYPE_CHECKING import to avoid circular dependency at runtime
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.models.user import User
 
-async def get_dashboard_stats(db: AsyncSession) -> dict:
-    """Return aggregated dashboard statistics."""
+
+async def get_dashboard_stats(db: AsyncSession, current_user: User | None = None) -> dict:
+    """Return aggregated dashboard statistics.
+
+    For route-scoped users (MANAGER and below), ticket_count and today_revenue
+    are filtered to the branches belonging to the user's route.
+    """
     today = date.today()
+
+    # Determine branch scope
+    branch_ids: tuple[int, int] | None = None
+    if current_user and needs_route_scope(current_user) and current_user.route_id:
+        branch_ids = await get_route_branch_ids(db, current_user.route_id)
 
     ticket_count_q = select(func.count()).select_from(Ticket)
     today_revenue_q = select(func.coalesce(func.sum(Ticket.net_amount), 0)).where(
         Ticket.ticket_date == today
     )
+
+    # Apply branch scope to ticket queries
+    if branch_ids:
+        ticket_count_q = ticket_count_q.where(Ticket.branch_id.in_(branch_ids))
+        today_revenue_q = today_revenue_q.where(Ticket.branch_id.in_(branch_ids))
+
     active_ferries_q = select(func.count()).select_from(Boat).where(Boat.is_active == True)  # noqa: E712
     active_branches_q = select(func.count()).select_from(Branch).where(Branch.is_active == True)  # noqa: E712
+
+    # For scoped users, count only their route's branches
+    if branch_ids:
+        active_branches_q = select(func.count()).select_from(Branch).where(
+            Branch.is_active == True,  # noqa: E712
+            Branch.id.in_(branch_ids),
+        )
 
     results = await db.execute(ticket_count_q)
     ticket_count = results.scalar() or 0
@@ -41,9 +71,17 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
     }
 
 
-async def get_today_summary(db: AsyncSession) -> dict:
-    """Return today's ticket summary grouped by branch and payment mode."""
+async def get_today_summary(db: AsyncSession, current_user: User | None = None) -> dict:
+    """Return today's ticket summary grouped by branch and payment mode.
+
+    For route-scoped users, results are filtered to their route's branches.
+    """
     today = date.today()
+
+    # Determine branch scope
+    branch_ids: tuple[int, int] | None = None
+    if current_user and needs_route_scope(current_user) and current_user.route_id:
+        branch_ids = await get_route_branch_ids(db, current_user.route_id)
 
     # Revenue expression: sum net_amount only for non-cancelled tickets
     revenue_expr = func.coalesce(
@@ -68,6 +106,8 @@ async def get_today_summary(db: AsyncSession) -> dict:
         .where(Ticket.ticket_date == today)
         .group_by(Ticket.branch_id, Branch.name)
     )
+    if branch_ids:
+        branch_q = branch_q.where(Ticket.branch_id.in_(branch_ids))
 
     branch_rows = await db.execute(branch_q)
     branches = [
@@ -92,6 +132,8 @@ async def get_today_summary(db: AsyncSession) -> dict:
         .where(Ticket.ticket_date == today)
         .group_by(Ticket.payment_mode_id, PaymentMode.description)
     )
+    if branch_ids:
+        payment_q = payment_q.where(Ticket.branch_id.in_(branch_ids))
 
     payment_rows = await db.execute(payment_q)
     payment_modes = [

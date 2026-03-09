@@ -13,8 +13,10 @@ from app.services import user_service
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
-# Only admin-level roles can manage users
+# Admin-level roles can manage (create/update/delete) users
 _admin_roles = require_roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+# Read-only access: admins + manager (manager sees only their route's users)
+_user_read_roles = require_roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
 
 
 @router.post(
@@ -43,7 +45,7 @@ async def change_password(
     "",
     response_model=list[UserRead],
     summary="List all users",
-    description="Paginated list of all users with filtering, sorting, and search. Requires **Admin** role.",
+    description="Paginated list of users with filtering, sorting, and search. Requires **Admin** or **Manager** role.",
     responses={
         200: {"description": "List of users returned"},
         401: {"description": "Not authenticated"},
@@ -63,7 +65,7 @@ async def list_users(
     role_filter: str | None = Query(None, description="Filter by role (ADMIN, MANAGER, BILLING_OPERATOR, TICKET_CHECKER)"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(_admin_roles),
+    current_user: User = Depends(_user_read_roles),
 ):
     return await user_service.get_all_users(
         db, skip, limit, sort_by, sort_order, search, status, search_column, match_type, role_filter,
@@ -75,7 +77,7 @@ async def list_users(
     "/count",
     response_model=int,
     summary="Get total user count",
-    description="Returns the total number of users matching filters. Requires **Admin** role.",
+    description="Returns the total number of users matching filters. Requires **Admin** or **Manager** role.",
     responses={
         200: {"description": "Total count returned"},
         401: {"description": "Not authenticated"},
@@ -91,7 +93,7 @@ async def count_users(
     role_filter: str | None = Query(None, description="Filter by role"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(_admin_roles),
+    current_user: User = Depends(_user_read_roles),
 ):
     return await user_service.count_users(db, search, status, search_column, match_type, role_filter,
         current_user=current_user,
@@ -123,7 +125,7 @@ async def create_user(
     "/{user_id}",
     response_model=UserRead,
     summary="Get user by ID",
-    description="Fetch a single user by their UUID. Requires **Admin** role.",
+    description="Fetch a single user by their UUID. Requires **Admin** or **Manager** role.",
     responses={
         200: {"description": "User details returned"},
         401: {"description": "Not authenticated"},
@@ -134,7 +136,7 @@ async def create_user(
 async def get_user(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(_admin_roles),
+    current_user: User = Depends(_user_read_roles),
 ):
     return await user_service.get_user_by_id(db, user_id, current_user=current_user)
 

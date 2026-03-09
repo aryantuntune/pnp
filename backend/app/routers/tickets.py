@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_roles
 from app.core.rbac import UserRole
+from app.core.route_scope import needs_route_scope
 from app.models.user import User
 from app.schemas.ticket import (
     TicketCreate, TicketRead, TicketUpdate, RateLookupResponse,
@@ -49,8 +50,11 @@ async def list_tickets(
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     ticket_no_filter: int | None = Query(None, description="Filter by ticket number"),
     db: AsyncSession = Depends(get_db),
-    _=Depends(_ticket_roles),
+    current_user: User = Depends(_ticket_roles),
 ):
+    # Force route scoping for non-admin roles
+    if needs_route_scope(current_user):
+        route_filter = current_user.route_id
     return await ticket_service.get_all_tickets(
         db, skip, limit, sort_by, sort_order,
         status, branch_filter, route_filter, date_from, date_to,
@@ -80,8 +84,11 @@ async def count_tickets(
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     ticket_no_filter: int | None = Query(None, description="Filter by ticket number"),
     db: AsyncSession = Depends(get_db),
-    _=Depends(_ticket_roles),
+    current_user: User = Depends(_ticket_roles),
 ):
+    # Force route scoping for non-admin roles
+    if needs_route_scope(current_user):
+        route_filter = current_user.route_id
     return await ticket_service.count_tickets(
         db, status, branch_filter, route_filter, date_from, date_to,
         id_filter, id_op, id_filter_end, ticket_no_filter,

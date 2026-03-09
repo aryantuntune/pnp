@@ -47,6 +47,7 @@ ROLE_MENU_ITEMS: dict[UserRole, list[str]] = {
     ],
     UserRole.MANAGER: [
         "Dashboard",
+        "Users",
         "Ferries",
         "Branches",
         "Routes",

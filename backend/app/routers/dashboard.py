@@ -37,7 +37,7 @@ async def stats(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_dashboard_stats(db)
+    return await get_dashboard_stats(db, current_user)
 
 
 @router.get(
@@ -56,7 +56,7 @@ async def today_summary(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_today_summary(db)
+    return await get_today_summary(db, current_user)
 
 
 async def _authenticate_ws(websocket: WebSocket) -> User | None:
@@ -97,7 +97,7 @@ async def dashboard_ws(websocket: WebSocket):
     try:
         while True:
             async with AsyncSessionLocal() as db:
-                data = await get_dashboard_stats(db)
+                data = await get_dashboard_stats(db, user)
             await websocket.send_text(json.dumps(data))
             await asyncio.sleep(5)
     except WebSocketDisconnect:

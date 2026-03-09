@@ -317,6 +317,7 @@ async def get_branch_summary_report(
     db: AsyncSession,
     date_from: datetime.date,
     date_to: datetime.date,
+    branch_ids: list[int] | None = None,
 ) -> dict:
     branch_names = await _get_branch_name_map(db)
 
@@ -329,6 +330,8 @@ async def get_branch_summary_report(
         ), 0).label("revenue"),
     ).group_by(Ticket.branch_id)
     tq = _apply_ticket_filters(tq, date_from, date_to)
+    if branch_ids:
+        tq = tq.where(Ticket.branch_id.in_(branch_ids))
     ticket_rows = (await db.execute(tq)).all()
     ticket_map = {r.branch_id: {"count": r.count, "revenue": float(r.revenue)} for r in ticket_rows}
 
@@ -341,6 +344,8 @@ async def get_branch_summary_report(
         ), 0).label("revenue"),
     ).group_by(Booking.branch_id)
     bq = _apply_booking_filters(bq, date_from, date_to)
+    if branch_ids:
+        bq = bq.where(Booking.branch_id.in_(branch_ids))
     booking_rows = (await db.execute(bq)).all()
     booking_map = {r.branch_id: {"count": r.count, "revenue": float(r.revenue)} for r in booking_rows}
 
