@@ -624,6 +624,7 @@ async def get_user_wise_summary(
                 case((Ticket.is_cancelled == False, Ticket.net_amount), else_=0)
             ), 0).label("amount"),
         )
+        .select_from(Ticket)
         .outerjoin(User, User.id == Ticket.created_by)
         .group_by(User.full_name)
         .order_by(User.full_name)
@@ -764,6 +765,7 @@ async def get_branch_item_summary(
                 case((Ticket.is_cancelled == False, Ticket.net_amount), else_=0)
             ), 0).label("amount"),
         )
+        .select_from(Ticket)
         .join(PaymentMode, PaymentMode.id == Ticket.payment_mode_id)
         .group_by(PaymentMode.description)
         .order_by(PaymentMode.description)
