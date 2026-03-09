@@ -18,6 +18,7 @@ interface RouteInfo {
   name: string;
   subtitle: string;
   image: string | null;
+  status?: "open" | "closed";
   about: string[];
   tourist: string;
   contacts: ContactInfo[];
@@ -35,12 +36,13 @@ const ROUTE_DATA: Record<string, RouteInfo> = {
     subtitle: "Maharashtra\u2019s First Ferry Service Since 2003",
     image: "/images/routes/dabhol-dhopave.jpg",
     about: [
-      "The Dabhol-Dhopave ferry service is the very first site which was started on 21.10.2003 and has been constantly working at all times and in all seasons since its first day.",
-      "This ferry connects Dabhol (near Dapoli) and Dhopave (near Guhagar) in Maharashtra\u2019s Ratnagiri district. The service provides a crucial link between these two coastal destinations, reducing travel time significantly compared to road-only routes.",
-      "The ferry service was started by Suvarnadurga Shipping & Marine Services Pvt. Ltd. as the first Ferry Boat Service in Maharashtra, eliminating the need for expensive and time-consuming highway travel.",
+      "The Dabhol-Dhopave ferry service is the very first site which was started on 21.10.2003 and has been constantly working at all times and in all seasons since its first day. This ferry connects Dabhol (near Dapoli) and Dhopave (near Guhagar) in Maharashtra\u2019s Ratnagiri district.",
+      "Dapoli is often called \u2018Mini-Mahabaleshwar\u2019 and is home to the Kokan Krishi Vidyapeeth (Agricultural University), a Homeopathic Medical College, and an Engineering College. The town is also famous for its fresh seafood. Road distances from major cities: Mumbai \u2013 220 km, Pune \u2013 220 km, Kolhapur \u2013 220 km.",
+      "Guhaghar, on the other side, is known for the ENRON Power Project site, Gopal Gad Fort, and the famous Velneshwar temple. Road distances: Pune \u2013 270 km, Mumbai \u2013 270 km, Kolhapur \u2013 180 km. The ferry saves approximately 3 hours of road journey between these two destinations.",
+      "The ferry service has enabled fish transport \u2014 Pomfret, Prawns, and other catch are now transported to Goa, Mangalore, and Kerala. The service also connects to other ferry routes including Veshvi\u2013Bagmandale, Tawsal\u2013Jaigad, and Rohini\u2013Agardanda, making multi-destination travel possible across the Konkan coast.",
     ],
     tourist:
-      "Nearby attractions include temples, forts, and agricultural institutions. The route is popular among tourists visiting the Konkan coast and offers a scenic journey across the waters.",
+      "Nearby tourist destinations include resorts, lake resorts, and home stays. Popular spots include Velneshwar temple, Gopal Gad Fort, Kokan Krishi Vidyapeeth, and the scenic beaches of both Dapoli and Guhaghar. The area is a hub for eco-tourism and offers rich cultural experiences.",
     contacts: [
       { label: "Dabhol Office", phones: ["02348-248900", "9767248900"] },
       { label: "Dhopave", phones: ["7709250800"] },
@@ -53,12 +55,13 @@ const ROUTE_DATA: Record<string, RouteInfo> = {
     subtitle: "Easy & Better Transportation to Ratnagiri",
     image: "/images/routes/jaigad-tawsal.jpg",
     about: [
-      "This Ferry service was started for the easy & better transportation from Guhaghar to the Ratnagiri region. The service makes these areas easily accessible from Ratnagiri (Kolhapur region) as well as from Pune and Mumbai.",
-      "The ferry was established by Suvarnadurga Shipping & Marine Services to enable transportation from Guhaghar to Ratnagiri, subsequently boosting tourism and commerce in the region.",
-      "The route has become popular among both tourists and locals, providing a convenient and scenic alternative to road travel.",
+      "This Ferry service was started for the easy and better transportation from Guhaghar to the Ratnagiri region. The service makes these areas easily accessible from Ratnagiri (Kolhapur region) as well as from Pune and Mumbai.",
+      "The ferry was established by Suvarnadurga Shipping & Marine Services to enable transportation from Guhaghar to Ratnagiri, subsequently boosting tourism and commerce in the region. Guhaghar to Ratnagiri is only 66 km from Ganpati Pule via this route.",
+      "The fishing business in this region has proliferated by leaps and bounds thanks to the ferry service. Fish including Pomfret and Prawns are now transported to Goa, Kerala, and Mangalore, creating new economic opportunities for local fishermen.",
+      "Accessibility: Pune \u2013 270 km, Mumbai \u2013 270 km, Kolhapur \u2013 180 km. The route has become popular among both tourists and locals, providing a convenient and scenic alternative to road travel.",
     ],
     tourist:
-      "Nearby tourist destinations include Ganpati Pule, Thiba Palace, Bhate beach, and Pawas. The service benefits fishing operations and economic accessibility to Ratnagiri district.",
+      "Nearby tourist destinations include Ganpati Pule Mandir, Thiba Palace, Bhate beach, Pawas, Velaneshwar temple, and the Engineering College at Guhaghar. The service benefits fishing operations and economic accessibility to Ratnagiri district.",
     contacts: [
       { label: "Jaigad", phones: ["02354-242500", "8550999884"] },
       { label: "Tawsal", phones: ["8550999880"] },
@@ -72,11 +75,12 @@ const ROUTE_DATA: Record<string, RouteInfo> = {
     image: "/images/routes/dighi-agardande.jpg",
     about: [
       "The Dighi-Agardande ferry service connects two coastal locations in Maharashtra, facilitating tourism and commercial fishing by providing direct access to National Highway 17.",
-      "This route enables easy access to destinations like Murud-Janjeera, Kashid beach, and Alibaug. It also supports the local fishing industry by providing market access for commercially valuable fish species including Pomfret, Rawas, and Prawns.",
-      "Previously, local fishermen lacked viable markets; the ferry service now enables distribution to Mumbai and other destinations through improved transportation connectivity.",
+      "This route enables easy access to destinations like Murud-Janjeera, Kashid beach (famous for bird watching), Alibaug, Rewas, Harihareshwar, and Shrivardhan. It also supports the local fishing industry by providing market access for commercially valuable fish species including Pomfret, Rawas, and Prawns.",
+      "Previously, local fishermen had no viable markets for their catch. The ferry service now enables distribution to Mumbai and other destinations through improved transportation connectivity via NH-17.",
+      "The route also connects to other ferry services in the region, making multi-destination travel possible across the Konkan coast.",
     ],
     tourist:
-      "The route represents infrastructure development addressing historical limitations. Tourism development is focused on nearby attractions and beaches.",
+      "Key destinations include Murud-Janjeera Fort, Kashid Beach (famous for bird watching), Alibaug, Harihareshwar, Shrivardhan, and Rewas. The route connects to NH-17, providing easy access to these attractions.",
     contacts: [
       { label: "Dighi", phones: ["9156546700"] },
       { label: "Agardande", phones: ["8550999887"] },
@@ -87,12 +91,13 @@ const ROUTE_DATA: Record<string, RouteInfo> = {
     subtitle: "Quick Journey from Raigad to Ratnagiri",
     image: "/images/routes/veshvi-bagmandale.jpg",
     about: [
-      "Operating since 2007, the Veshvi-Bagmandale ferry made the journey from Raigad to Ratnagiri very easy and quick, eliminating lengthy travel via Mandangad.",
-      "This ferry service connects to nearby attractions including Harihareshwar, Kelshi\u2019s Mahalaxmi Temple, and Suvarnadurga Fort. It suggests multi-destination itineraries combining the ferry with other Konkan region beaches and historical sites.",
-      "The service connects to nearby ferry options including the Rohini-Agardanda route as an alternative for travelers.",
+      "Operating since 2007, the Veshvi-Bagmandale ferry made the journey from Raigad to Ratnagiri very easy and quick, eliminating the lengthy travel via Mandangad.",
+      "This ferry service connects to nearby attractions including Harihareshwar, Dive-Agar, Borli, Kelshi\u2019s Mahalaxmi Temple, and the famous Suvarnadurga Fort. The area is known for the Velas Beach Kasav Mahotsav (Turtle Festival), a unique conservation event.",
+      "Suggested tour itinerary: Veshvi \u2192 Kelshi (Mahalaxmi Temple) \u2192 Anjarle Beach \u2192 Harnai Beach \u2192 Suvarnadurga Fort \u2192 Murud Beach \u2192 Dapoli (Kokan Krishi Vidyapeeth) \u2192 Ladghar Beach \u2192 Burondi (Lord Parshuram Statue) \u2192 Kolthare Beach \u2192 Kolishwar Temple \u2192 Dabhol (Chandika Mandir).",
+      "An alternative route via Rohini\u2013Agardanda connects to Murud-Janjeera, Nandgaon, Kashid, Alibaug, and Rewas.",
     ],
     tourist:
-      "Popular destinations accessible via this route include Harihareshwar beach, various temples, and the historic Suvarnadurga Fort.",
+      "Must-visit destinations include Velas Beach (Kasav Mahotsav / Turtle Festival), Harihareshwar, Kelshi Mahalaxmi Temple, Anjarle Beach, Harnai Beach, Suvarnadurga Fort, Ladghar Beach, Burondi (Lord Parshuram Statue), Kolthare Beach, Kolishwar Temple, and Dabhol Chandika Mandir. Alternative route via Rohini\u2013Agardanda connects to Murud-Janjeera, Nandgaon, Kashid, and Alibaug.",
     contacts: [
       { label: "Veshvi Office", phones: ["02350-223300"] },
       { label: "Bagmandale", phones: ["9322819161"] },
@@ -103,30 +108,34 @@ const ROUTE_DATA: Record<string, RouteInfo> = {
     subtitle: "RORO Service Under Sagarmala Project",
     image: "/images/routes/vasai-bhayander.jpg",
     about: [
-      "This is Suvarnadurga Shipping\u2019s seventh ferry route, connecting Vasai and Bhayander in Maharashtra. The company recently began operations on this route, which operates under the Sagarmala Project with provisional authorization from the Maharashtra Maritime Board.",
-      "The service is a RORO (Roll-on/Roll-off) operation, following the company\u2019s 21+ years of experience with similar services. Vasai has historical significance with Vasai Fort and Portuguese cultural heritage, with potential for tourism development.",
-      "Bhayander is positioned as a major marketplace with good connectivity, experiencing rapid growth. Schedules may vary based on tide levels, with separate timetables for weekdays and weekends.",
+      "This is Suvarnadurga Shipping\u2019s seventh ferry route, connecting Vasai and Bhayander in Maharashtra. Vasai is often described as \u2018Maharashtra\u2019s Goa\u2019 due to its rich Portuguese cultural heritage and the famous Vasai Killa (Vasai Fort).",
+      "The company recently began operations on this route, which operates under the Sagarmala Project with provisional authorization from the Maharashtra Maritime Board. The service is a RORO (Roll-on/Roll-off) operation, backed by 21+ years of RORO experience from the company.",
+      "Bhayander is positioned as a major marketplace with good connectivity, experiencing rapid growth. The route also has potential for fruit trading expansion and tourism development due to its proximity to historical sites.",
+      "Important: Schedules may vary based on tide levels. Separate timetables apply for Saturday & Sunday. Please call to confirm tide-dependent timings before travel.",
     ],
     tourist:
-      "The route has potential for fruit trading expansion and tourism development due to its proximity to historical sites.",
+      "Vasai Fort (Vasai Killa) with its Portuguese cultural heritage, nearby beaches, and historical sites. The route has potential for fruit trading and tourism development.",
     contacts: [
-      { label: "Contact 1", phones: ["8624063900"] },
-      { label: "Contact 2", phones: ["8600314710"] },
+      { label: "Vasai Office", phones: ["8624063900"] },
+      { label: "Bhayander Office", phones: ["8600314710"] },
     ],
   },
   "ambet-mahpral": {
     name: "Ambet \u2013 Mahpral",
-    subtitle: "Connecting Coastal Communities",
+    subtitle: "Free Ferry Service \u2014 Currently Closed",
+    status: "closed" as const,
     image: "/images/routes/ambet-mahpral.jpg",
     about: [
-      "The Ambet-Mahpral ferry service connects these coastal communities, providing reliable ferry services for passengers and vehicles.",
-      "This route is part of Suvarnadurga Shipping\u2019s extensive network across the Konkan coast, supporting local communities and promoting regional connectivity.",
-      "The ferry service has become an important transportation link, reducing travel time and providing a scenic journey for passengers.",
+      "The Ambet\u2013Mahpral ferry service provides a crossing that takes only 2 minutes, compared to the 40+ km road journey via Mahad. This service is authorized by PWD Mahad and the Government of Maharashtra.",
+      "This ferry service is TOTALLY FREE FOR ALL passengers and vehicles. It was previously operational from 08.02.2021 to 27.06.2021 and again from 12.04.2022, providing crucial connectivity during the Ambet Bridge repair work.",
+      "The service operates from 6:00 AM to 12:00 PM when active. The ferry is currently closed pending further government authorization.",
+      "When operational, it connects coastal communities with reliable ferry services, significantly reducing travel time for passengers and vehicles.",
     ],
     tourist:
-      "The route serves local communities and tourists exploring the Konkan coast.",
+      "The route serves local communities traveling between Ambet and Mahpral, providing a vital short crossing that eliminates a lengthy 40+ km road detour via Mahad.",
     contacts: [
-      { label: "General Enquiry", phones: ["+91 9422431371"] },
+      { label: "Mahpral", phones: ["8624063900"] },
+      { label: "Ambet", phones: ["7709250800"] },
     ],
   },
   "virar-saphale": {
@@ -134,13 +143,15 @@ const ROUTE_DATA: Record<string, RouteInfo> = {
     subtitle: "Connecting Virar and Saphale",
     image: null,
     about: [
-      "The Virar-Saphale ferry service, also known as Jalsar, connects these two locations providing an alternative to road travel.",
-      "This route is part of Suvarnadurga Shipping\u2019s network of ferry services across the Maharashtra coast, providing reliable transportation for both passengers and vehicles.",
-      "The service operates regularly and has become an important link for commuters and tourists in the region.",
+      "The Virar\u2013Saphale ferry service, also known as Jalsar, connects Virar and Saphale across the Vaitarna River. What previously took 1 hour 20 minutes by road is now just a 15-minute ferry ride.",
+      "This route operates under the Government of India\u2019s Sagarmala Project, promoting eco-friendly waterway transportation. By choosing the ferry, passengers save petrol and diesel while enjoying a scenic river crossing.",
+      "The service provides reliable transportation for both passengers and vehicles, serving commuters and tourists in the region. The route has become an important link reducing road congestion between Virar and Saphale.",
     ],
-    tourist: "Contact us for current schedules and fares.",
+    tourist:
+      "Nearby attractions include: Tandulwadi Fort (15 km, 800 years old, 1524 ft elevation), Bhavangad Fort (11 km, built in 1737 by Chimaji Appa), Dativare Fort (Hira Dongar), Shede Dev Temple (a major Maha Shivaratri hub), and Makunsar Village (Shri Datta Mandir and Chamunda Devi Mandir).",
     contacts: [
-      { label: "General Enquiry", phones: ["+91 9422431371"] },
+      { label: "Virar Office", phones: ["9371002900"] },
+      { label: "Saphale Office", phones: ["8459803521"] },
     ],
   },
 };
@@ -303,6 +314,12 @@ export default function RoutePage({
           <p className="text-lg md:text-xl text-cyan-100 mb-6">
             {route.subtitle}
           </p>
+          {route.status === "closed" && (
+            <span className="inline-block mt-3 bg-red-500 text-white text-xs font-bold uppercase tracking-wider px-4 py-1.5 rounded-full">
+              Currently Closed
+            </span>
+          )}
+          {route.status === "open" && route.name.includes("Free") ? null : null}
 
           {/* Breadcrumb */}
           <nav className="flex items-center justify-center gap-1 text-sm">

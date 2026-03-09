@@ -12,11 +12,11 @@ import api from "@/lib/api";
 const ROUTES = [
   {
     name: "Dabhol \u2013 Dhopave",
-    phones: ["02348-248900", "9767248900"],
+    phones: ["02348-248900", "9767248900", "7709250800"],
   },
   {
     name: "Jaigad \u2013 Tawsal",
-    phones: ["02354-242500", "8550999884"],
+    phones: ["02354-242500", "8550999884", "8550999880"],
   },
   {
     name: "Dighi \u2013 Agardande",
@@ -24,7 +24,7 @@ const ROUTES = [
   },
   {
     name: "Veshvi \u2013 Bagmandale",
-    phones: ["02350-223300", "9322819161"],
+    phones: ["02350-223300", "8767980300", "9322819161"],
   },
   {
     name: "Vasai \u2013 Bhayander",
@@ -32,11 +32,11 @@ const ROUTES = [
   },
   {
     name: "Ambet \u2013 Mahpral",
-    phones: ["+91 9422431371"],
+    phones: ["8624063900", "7709250800"],
   },
   {
     name: "Virar \u2013 Saphale",
-    phones: ["+91 9422431371"],
+    phones: ["9371002900", "8459803521"],
   },
 ];
 
@@ -515,7 +515,7 @@ export default function ContactPage() {
       {/* ============================================================ */}
       {/* 4. Our Location (Map)                                         */}
       {/* ============================================================ */}
-      <section className="bg-white py-16 md:py-20">
+      <section id="map" className="bg-white py-16 md:py-20">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-12 text-center">
             <span className="mb-3 inline-block rounded-full bg-sky-100 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-sky-700">

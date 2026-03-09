@@ -45,13 +45,14 @@ const ROUTES = [
     image: "/images/routes/ambet-mahpral.jpg",
     description:
       "Connecting coastal communities with reliable ferry services for passengers and vehicles.",
+    status: "closed" as const,
   },
   {
     name: "Virar – Saphale",
     slug: "virar-saphale",
     image: null,
     description:
-      "Also known as Jalsar, this route connects Virar and Saphale under the Sagarmala Project.",
+      "Also known as Jalsar, this route connects Virar and Saphale across the Vaitarna River. What took 1 hr 20 min by road is now just 15 minutes.",
   },
 ];
 
@@ -213,6 +214,7 @@ export default function HomePage() {
                       src={route.image}
                       alt={route.name}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
@@ -223,6 +225,11 @@ export default function HomePage() {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                  {"status" in route && route.status === "closed" && (
+                    <span className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
+                      Closed
+                    </span>
+                  )}
                   <div className="absolute bottom-3 left-3">
                     <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
                       {route.name}
@@ -276,6 +283,7 @@ export default function HomePage() {
                     src={service.image}
                     alt={service.title}
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -286,6 +294,95 @@ export default function HomePage() {
                     {service.description}
                   </p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Cruise Services */}
+      <section className="py-16 md:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-block text-purple-700 bg-purple-50 text-xs font-bold tracking-wider uppercase px-4 py-1.5 rounded-full border border-purple-200 mb-3">
+              Cruise Services
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              Priyanka Cruise &amp; Events
+            </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Experience the Konkan coast like never before with our cruise and event services.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { title: "Kokani Cultural Events", description: "Experience authentic Konkan culture with traditional events, music, and cuisine aboard our cruise." },
+              { title: "DJ Night &amp; Parties", description: "Celebrate special occasions with DJ nights, birthday parties, and corporate events on the water." },
+              { title: "Scenic River Cruises", description: "Enjoy a relaxing cruise along the beautiful Konkan coastline with family and friends." },
+            ].map((item) => (
+              <div key={item.title} className="bg-gray-50 rounded-xl p-6 border border-gray-100 hover:shadow-lg transition-all">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">{item.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Exclusive Inland Services */}
+      <section className="py-16 md:py-20 bg-sky-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-block text-emerald-700 bg-emerald-50 text-xs font-bold tracking-wider uppercase px-4 py-1.5 rounded-full border border-emerald-200 mb-3">
+              Inland Services
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              Exclusive Inland Water Services
+            </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Beyond ferry services, we provide specialized inland water transportation solutions.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white rounded-xl p-8 shadow-md border border-gray-100">
+              <h3 className="text-xl font-bold text-slate-900 mb-3">River &amp; Creek Transport</h3>
+              <p className="text-gray-500 leading-relaxed">
+                We operate specialized inland water transport services across rivers and creeks in the Konkan region, connecting communities that would otherwise face lengthy road detours.
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-8 shadow-md border border-gray-100">
+              <h3 className="text-xl font-bold text-slate-900 mb-3">RORO Services</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Our Roll-on/Roll-off (RORO) services enable vehicles of all sizes to cross waterways efficiently, operating under the Government of India&apos;s Sagarmala Project.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Easy Transportation */}
+      <section className="py-16 md:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-block text-amber-700 bg-amber-50 text-xs font-bold tracking-wider uppercase px-4 py-1.5 rounded-full border border-amber-200 mb-3">
+              Heavy Transport
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              Easy Transportation for Heavy Machinery
+            </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Our RORO ferries are equipped to transport heavy machinery and commercial vehicles across waterways.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              { title: "Cranes &amp; JCBs", description: "Transport heavy construction equipment including cranes, JCBs, and excavators safely across waterways." },
+              { title: "Commercial Trucks", description: "Large commercial vehicles and trucks can roll on and off our ferries with ease." },
+              { title: "Industrial Equipment", description: "Specialized heavy machinery and industrial equipment transportation across the Konkan coast." },
+            ].map((item) => (
+              <div key={item.title} className="text-center p-6 rounded-xl border border-gray-100 hover:border-amber-300 hover:shadow-lg transition-all">
+                <h3 className="font-bold text-slate-900 mb-2">{item.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>
@@ -362,6 +459,7 @@ export default function HomePage() {
                   src="/images/misc/team-photo.jpg"
                   alt="Our Leadership"
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
                   className="object-cover"
                 />
               </div>

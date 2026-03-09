@@ -43,6 +43,7 @@ export default function Header() {
   const navLinks = [
     { label: "Home", href: "/" },
     { label: "Ferry Routes", href: "/#routes" },
+    { label: "Ferry Locations", href: "/contact#map" },
     { label: "About Us", href: "/about" },
     { label: "Contact", href: "/contact" },
   ];
@@ -136,6 +137,14 @@ export default function Header() {
               </>
             ) : (
               <>
+                <a
+                  href="https://supriyahouseboat.bookingjini.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors"
+                >
+                  Houseboat Booking
+                </a>
                 <Link
                   href="/customer/login"
                   className="text-sm font-semibold text-sky-600 hover:text-sky-800 transition-colors"
@@ -205,6 +214,14 @@ export default function Header() {
                 </>
               ) : (
                 <>
+                  <a
+                    href="https://supriyahouseboat.bookingjini.in"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-center text-sm font-semibold text-amber-600"
+                  >
+                    Houseboat Booking
+                  </a>
                   <Link href="/customer/login" onClick={() => setMobileMenuOpen(false)} className="text-center text-sm font-semibold text-sky-600">
                     Login
                   </Link>
