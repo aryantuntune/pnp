@@ -138,12 +138,7 @@ export default function AboutPage() {
             Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd.
           </h2>
           <p className="text-gray-600 leading-relaxed text-base md:text-lg">
-            We are a transportation company focused on ferry services across
-            Maharashtra&apos;s coastal regions. Our organization emphasizes fuel
-            efficiency and serves both the public and tourism sectors. Since our
-            inception in 2003, we have been committed to providing safe,
-            reliable, and affordable ferry services to connect the beautiful
-            Konkan coast.
+            Suvarnadurga Shipping and Marine Services is the transportation company that serves the Nation &amp; saves most valuable fuel.
           </p>
         </div>
       </section>
@@ -156,7 +151,7 @@ export default function AboutPage() {
             <div className="relative">
               <div className="rounded-2xl overflow-hidden shadow-xl">
                 <Image
-                  src="/images/misc/team-photo.jpg"
+                  src="/images/general/team-photo.jpg"
                   alt="Our Leadership Team"
                   width={640}
                   height={440}
@@ -180,28 +175,16 @@ export default function AboutPage() {
 
               <div className="space-y-4 text-gray-600 leading-relaxed">
                 <p>
-                  The company was established in October 2003 by Dr. Mokal C.J.
-                  (former MLA of Dapoli-Mandangad), with Dr. Mokal Y.C. serving
-                  as Managing Director.
+                  Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd. is a Company which is started by Dr. Mokal C.J. (Ex. MLA, Dapoli &ndash; Mandangad) with Dr. Mokal Y.C. as a Managing Director, in October 2003. We have skilled Staff of about 65 at different sites. We have approved Ticket Rates &amp; all necessary permits by Maharashtra Maritime board with Annual Inspections for requirements on Ferry Boat. Company is very particular about all life guarding apparatus on Ferry boat, for the safety of tourists &amp; public. Company Pay the Tax in the form of leavy by each ferry boat to the Government of about- four lakhs per year.
                 </p>
                 <p>
-                  Our first venture was the Dabhol-Dhopave ferry service,
-                  described as &quot;a first Ferry Boat Service in
-                  Maharashtra,&quot; eliminating the need for expensive highway
-                  travel. This pioneering service opened up new possibilities for
-                  coastal transportation and tourism.
+                  We began by starting a Ferry-Boat Service at Dabhol-Dhopave, which was a first Ferry Boat Service in Maharashtra. Before this ferry boat service there was no substitute for Dapoli to Guhagar journey, except Straight Highway (NH. 17) &amp; that was too expensive in the form of money &amp; time. Using ferry boat, you save a road journey by about 3 hrs. &amp; fuel as well. Its also a relief from cumbersome Road Traffic &amp; mishaps on the highway.
                 </p>
                 <p>
-                  Since then, we have expanded to operate seven ferry routes
-                  across the Konkan coast, connecting communities, supporting
-                  local businesses, and promoting tourism in the region. Our
-                  ferries serve thousands of passengers daily, providing a vital
-                  link between coastal towns.
+                  After Successful Service in Dabhol; we started another service in Veshvi &ndash; Bagmandle. This time we made a shortcut for traveling from Veshvi (Ratnagiri) to Bagmandle (Raigad). By the time, we had great confidence in our services, and we started a new ferry at Tawsal (Guhagar) to Jaigad (Ratnagiri). After this huge success we took an advantage to start ferry services At Rohini &ndash; Agardande.
                 </p>
                 <p>
-                  With approximately 65 employees across different locations, we
-                  continue to grow while maintaining our commitment to safety,
-                  reliability, and customer service.
+                  Suvarnadurga Shipping and Marine Services is the transportation company that serves the Nation &amp; saves most valuable fuel. We hope, you will enjoy our Safe, Quick and Refreshing Ferry Services all the time.
                 </p>
               </div>
             </div>

@@ -9,65 +9,76 @@ const ROUTES = [
     slug: "dabhol-dhopave",
     image: "/images/routes/dabhol-dhopave.jpg",
     description:
-      "The very first site which was started on 21.10.2003 & constantly working at all times and in all seasons since its first day.",
+      "The very first site which was started on 21.10.2003 & constantly working since its first day at all times and in all seasons.",
   },
   {
     name: "Jaigad – Tawsal",
     slug: "jaigad-tawsal",
     image: "/images/routes/jaigad-tawsal.jpg",
     description:
-      "This Ferry service was started for the easy & better transportation from Guhaghar to Ratnagiri region.",
-  },
-  {
-    name: "Dighi – Agardande",
-    slug: "dighi-agardande",
-    image: "/images/routes/dighi-agardande.jpg",
-    description:
-      "Connecting to National Highway 17, this route provides easy access to destinations like Murud-Janjeera, Kashid beach, and Alibaug.",
-  },
-  {
-    name: "Veshvi – Bagmandale",
-    slug: "veshvi-bagmandale",
-    image: "/images/routes/veshvi-bagmandale.jpg",
-    description:
-      "Operating since 2007, this ferry made the journey from Raigad to Ratnagiri very easy and quick.",
+      "This Ferry service was started for the easy & better transportation from Guhagar & Ratnagiri thus making Guhagar tehesil easily accessible.",
   },
   {
     name: "Vasai – Bhayander",
     slug: "vasai-bhayander",
     image: "/images/routes/vasai-bhayander.jpg",
     description:
-      "Our newest RORO service operating under the Sagarmala Project, connecting Vasai and Bhayander.",
-  },
-  {
-    name: "Ambet – Mahpral",
-    slug: "ambet-mahpral",
-    image: "/images/routes/ambet-mahpral.jpg",
-    description:
-      "Connecting coastal communities with reliable ferry services for passengers and vehicles.",
-    status: "closed" as const,
+      "Suvarnadurga Shipping & Marine Ser.Pvt Ltd recently got the opportunity to Serve People in Vasai, Bhayander.This is the SEVENTH route by SSMS",
   },
   {
     name: "Virar – Saphale",
     slug: "virar-saphale",
     image: null,
     description:
-      "Also known as Jalsar, this route connects Virar and Saphale across the Vaitarna River. What took 1 hr 20 min by road is now just 15 minutes.",
+      "Suvarnadurga Shipping & Marine Ser.Pvt Ltd proudly introduces its newest milestone, a game changing RORO service between Virar and Saphale (Jalsar).",
+  },
+  {
+    name: "Dighi – Agardande",
+    slug: "dighi-agardande",
+    image: "/images/routes/dighi-agardande.jpg",
+    description:
+      "This Ferry service is oriented towards Tourism & Fishing. Many tourists started preferring their weekends at Alibaug & nearby lovely places.",
+  },
+  {
+    name: "Veshvi – Bagmandale",
+    slug: "veshvi-bagmandale",
+    image: "/images/routes/veshvi-bagmandale.jpg",
+    description:
+      "This service was started in 2007 & saved lots of time and hassle for transportation from Raigad to Ratnagiri.",
+  },
+  {
+    name: "Ambet – Mahpral",
+    slug: "ambet-mahpral",
+    image: "/images/routes/ambet-mahpral.jpg",
+    description:
+      "Ambet \u2013 Mahpral Ferry not only saves Fuel but also saves Time & money as it gives you a Shorter path to travel TOTALLY FREE !!",
+    status: "closed" as const,
   },
 ];
 
 const SERVICES = [
   {
-    title: "Passenger Ferry Services",
+    title: "Enjoy Our Cruise Service",
+    subtitle: "Give it a Go !",
     image: "/images/backgrounds/cruise-services.jpg",
     description:
-      "Safe and comfortable ferry rides for passengers across all our routes. Travel with ease and enjoy the scenic Konkan coastline.",
+      "Now a days tourism had flourished well in \u2018Konkan Region\u2019. Tourist are always seeking for something new and exciting. Keeping in view this need, we have started CRUISE service like Goa- cruise at various seasons.",
+    extra:
+      "A programme of about an hour, consists various entertaining programs and cultural activities like Kokani Cultural Events, Goan Fusion, DJ night, Deck Dance for couples, Special games for kids, various Game Shows along with fresh Kokani delicious food on cruise.\nBeing a seasonal service, arrangements are made only during some months & advance booking is necessary for hassle free experience.",
   },
   {
-    title: "Vehicle Transportation",
+    title: "Exclusive Inland Service",
     image: "/images/backgrounds/inland-services.jpg",
     description:
-      "Transport your cars, bikes, and commercial vehicles safely. Our RORO ferries can accommodate all types of vehicles.",
+      "This is a special transportation service for various Materials & Machines at desirable locations.",
+  },
+  {
+    title: "Easy Transportation",
+    image: "/images/backgrounds/inland-services.jpg",
+    description:
+      "As there are many ports in Kokan region, transportation of various products from one location to another through sea has become a necessity. Ferry-Service comes to help for transporting heavy machines like cranes, fork lanes (JCB), boaring machines, large tankers or any other heavy material which is tedious to transport by road.",
+    extra:
+      "As this is a special service, charges depend upon weight, distance, waiting time, fuel & labour etc.\nThis service is started for the economic transportation of heavy materials conveniently through water with proper safety.",
   },
 ];
 
@@ -256,7 +267,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Comprehensive Ferry Services */}
+      {/* Our Other Services */}
       <section className="py-16 md:py-20 bg-sky-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
@@ -264,125 +275,42 @@ export default function HomePage() {
               What We Offer
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Comprehensive Ferry Services
+              Our Other Services
             </h2>
-            <p className="text-gray-500 max-w-2xl mx-auto">
-              From passenger transport to vehicle shipping, we&apos;ve got all
-              your ferry needs covered.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {SERVICES.map((service) => (
               <div
                 key={service.title}
-                className="group relative rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
+                className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
               >
-                <div className="relative h-64 sm:h-80">
+                <div className="relative h-52">
                   <Image
                     src={service.image}
                     alt={service.title}
                     fill
-                    sizes="(max-width: 768px) 100vw, 50vw"
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 className="text-lg font-bold text-white">{service.title}</h3>
+                    {"subtitle" in service && service.subtitle && (
+                      <p className="text-amber-300 text-sm font-semibold mt-1">{service.subtitle}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                  <h3 className="text-xl font-bold mb-2">{service.title}</h3>
-                  <p className="text-gray-200 text-sm leading-relaxed">
+                <div className="p-5">
+                  <p className="text-gray-600 text-sm leading-relaxed">
                     {service.description}
                   </p>
+                  {"extra" in service && service.extra && (
+                    <p className="text-gray-500 text-sm leading-relaxed mt-3">
+                      {service.extra}
+                    </p>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Cruise Services */}
-      <section className="py-16 md:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <span className="inline-block text-purple-700 bg-purple-50 text-xs font-bold tracking-wider uppercase px-4 py-1.5 rounded-full border border-purple-200 mb-3">
-              Cruise Services
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Priyanka Cruise &amp; Events
-            </h2>
-            <p className="text-gray-500 max-w-2xl mx-auto">
-              Experience the Konkan coast like never before with our cruise and event services.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { title: "Kokani Cultural Events", description: "Experience authentic Konkan culture with traditional events, music, and cuisine aboard our cruise." },
-              { title: "DJ Night &amp; Parties", description: "Celebrate special occasions with DJ nights, birthday parties, and corporate events on the water." },
-              { title: "Scenic River Cruises", description: "Enjoy a relaxing cruise along the beautiful Konkan coastline with family and friends." },
-            ].map((item) => (
-              <div key={item.title} className="bg-gray-50 rounded-xl p-6 border border-gray-100 hover:shadow-lg transition-all">
-                <h3 className="text-lg font-bold text-slate-900 mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Exclusive Inland Services */}
-      <section className="py-16 md:py-20 bg-sky-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <span className="inline-block text-emerald-700 bg-emerald-50 text-xs font-bold tracking-wider uppercase px-4 py-1.5 rounded-full border border-emerald-200 mb-3">
-              Inland Services
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Exclusive Inland Water Services
-            </h2>
-            <p className="text-gray-500 max-w-2xl mx-auto">
-              Beyond ferry services, we provide specialized inland water transportation solutions.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white rounded-xl p-8 shadow-md border border-gray-100">
-              <h3 className="text-xl font-bold text-slate-900 mb-3">River &amp; Creek Transport</h3>
-              <p className="text-gray-500 leading-relaxed">
-                We operate specialized inland water transport services across rivers and creeks in the Konkan region, connecting communities that would otherwise face lengthy road detours.
-              </p>
-            </div>
-            <div className="bg-white rounded-xl p-8 shadow-md border border-gray-100">
-              <h3 className="text-xl font-bold text-slate-900 mb-3">RORO Services</h3>
-              <p className="text-gray-500 leading-relaxed">
-                Our Roll-on/Roll-off (RORO) services enable vehicles of all sizes to cross waterways efficiently, operating under the Government of India&apos;s Sagarmala Project.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Easy Transportation */}
-      <section className="py-16 md:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <span className="inline-block text-amber-700 bg-amber-50 text-xs font-bold tracking-wider uppercase px-4 py-1.5 rounded-full border border-amber-200 mb-3">
-              Heavy Transport
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Easy Transportation for Heavy Machinery
-            </h2>
-            <p className="text-gray-500 max-w-2xl mx-auto">
-              Our RORO ferries are equipped to transport heavy machinery and commercial vehicles across waterways.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[
-              { title: "Cranes &amp; JCBs", description: "Transport heavy construction equipment including cranes, JCBs, and excavators safely across waterways." },
-              { title: "Commercial Trucks", description: "Large commercial vehicles and trucks can roll on and off our ferries with ease." },
-              { title: "Industrial Equipment", description: "Specialized heavy machinery and industrial equipment transportation across the Konkan coast." },
-            ].map((item) => (
-              <div key={item.title} className="text-center p-6 rounded-xl border border-gray-100 hover:border-amber-300 hover:shadow-lg transition-all">
-                <h3 className="font-bold text-slate-900 mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.description}</p>
               </div>
             ))}
           </div>
@@ -456,7 +384,7 @@ export default function HomePage() {
             <div className="relative">
               <div className="relative w-full h-80 md:h-96 rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/10">
                 <Image
-                  src="/images/misc/team-photo.jpg"
+                  src="/images/general/team-photo.jpg"
                   alt="Our Leadership"
                   fill
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
@@ -473,21 +401,16 @@ export default function HomePage() {
             {/* Content */}
             <div>
               <p className="text-gray-300 leading-relaxed mb-4">
-                Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd. was
-                established in October 2003 by Dr. Mokal C.J. (former MLA of
-                Dapoli-Mandangad), with Dr. Mokal Y.C. serving as Managing
-                Director.
+                Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd. is a Company which is started by Dr. Mokal C.J. (Ex. MLA, Dapoli &ndash; Mandangad) with Dr. Mokal Y.C. as a Managing Director, in October 2003. We have skilled Staff of about 65 at different sites.
               </p>
               <p className="text-gray-300 leading-relaxed mb-4">
-                Our first venture was the Dabhol-Dhopave ferry service - the
-                first Ferry Boat Service in Maharashtra. Since then, we have
-                expanded to operate 7 routes across the Konkan coast, serving
-                thousands of passengers daily.
+                We have approved Ticket Rates &amp; all necessary permits by Maharashtra Maritime board with Annual Inspections for requirements on Ferry Boat. Company is very particular about all life guarding apparatus on Ferry boat, for the safety of tourists &amp; public.
+              </p>
+              <p className="text-gray-300 leading-relaxed mb-4">
+                We began by starting a Ferry-Boat Service at Dabhol-Dhopave, which was a first Ferry Boat Service in Maharashtra. After Successful Service in Dabhol; we started another service in Veshvi &ndash; Bagmandle, then Tawsal &ndash; Jaigad, and Rohini &ndash; Agardande.
               </p>
               <p className="text-gray-300 leading-relaxed mb-6">
-                With approximately 65 employees and a commitment to safety and
-                reliability, we continue to connect coastal communities and
-                boost tourism in the region.
+                Suvarnadurga Shipping and Marine Services is the transportation company that serves the Nation &amp; saves most valuable fuel. We hope, you will enjoy our Safe, Quick and Refreshing Ferry Services all the time.
               </p>
 
               <div className="flex flex-wrap gap-4 mb-6">

@@ -519,23 +519,70 @@ export default function ContactPage() {
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-12 text-center">
             <span className="mb-3 inline-block rounded-full bg-sky-100 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-sky-700">
-              Map
+              Ferry Locations
             </span>
             <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
-              Our Location
+              Ferry Boat &ndash; Location Map
             </h2>
             <div className="mx-auto mt-3 h-1 w-16 rounded bg-amber-500" />
           </div>
 
-          <div className="overflow-hidden rounded-xl shadow-lg">
-            <Image
-              src="/images/misc/map.jpg"
-              alt="Ferry Service Locations Map"
-              width={1200}
-              height={600}
-              className="h-auto w-full object-cover"
-              priority={false}
+          {/* Interactive Google Map - centered on Maharashtra coast */}
+          <div className="overflow-hidden rounded-xl shadow-lg mb-10">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d970000!2d73.2!3d18.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sin"
+              title="Ferry Service Locations"
+              width="100%"
+              height="500"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="w-full"
             />
+          </div>
+
+          {/* Location Listing */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { name: "Dabhol Ferry", area: "Dabhol, Maharashtra", link: "https://maps.app.goo.gl/VW3Eo1RjeG7s7Azj8" },
+              { name: "Dhopave Ferry", area: "Dhopave, Guhagar", link: "https://maps.app.goo.gl/nTz53CDUQu1a8cwR6" },
+              { name: "Jaigad Tawsal Ferry", area: "Jaigad, Ratnagiri", link: "https://maps.app.goo.gl/mptkW5dPf5JQHAkC6" },
+              { name: "Tawsal Ferry", area: "Tawsal, Guhagar", link: "" },
+              { name: "Dighi Jetty", area: "Dighi, Raigad", link: "https://maps.app.goo.gl/mptkW5dPf5JQHAkC6" },
+              { name: "Vesvi Bagmandale Ferry", area: "Veshvi, Ratnagiri", link: "" },
+              { name: "Vasai Bhayander Ferry", area: "Vasai, Palghar", link: "" },
+              { name: "Virar Saphale Ferry", area: "Marambalpada Jetty", link: "https://maps.app.goo.gl/AKDzPtVtQh6fnRQV7" },
+              { name: "Saphale Ferry", area: "Saphale, Palghar", link: "" },
+            ].map((loc) => (
+              <div
+                key={loc.name}
+                className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-4 hover:shadow-md transition-shadow"
+              >
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100">
+                  <svg className="h-4 w-4 text-sky-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">{loc.name}</p>
+                  <p className="text-xs text-gray-500">{loc.area}</p>
+                  {loc.link && (
+                    <a
+                      href={loc.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800"
+                    >
+                      View on Google Map
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
