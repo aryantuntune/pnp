@@ -705,3 +705,84 @@ async def get_vehicle_wise_tickets(
         "rows": rows,
         "grand_total": grand_total,
     }
+
+
+# ---------------------------------------------------------------------------
+# 11. Branch Item Summary
+# ---------------------------------------------------------------------------
+
+async def get_branch_item_summary(
+    db: AsyncSession,
+    date_from: datetime.date,
+    date_to: datetime.date,
+    branch_id: int | None = None,
+) -> dict:
+    # Item rows: group by item name and effective rate (rate + levy).
+    # The "Rate" shown on the receipt includes levy so that
+    # sum(net) == sum(payment mode amounts) == Ticket.net_amount total.
+    q = (
+        select(
+            Item.name.label("item_name"),
+            (TicketItem.rate + TicketItem.levy).label("effective_rate"),
+            func.coalesce(func.sum(
+                case((TicketItem.is_cancelled == False, TicketItem.quantity), else_=0)
+            ), 0).label("quantity"),
+        )
+        .join(TicketItem, TicketItem.ticket_id == Ticket.id)
+        .join(Item, Item.id == TicketItem.item_id)
+        .where(Ticket.is_cancelled == False)
+        .where(TicketItem.is_cancelled == False)
+        .group_by(Item.name, TicketItem.rate + TicketItem.levy)
+        .order_by(Item.name)
+    )
+    q = _apply_ticket_filters(q, date_from, date_to, branch_id)
+
+    result = (await db.execute(q)).all()
+
+    rows = []
+    grand_total = 0
+    for r in result:
+        qty = int(r.quantity)
+        net = r.effective_rate * qty
+        grand_total += net
+        rows.append({
+            "item_name": r.item_name,
+            "rate": r.effective_rate,
+            "quantity": qty,
+            "net": net,
+        })
+
+    # Payment mode breakdown
+    pm_q = (
+        select(
+            PaymentMode.description.label("payment_mode_name"),
+            func.coalesce(func.sum(
+                case((Ticket.is_cancelled == False, Ticket.net_amount), else_=0)
+            ), 0).label("amount"),
+        )
+        .join(PaymentMode, PaymentMode.id == Ticket.payment_mode_id)
+        .group_by(PaymentMode.description)
+        .order_by(PaymentMode.description)
+    )
+    pm_q = _apply_ticket_filters(pm_q, date_from, date_to, branch_id)
+
+    pm_result = (await db.execute(pm_q)).all()
+    payment_modes = [
+        {"payment_mode_name": r.payment_mode_name, "amount": r.amount}
+        for r in pm_result
+    ]
+
+    # Resolve branch name
+    branch_name = None
+    if branch_id:
+        branch_names = await _get_branch_name_map(db)
+        branch_name = branch_names.get(branch_id)
+
+    return {
+        "date_from": date_from,
+        "date_to": date_to,
+        "branch_name": branch_name,
+        "rows": rows,
+        "grand_total": grand_total,
+        "payment_modes": payment_modes,
+    }

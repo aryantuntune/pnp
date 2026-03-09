@@ -576,3 +576,61 @@ def generate_branch_summary_pdf(data: dict) -> BytesIO:
         rows=pdf_rows,
         landscape_mode=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# 9. Branch Item Summary
+# ---------------------------------------------------------------------------
+
+def generate_branch_item_summary_pdf(data: dict) -> BytesIO:
+    """Generate PDF for the Branch Item Summary report.
+
+    Expected data keys (from report_service.get_branch_item_summary):
+        date_from, date_to, branch_name,
+        rows (list of {item_name, rate, quantity, net}),
+        grand_total,
+        payment_modes (list of {payment_mode_name, amount})
+    """
+    title = "Branch Item Summary"
+    subtitle = _date_range_subtitle(data, _optional_filter_parts(data))
+
+    headers = ["Item", "Rate", "Qty", "Net"]
+    pdf_rows: list[list[str]] = []
+    for row in data.get("rows", []):
+        pdf_rows.append([
+            str(row.get("item_name", "")),
+            _fmt_amount(row.get("rate", 0)),
+            str(row.get("quantity", 0)),
+            _fmt_amount(row.get("net", 0)),
+        ])
+
+    # Grand total row
+    total_qty = sum(r.get("quantity", 0) for r in data.get("rows", []))
+    pdf_rows.append([
+        "Grand Total",
+        "",
+        str(total_qty),
+        _fmt_amount(data.get("grand_total", 0)),
+    ])
+
+    # Payment mode breakdown rows
+    payment_modes = data.get("payment_modes", [])
+    if payment_modes:
+        # Empty separator row
+        pdf_rows.append(["", "", "", ""])
+        # Section header row
+        pdf_rows.append(["Payment Mode", "", "", "Amount"])
+        for pm in payment_modes:
+            pdf_rows.append([
+                str(pm.get("payment_mode_name", "")),
+                "",
+                "",
+                _fmt_amount(pm.get("amount", 0)),
+            ])
+
+    return _build_pdf(
+        title=title,
+        subtitle=subtitle,
+        headers=headers,
+        rows=pdf_rows,
+    )

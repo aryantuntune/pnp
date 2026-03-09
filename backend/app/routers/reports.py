@@ -20,6 +20,7 @@ from app.schemas.report import (
     ItemwiseLevyReport,
     UserWiseSummaryReport,
     VehicleWiseTicketReport,
+    BranchItemSummaryReport,
 )
 from app.services import report_service, pdf_service, ticket_service
 
@@ -270,6 +271,23 @@ async def vehicle_wise_ticket_report(
     return await report_service.get_vehicle_wise_tickets(db, date, branch_id)
 
 
+@router.get(
+    "/branch-item-summary",
+    response_model=BranchItemSummaryReport,
+    summary="Branch item summary report",
+    description="Item-wise billing summary for a branch over a date range with payment mode breakdown.",
+)
+async def branch_item_summary_report(
+    date_from: datetime.date = Query(...),
+    date_to: datetime.date = Query(...),
+    branch_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_report_roles),
+):
+    branch_id = await _scope_branch_only(db, current_user, branch_id)
+    return await report_service.get_branch_item_summary(db, date_from, date_to, branch_id)
+
+
 # ---------------------------------------------------------------------------
 # PDF Download Endpoints
 # ---------------------------------------------------------------------------
@@ -484,4 +502,26 @@ async def get_branch_summary_pdf(
         pdf_buf,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=branch_summary_{date_from}_{date_to}.pdf"},
+    )
+
+
+@router.get(
+    "/branch-item-summary/pdf",
+    summary="Branch item summary PDF",
+    description="Download the Branch Item Summary report as a PDF file.",
+)
+async def get_branch_item_summary_pdf(
+    date_from: datetime.date = Query(...),
+    date_to: datetime.date = Query(...),
+    branch_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_report_roles),
+):
+    branch_id = await _scope_branch_only(db, current_user, branch_id)
+    data = await report_service.get_branch_item_summary(db, date_from, date_to, branch_id)
+    pdf_buf = pdf_service.generate_branch_item_summary_pdf(data)
+    return StreamingResponse(
+        pdf_buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=branch_item_summary_{date_from}_{date_to}.pdf"},
     )

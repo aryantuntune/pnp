@@ -179,3 +179,26 @@ class VehicleWiseTicketReport(BaseModel):
     branch_name: str | None = None
     rows: list[VehicleWiseTicketRow]
     grand_total: Decimal
+
+
+# --- Branch Item Summary ---
+
+class BranchItemSummaryRow(BaseModel):
+    item_name: str
+    rate: Decimal
+    quantity: int
+    net: Decimal
+
+
+class BranchItemSummaryPaymentMode(BaseModel):
+    payment_mode_name: str
+    amount: Decimal
+
+
+class BranchItemSummaryReport(BaseModel):
+    date_from: datetime.date
+    date_to: datetime.date
+    branch_name: str | None = None
+    rows: list[BranchItemSummaryRow]
+    grand_total: Decimal
+    payment_modes: list[BranchItemSummaryPaymentMode]

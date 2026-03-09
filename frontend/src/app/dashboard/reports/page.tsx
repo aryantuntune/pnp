@@ -391,7 +391,9 @@ export default function ReportsPage() {
         const data = response.data;
         if (data && typeof data === "object" && !Array.isArray(data)) {
           setRows(Array.isArray(data.rows) ? data.rows : []);
-          setGrandTotal(data.grand_total ?? null);
+          setGrandTotal(
+            data.grand_total != null ? Number(data.grand_total) : null
+          );
           // Extract payment modes for branch-item-summary
           if (config.key === "branch-item-summary" && Array.isArray(data.payment_modes)) {
             setPaymentModesData(data.payment_modes);
