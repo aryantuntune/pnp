@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,9 @@ from app.core.rbac import ROLE_MENU_ITEMS
 from app.models.user import User
 from app.services import token_service
 
+# Sessions with no API activity for this long are considered dead (crash recovery)
+SESSION_TIMEOUT_SECONDS = 120
+
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
     result = await db.execute(select(User).where(User.email == email, User.is_active == True))
@@ -16,6 +20,22 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
     if not user or not verify_password(password, user.hashed_password):
         return None
     return user
+
+
+def _has_active_session(user: User) -> bool:
+    """Check if user has a session that was active within the timeout window."""
+    if not user.active_session_id or not user.session_last_active:
+        return False
+    elapsed = (datetime.now(timezone.utc) - user.session_last_active).total_seconds()
+    return elapsed < SESSION_TIMEOUT_SECONDS
+
+
+def _start_session(user: User) -> str:
+    """Generate a new session ID and stamp it on the user. Returns the session_id."""
+    sid = str(uuid.uuid4())
+    user.active_session_id = sid
+    user.session_last_active = datetime.now(timezone.utc)
+    return sid
 
 
 async def login(db: AsyncSession, email: str, password: str) -> dict:
@@ -26,10 +46,19 @@ async def login(db: AsyncSession, email: str, password: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    # Update last_login
+
+    # Single-session enforcement
+    if _has_active_session(user):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This account is already logged in from another session. If the previous session crashed, please wait 2 minutes and try again.",
+        )
+
+    # Start new session
+    sid = _start_session(user)
     user.last_login = datetime.now(timezone.utc)
 
-    extra = {"role": user.role.value}
+    extra = {"role": user.role.value, "sid": sid}
     access_token = create_access_token(subject=str(user.id), extra_claims=extra)
     refresh_token = create_refresh_token(subject=str(user.id))
 
@@ -65,8 +94,10 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
     # Revoke the old token
     await token_service.revoke_token(db, refresh_token)
 
-    # Issue new pair
+    # Issue new pair — carry forward the user's current session ID
     extra = {"role": user.role.value}
+    if user.active_session_id:
+        extra["sid"] = user.active_session_id
     new_access = create_access_token(subject=str(user.id), extra_claims=extra)
     new_refresh = create_refresh_token(subject=str(user.id))
 
@@ -78,11 +109,14 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
     return {"access_token": new_access, "refresh_token": new_refresh}
 
 
-async def logout(db: AsyncSession, refresh_token: str | None) -> None:
-    """Revoke the refresh token if provided. Graceful no-op if None."""
+async def logout(db: AsyncSession, refresh_token: str | None, user: User | None = None) -> None:
+    """Revoke the refresh token and clear active session."""
     if refresh_token:
         await token_service.revoke_token(db, refresh_token)
-        await db.commit()
+    if user:
+        user.active_session_id = None
+        user.session_last_active = None
+    await db.commit()
 
 
 async def forgot_password(db: AsyncSession, email: str) -> str | None:

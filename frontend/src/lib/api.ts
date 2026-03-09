@@ -49,6 +49,15 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Session was invalidated (logged in from another device) — don't try refresh
+    const detail = (error.response?.data as { detail?: string })?.detail;
+    if (detail === "session_expired_elsewhere") {
+      const isPortal = isPortalContext(url);
+      const loginPath = isPortal ? "/customer/login" : "/login";
+      window.location.href = `${loginPath}?reason=session_conflict`;
+      return Promise.reject(error);
+    }
+
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject, config: originalRequest });

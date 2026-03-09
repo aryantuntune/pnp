@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status, Request
@@ -59,6 +60,20 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise credentials_exception
+
+    # Single-session enforcement: verify JWT session matches the active session
+    sid = payload.get("sid")
+    if not sid or user.active_session_id != sid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="session_expired_elsewhere",
+        )
+
+    # Update session activity (throttle to every 30s to reduce DB writes)
+    now = datetime.now(timezone.utc)
+    if not user.session_last_active or (now - user.session_last_active).total_seconds() > 30:
+        user.session_last_active = now
+
     return user
 
 

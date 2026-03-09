@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -17,6 +17,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Show message if redirected due to session conflict
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reason") === "session_conflict") {
+      setError("Your session was ended because this account logged in from another location.");
+    }
+  }, []);
 
   // Branch selection step
   const [branches, setBranches] = useState<RouteBranch[]>([]);

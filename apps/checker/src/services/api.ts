@@ -85,6 +85,14 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Session kicked out — don't try refresh, go straight to login
+    const detail = (error.response?.data as { detail?: string })?.detail;
+    if (detail === 'session_expired_elsewhere') {
+      await clearAll();
+      onAuthFailure?.();
+      return Promise.reject(error);
+    }
+
     if (isRefreshing) {
       return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });

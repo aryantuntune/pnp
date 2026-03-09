@@ -59,36 +59,40 @@ async def today_summary(
     return await get_today_summary(db, current_user)
 
 
-async def _authenticate_ws(websocket: WebSocket) -> User | None:
-    """Authenticate a WebSocket connection via cookie or query param token."""
+async def _authenticate_ws(websocket: WebSocket) -> tuple[User | None, str | None]:
+    """Authenticate a WebSocket connection via cookie or query param token.
+    Returns (user, session_id) or (None, None)."""
     # Try cookie first (sent automatically with upgrade request)
     token = websocket.cookies.get("ssmspl_access_token")
     # Fall back to query param for clients that can't send cookies
     if not token:
         token = websocket.query_params.get("token")
     if not token:
-        return None
+        return None, None
     try:
         payload = decode_token(token)
         if payload.get("type") != "access":
-            return None
+            return None, None
         user_id = payload.get("sub")
-        if not user_id:
-            return None
+        sid = payload.get("sid")
+        if not user_id or not sid:
+            return None, None
     except JWTError:
-        return None
+        return None, None
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user is None or not user.is_active:
-            return None
-        return user
+            return None, None
+        if user.active_session_id != sid:
+            return None, None
+        return user, sid
 
 
 @router.websocket("/ws")
 async def dashboard_ws(websocket: WebSocket):
-    user = await _authenticate_ws(websocket)
+    user, sid = await _authenticate_ws(websocket)
     if user is None:
         await websocket.close(code=4001, reason="Unauthorized")
         return
@@ -97,7 +101,17 @@ async def dashboard_ws(websocket: WebSocket):
     try:
         while True:
             async with AsyncSessionLocal() as db:
-                data = await get_dashboard_stats(db, user)
+                # Re-verify session is still active (handles logout / login elsewhere)
+                result = await db.execute(select(User).where(User.id == user.id))
+                fresh_user = result.scalar_one_or_none()
+                if not fresh_user or fresh_user.active_session_id != sid:
+                    await websocket.close(code=4001, reason="Session ended")
+                    return
+                # Keep session alive
+                from datetime import datetime, timezone
+                fresh_user.session_last_active = datetime.now(timezone.utc)
+                data = await get_dashboard_stats(db, fresh_user)
+                await db.commit()
             await websocket.send_text(json.dumps(data))
             await asyncio.sleep(5)
     except WebSocketDisconnect:

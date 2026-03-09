@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -81,9 +82,17 @@ async def mobile_login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This app is for ticket checkers only. Please use the web dashboard.",
         )
-    # Generate tokens
+    # Single-session enforcement
+    from app.services.auth_service import _has_active_session, _start_session
+    if _has_active_session(user):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This account is already logged in from another session. If the previous session crashed, please wait 2 minutes and try again.",
+        )
+    # Start new session and generate tokens
+    sid = _start_session(user)
     user.last_login = datetime.now(timezone.utc)
-    extra = {"role": user.role.value}
+    extra = {"role": user.role.value, "sid": sid}
     access_token = create_access_token(subject=str(user.id), extra_claims=extra)
     refresh_token = create_refresh_token(subject=str(user.id))
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -175,16 +184,30 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
 @router.post(
     "/logout",
     summary="Logout user",
-    description="Revoke the refresh token and clear auth cookies.",
+    description="Revoke the refresh token, clear active session, and clear auth cookies.",
     responses={
         200: {"description": "Logout acknowledged"},
     },
 )
 async def logout(request: Request, body: RefreshRequest | None = None, db: AsyncSession = Depends(get_db)):
+    # Best-effort: resolve user to clear active session
+    user = None
+    try:
+        from app.core.security import decode_token as _dt
+        token = request.cookies.get("ssmspl_access_token")
+        if token:
+            payload = _dt(token)
+            uid = payload.get("sub")
+            if uid:
+                result = await db.execute(select(User).where(User.id == uid))
+                user = result.scalar_one_or_none()
+    except Exception:
+        pass
+
     refresh_token = request.cookies.get("ssmspl_refresh_token")
     if not refresh_token and body:
         refresh_token = body.refresh_token
-    await auth_service.logout(db, refresh_token)
+    await auth_service.logout(db, refresh_token, user=user)
     response = JSONResponse(content={"message": "Logged out successfully"})
     clear_auth_cookies(response)
     return response
