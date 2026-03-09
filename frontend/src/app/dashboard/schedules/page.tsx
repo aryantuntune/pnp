@@ -7,6 +7,7 @@ import {
   FerrySchedule,
   FerryScheduleCreate,
   FerryScheduleUpdate,
+  User,
 } from "@/types";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +51,8 @@ export default function SchedulesPage() {
   const [sortBy, setSortBy] = useState("id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [branchFilter, setBranchFilter] = useState("");
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const isScoped = currentUser?.route_id != null;
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -64,10 +67,14 @@ export default function SchedulesPage() {
 
   const fetchBranches = useCallback(async () => {
     try {
-      const resp = await api.get<Branch[]>(
-        "/api/branches/?skip=0&limit=200&status=active&sort_by=name&sort_order=asc"
-      );
+      const [resp, meResp] = await Promise.all([
+        api.get<Branch[]>(
+          "/api/branches/?skip=0&limit=200&status=active&sort_by=name&sort_order=asc"
+        ),
+        api.get<User>("/api/auth/me"),
+      ]);
       setBranches(resp.data);
+      setCurrentUser(meResp.data);
     } catch {
       // branches dropdown will be empty
     }
@@ -274,6 +281,7 @@ export default function SchedulesPage() {
                   setBranchFilter(v === "all" ? "" : v);
                   setPage(1);
                 }}
+                disabled={isScoped}
               >
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="All Branches" />

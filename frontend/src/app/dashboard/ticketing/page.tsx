@@ -428,6 +428,13 @@ export default function TicketingPage() {
   // Whether the user is locked to their assigned route
   const isRouteRestricted = user?.route_id != null;
 
+  // Auto-lock route filter for scoped users
+  useEffect(() => {
+    if (isRouteRestricted && user?.route_id) {
+      setRouteFilter(String(user.route_id));
+    }
+  }, [isRouteRestricted, user?.route_id]);
+
   // Route change handler for modal (unrestricted users)
   const handleRouteChange = (routeId: number) => {
     setFormRouteId(routeId);
@@ -1236,6 +1243,7 @@ export default function TicketingPage() {
                   setBranchFilter(val === "__all__" ? "" : val);
                   setPage(1);
                 }}
+                disabled={isRouteRestricted}
               >
                 <SelectTrigger className="h-10 w-full sm:w-[160px]">
                   <SelectValue placeholder="All Branches" />
@@ -1260,6 +1268,7 @@ export default function TicketingPage() {
                   setRouteFilter(val === "__all__" ? "" : val);
                   setPage(1);
                 }}
+                disabled={isRouteRestricted}
               >
                 <SelectTrigger className="h-10 w-full sm:w-[200px]">
                   <SelectValue placeholder="All Routes" />

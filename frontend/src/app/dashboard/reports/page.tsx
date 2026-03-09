@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { Branch, Route, PaymentMode } from "@/types";
+import { Branch, Route, PaymentMode, User } from "@/types";
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, BarChart3, Loader2 } from "lucide-react";
+import { Download, BarChart3, Loader2, Printer } from "lucide-react";
 
 // ── Helpers ──
 
@@ -227,32 +227,25 @@ const REPORT_TYPES: ReportConfig[] = [
     ],
   },
   {
-    key: "branch-summary",
+    key: "branch-item-summary",
     label: "Branch Summary",
-    endpoint: "/api/reports/branch-summary",
-    pdfEndpoint: "/api/reports/branch-summary/pdf",
-    filters: ["date_range"],
+    endpoint: "/api/reports/branch-item-summary",
+    pdfEndpoint: "/api/reports/branch-item-summary/pdf",
+    filters: ["date_range", "branch"],
     columns: [
-      { key: "branch_name", label: "Branch" },
-      { key: "ticket_count", label: "Tickets", align: "right" },
-      { key: "booking_count", label: "Bookings", align: "right" },
+      { key: "item_name", label: "Item" },
       {
-        key: "ticket_revenue",
-        label: "Ticket Revenue",
+        key: "rate",
+        label: "Rate",
         align: "right",
-        render: (r) => formatCurrency(r.ticket_revenue as number),
+        render: (r) => formatCurrency(r.rate as number),
       },
+      { key: "quantity", label: "Qty", align: "right" },
       {
-        key: "booking_revenue",
-        label: "Booking Revenue",
+        key: "net",
+        label: "Net",
         align: "right",
-        render: (r) => formatCurrency(r.booking_revenue as number),
-      },
-      {
-        key: "total_revenue",
-        label: "Total Revenue",
-        align: "right",
-        render: (r) => formatCurrency(r.total_revenue as number),
+        render: (r) => formatCurrency(r.net as number),
       },
     ],
   },
@@ -277,33 +270,47 @@ export default function ReportsPage() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
 
+  // Current user for role-based scoping
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const isScoped = currentUser?.route_id != null;
+
   // Report results
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [grandTotal, setGrandTotal] = useState<Record<string, unknown> | null>(
-    null
-  );
+  const [grandTotal, setGrandTotal] = useState<
+    Record<string, unknown> | number | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
 
+  // Branch item summary payment modes
+  const [paymentModesData, setPaymentModesData] = useState<
+    { payment_mode_name: string; amount: number }[]
+  >([]);
+
   // PDF download
   const [downloading, setDownloading] = useState(false);
+
+  // Thermal print
+  const [printing, setPrinting] = useState(false);
 
   const activeReport = REPORT_TYPES[activeIndex];
 
   // Fetch dropdown data once on mount
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [branchResp, routeResp, pmResp] = await Promise.all([
+      const [branchResp, routeResp, pmResp, meResp] = await Promise.all([
         api.get<Branch[]>(
           "/api/branches/?limit=200&status=active&sort_by=name&sort_order=asc"
         ),
         api.get<Route[]>("/api/routes/?limit=200&status=active"),
         api.get<PaymentMode[]>("/api/payment-modes/?limit=200&status=active"),
+        api.get<User>("/api/auth/me"),
       ]);
       setBranches(branchResp.data);
       setRoutes(routeResp.data);
       setPaymentModes(pmResp.data);
+      setCurrentUser(meResp.data);
     } catch {
       // non-critical
     }
@@ -313,11 +320,19 @@ export default function ReportsPage() {
     fetchDropdowns();
   }, [fetchDropdowns]);
 
+  // Auto-lock route filter for scoped users
+  useEffect(() => {
+    if (isScoped && currentUser?.route_id) {
+      setRouteId(String(currentUser.route_id));
+    }
+  }, [isScoped, currentUser?.route_id]);
+
   // Clear results when switching tabs
   const handleTabChange = (index: number) => {
     setActiveIndex(index);
     setRows([]);
     setGrandTotal(null);
+    setPaymentModesData([]);
     setError("");
     setHasGenerated(false);
   };
@@ -377,12 +392,20 @@ export default function ReportsPage() {
         if (data && typeof data === "object" && !Array.isArray(data)) {
           setRows(Array.isArray(data.rows) ? data.rows : []);
           setGrandTotal(data.grand_total ?? null);
+          // Extract payment modes for branch-item-summary
+          if (config.key === "branch-item-summary" && Array.isArray(data.payment_modes)) {
+            setPaymentModesData(data.payment_modes);
+          } else {
+            setPaymentModesData([]);
+          }
         } else if (Array.isArray(data)) {
           setRows(data);
           setGrandTotal(null);
+          setPaymentModesData([]);
         } else {
           setRows([]);
           setGrandTotal(null);
+          setPaymentModesData([]);
         }
       }
     } catch {
@@ -429,6 +452,38 @@ export default function ReportsPage() {
     }
   };
 
+  // Print thermal receipt for branch item summary
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const branchName = branchId
+        ? branches.find((b) => String(b.id) === branchId)?.name || ""
+        : "ALL BRANCHES";
+
+      const { printBranchItemSummary } = await import("@/lib/print-branch-summary");
+      const { getReceiptPaperWidth } = await import("@/lib/print-receipt");
+
+      await printBranchItemSummary({
+        branchName,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        items: rows.map((r) => ({
+          item_name: String(r.item_name || ""),
+          rate: Number(r.rate || 0),
+          quantity: Number(r.quantity || 0),
+          net: Number(r.net || 0),
+        })),
+        grandTotal: typeof grandTotal === "number" ? grandTotal : 0,
+        paymentModes: paymentModesData,
+        paperWidth: getReceiptPaperWidth(),
+      });
+    } catch {
+      setError("Failed to print report.");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   // Render cell value
   const renderCell = (
     row: Record<string, unknown>,
@@ -455,18 +510,34 @@ export default function ReportsPage() {
             Generate and download reports across various categories
           </p>
         </div>
-        <Button
-          onClick={downloadPdf}
-          disabled={downloading || rows.length === 0}
-          className="bg-blue-600 text-white hover:bg-blue-700"
-        >
-          {downloading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4 mr-2" />
+        <div className="flex gap-2">
+          {activeReport.key === "branch-item-summary" && rows.length > 0 && (
+            <Button
+              onClick={handlePrint}
+              disabled={printing}
+              variant="outline"
+            >
+              {printing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4 mr-2" />
+              )}
+              {printing ? "Printing..." : "Print 80mm"}
+            </Button>
           )}
-          {downloading ? "Downloading..." : "Download PDF"}
-        </Button>
+          <Button
+            onClick={downloadPdf}
+            disabled={downloading || rows.length === 0}
+            className="bg-blue-600 text-white hover:bg-blue-700"
+          >
+            {downloading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            {downloading ? "Downloading..." : "Download PDF"}
+          </Button>
+        </div>
       </div>
 
       {/* Report Type Tabs */}
@@ -534,6 +605,7 @@ export default function ReportsPage() {
                 <Select
                   value={branchId || "all"}
                   onValueChange={(v) => setBranchId(v === "all" ? "" : v)}
+                  disabled={isScoped}
                 >
                   <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="All Branches" />
@@ -580,6 +652,7 @@ export default function ReportsPage() {
                 <Select
                   value={routeId || "all"}
                   onValueChange={(v) => setRouteId(v === "all" ? "" : v)}
+                  disabled={isScoped}
                 >
                   <SelectTrigger className="w-full sm:w-[220px]">
                     <SelectValue placeholder="All Routes" />
@@ -687,29 +760,71 @@ export default function ReportsPage() {
               )}
             </TableBody>
             {/* Grand Total Footer */}
-            {grandTotal && rows.length > 0 && (
+            {grandTotal != null && rows.length > 0 && (
               <TableFooter>
                 <TableRow className="font-semibold bg-muted/50">
-                  {activeReport.columns.map((col, colIdx) => (
-                    <TableCell
-                      key={col.key}
-                      className={`${col.align === "right" ? "text-right" : "text-left"} font-semibold`}
-                    >
-                      {colIdx === 0
-                        ? "Grand Total"
-                        : grandTotal[col.key] !== undefined
-                          ? col.render
-                            ? col.render(grandTotal)
-                            : String(grandTotal[col.key])
-                          : ""}
-                    </TableCell>
-                  ))}
+                  {typeof grandTotal === "number" ? (
+                    <>
+                      {activeReport.columns.map((col, colIdx) => (
+                        <TableCell
+                          key={col.key}
+                          className={`${col.align === "right" ? "text-right" : "text-left"} font-semibold`}
+                        >
+                          {colIdx === 0
+                            ? "Grand Total"
+                            : colIdx === activeReport.columns.length - 1
+                              ? formatCurrency(grandTotal)
+                              : ""}
+                        </TableCell>
+                      ))}
+                    </>
+                  ) : (
+                    activeReport.columns.map((col, colIdx) => (
+                      <TableCell
+                        key={col.key}
+                        className={`${col.align === "right" ? "text-right" : "text-left"} font-semibold`}
+                      >
+                        {colIdx === 0
+                          ? "Grand Total"
+                          : grandTotal[col.key] !== undefined
+                            ? col.render
+                              ? col.render(grandTotal)
+                              : String(grandTotal[col.key])
+                            : ""}
+                      </TableCell>
+                    ))
+                  )}
                 </TableRow>
               </TableFooter>
             )}
           </Table>
         </div>
       </div>
+
+      {/* Payment Mode Breakdown (branch-item-summary only) */}
+      {activeReport.key === "branch-item-summary" && paymentModesData.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="font-semibold mb-3">Payment Mode Breakdown</h3>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Payment Mode</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paymentModesData.map((pm, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{pm.payment_mode_name}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(pm.amount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Row count footer */}
       {rows.length > 0 && (
