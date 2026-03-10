@@ -530,7 +530,7 @@ export default function ContactPage() {
           {/* Interactive Google Map - centered on Maharashtra coast */}
           <div className="overflow-hidden rounded-xl shadow-lg mb-10">
             <iframe
-              src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d970000!2d73.2!3d18.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sin"
+              src="https://www.google.com/maps/d/embed?mid=1hMvstssqqKiNzs6on-YoealbmDYSl5w&ehbc=2E312F"
               title="Ferry Service Locations"
               width="100%"
               height="500"
