@@ -259,6 +259,7 @@ export default function TicketingPage() {
   const ticketNoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idEndDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Dropdown data
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -344,6 +345,10 @@ export default function TicketingPage() {
   }, [formItems, formDiscount]);
 
   const fetchTickets = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setTableLoading(true);
     try {
       const skip = (page - 1) * pageSize;
@@ -381,16 +386,17 @@ export default function TicketingPage() {
       );
 
       const [pageResp, countResp] = await Promise.all([
-        api.get<Ticket[]>(`/api/tickets/?${params}`),
-        api.get<number>(`/api/tickets/count?${countParams}`),
+        api.get<Ticket[]>(`/api/tickets/?${params}`, { signal: controller.signal }),
+        api.get<number>(`/api/tickets/count?${countParams}`, { signal: controller.signal }),
       ]);
       setTickets(pageResp.data);
       setTotalCount(countResp.data as unknown as number);
       setError("");
     } catch {
+      if (controller.signal.aborted) return;
       setError("Failed to load tickets.");
     } finally {
-      setTableLoading(false);
+      if (!controller.signal.aborted) setTableLoading(false);
     }
   }, [
     page,
@@ -1763,23 +1769,6 @@ export default function TicketingPage() {
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            onKeyDown={(e) => {
-              if (e.key !== "Tab") return;
-              e.preventDefault();
-              const container = e.currentTarget;
-              const focusable = Array.from(
-                container.querySelectorAll<HTMLElement>(
-                  'input:not([disabled]):not([readonly]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"])'
-                )
-              );
-              if (focusable.length === 0) return;
-              const idx = focusable.indexOf(document.activeElement as HTMLElement);
-              if (e.shiftKey) {
-                focusable[idx <= 0 ? focusable.length - 1 : idx - 1].focus();
-              } else {
-                focusable[idx === -1 || idx >= focusable.length - 1 ? 0 : idx + 1].focus();
-              }
-            }}
           >
             <h3 className="text-lg font-bold mb-4">
               {editingTicket
@@ -1957,15 +1946,8 @@ export default function TicketingPage() {
                         <th className="text-right px-3 py-2 font-semibold text-muted-foreground w-[110px]">
                           Amount
                         </th>
-                        <th className="text-center px-3 py-2 w-[100px]">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={handleAddItem}
-                            disabled={formItems.some((fi) => isFormRowInvalid(fi, items))}
-                          >
-                            <Plus className="h-3 w-3 mr-1" /> Add Item
-                          </Button>
+                        <th className="text-center px-3 py-2 font-semibold text-muted-foreground w-[100px]">
+                          Action
                         </th>
                       </tr>
                     </thead>
@@ -2024,7 +2006,7 @@ export default function TicketingPage() {
                                   selectedId={fi.item_id}
                                   disabled={fi.is_cancelled}
                                   onSelect={(id) => handleItemChange(fi.tempId, id)}
-                                  tabIndex={fi.item_id && items.some((i) => i.id === fi.item_id) ? -1 : 0}
+                                  tabIndex={0}
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -2156,6 +2138,19 @@ export default function TicketingPage() {
                     </tbody>
                     <tfoot className="border-t border-border">
                       <tr>
+                        <td colSpan={8}></td>
+                        <td className="px-3 py-2 text-center">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAddItem}
+                            disabled={formItems.some((fi) => isFormRowInvalid(fi, items))}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add Item
+                          </Button>
+                        </td>
+                      </tr>
+                      <tr>
                         <td colSpan={7} className="px-3 py-2 text-right text-sm font-medium text-muted-foreground">
                           Amount
                         </td>
@@ -2178,7 +2173,6 @@ export default function TicketingPage() {
                           <Input
                             type="text"
                             inputMode="decimal"
-                            tabIndex={-1}
                             value={discountStr}
                             onChange={(e) => {
                               const val = e.target.value;
