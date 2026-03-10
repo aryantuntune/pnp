@@ -53,8 +53,7 @@ function formatRouteLabel(r: Route): string {
 }
 
 function getDefaultDateFrom(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return getToday();
 }
 
 function getToday(): string {
@@ -64,7 +63,7 @@ function getToday(): string {
 
 // ── Report Type Configuration ──
 
-type FilterType = "date_range" | "single_date" | "branch" | "payment_mode" | "route";
+type FilterType = "date_range" | "single_date" | "branch" | "payment_mode" | "route" | "user";
 
 interface ReportColumnConfig {
   key: string;
@@ -88,7 +87,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Date Wise Amount",
     endpoint: "/api/reports/date-wise-amount",
     pdfEndpoint: "/api/reports/date-wise-amount/pdf",
-    filters: ["date_range", "branch", "payment_mode"],
+    filters: ["date_range", "branch", "route", "payment_mode"],
     columns: [
       {
         key: "ticket_date",
@@ -108,7 +107,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Ferry Wise Item",
     endpoint: "/api/reports/ferry-wise-item",
     pdfEndpoint: "/api/reports/ferry-wise-item/pdf",
-    filters: ["single_date", "branch", "payment_mode"],
+    filters: ["single_date", "branch", "route", "payment_mode"],
     columns: [
       { key: "departure", label: "Time" },
       { key: "item_name", label: "Item" },
@@ -117,24 +116,24 @@ const REPORT_TYPES: ReportConfig[] = [
   },
   {
     key: "itemwise-levy",
-    label: "Itemwise Levy",
+    label: "Item Wise Summary",
     endpoint: "/api/reports/itemwise-levy",
     pdfEndpoint: "/api/reports/itemwise-levy/pdf",
     filters: ["date_range", "branch", "route"],
     columns: [
       { key: "item_name", label: "Item" },
       {
-        key: "levy",
-        label: "Levy",
+        key: "rate",
+        label: "Rate",
         align: "right",
-        render: (r) => formatCurrency(r.levy as number),
+        render: (r) => formatCurrency(r.rate as number),
       },
-      { key: "quantity", label: "Quantity", align: "right" },
+      { key: "quantity", label: "Qty", align: "right" },
       {
-        key: "amount",
-        label: "Amount",
+        key: "net",
+        label: "Net",
         align: "right",
-        render: (r) => formatCurrency(r.amount as number),
+        render: (r) => formatCurrency(r.net as number),
       },
     ],
   },
@@ -143,10 +142,10 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Payment Mode Wise",
     endpoint: "/api/reports/payment-mode",
     pdfEndpoint: "/api/reports/payment-mode/pdf",
-    filters: ["date_range", "branch"],
+    filters: ["date_range", "branch", "route"],
     columns: [
       { key: "payment_mode_name", label: "Payment Mode" },
-      { key: "ticket_count", label: "Ticket Count", align: "right" },
+      { key: "ticket_count", label: "Tickets", align: "right" },
       {
         key: "ticket_revenue",
         label: "Amount",
@@ -161,28 +160,26 @@ const REPORT_TYPES: ReportConfig[] = [
   {
     key: "ticket-details",
     label: "Ticket Details",
-    endpoint: "/api/tickets/",
+    endpoint: "/api/reports/ticket-details",
     pdfEndpoint: "/api/reports/ticket-details/pdf",
-    filters: ["single_date", "branch"],
+    filters: ["single_date", "branch", "route"],
     columns: [
       {
         key: "ticket_date",
-        label: "Date",
+        label: "Ticket Date",
         render: (r) => formatDate(r.ticket_date as string),
       },
-      { key: "ticket_no", label: "Ticket No" },
+      { key: "ticket_no", label: "TicketNo" },
+      { key: "payment_mode", label: "Payment Mode" },
+      { key: "boat_name", label: "Boat Name" },
       { key: "departure", label: "Time" },
-      { key: "payment_mode_name", label: "Payment Mode" },
+      { key: "ferry_type", label: "Ferry Type" },
+      { key: "client_name", label: "ClientName" },
       {
-        key: "net_amount",
+        key: "amount",
         label: "Amount",
         align: "right",
-        render: (r) => formatCurrency(r.net_amount as number),
-      },
-      {
-        key: "is_cancelled",
-        label: "Status",
-        render: (r) => (r.is_cancelled ? "Cancelled" : "Active"),
+        render: (r) => formatCurrency(r.amount as number),
       },
     ],
   },
@@ -191,7 +188,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "User Wise Daily",
     endpoint: "/api/reports/user-wise-summary",
     pdfEndpoint: "/api/reports/user-wise-summary/pdf",
-    filters: ["single_date", "branch"],
+    filters: ["single_date", "branch", "route", "user"],
     columns: [
       { key: "user_name", label: "User Name" },
       {
@@ -207,25 +204,26 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Vehicle Wise Tickets",
     endpoint: "/api/reports/vehicle-wise-tickets",
     pdfEndpoint: "/api/reports/vehicle-wise-tickets/pdf",
-    filters: ["single_date", "branch"],
+    filters: ["single_date", "branch", "route"],
     columns: [
       {
         key: "ticket_date",
-        label: "Date",
+        label: "Ticket Date",
         render: (r) => formatDate(r.ticket_date as string),
       },
-      { key: "ticket_no", label: "Ticket No" },
+      { key: "ticket_no", label: "TicketNo" },
+      { key: "payment_mode", label: "Payment Mode" },
       { key: "boat_name", label: "Boat Name" },
       { key: "departure", label: "Time" },
-      { key: "payment_mode", label: "Payment Mode" },
+      { key: "ferry_type", label: "Ferry Type" },
+      { key: "vehicle_no", label: "VehicleNo" },
+      { key: "vehicle_name", label: "VehicleName" },
       {
         key: "amount",
         label: "Amount",
         align: "right",
         render: (r) => formatCurrency(r.amount as number),
       },
-      { key: "vehicle_no", label: "Vehicle No" },
-      { key: "vehicle_name", label: "Vehicle Name" },
     ],
   },
   {
@@ -233,7 +231,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Branch Summary",
     endpoint: "/api/reports/branch-item-summary",
     pdfEndpoint: "/api/reports/branch-item-summary/pdf",
-    filters: ["date_range", "branch"],
+    filters: ["date_range", "branch", "route"],
     columns: [
       { key: "item_name", label: "Item" },
       {
@@ -253,6 +251,16 @@ const REPORT_TYPES: ReportConfig[] = [
   },
 ];
 
+// ── Print Stylesheet ──
+
+const PRINT_STYLES = `
+@media print {
+  nav, header, .print\\:hidden { display: none !important; }
+  body { background: white !important; }
+  .rounded-lg { box-shadow: none !important; border: none !important; }
+}
+`;
+
 // ── Main Component ──
 
 export default function ReportsPage() {
@@ -266,11 +274,13 @@ export default function ReportsPage() {
   const [branchId, setBranchId] = useState("");
   const [paymentModeId, setPaymentModeId] = useState("");
   const [routeId, setRouteId] = useState("");
+  const [userId, setUserId] = useState("");
 
   // Dropdown data
   const [branches, setBranches] = useState<Branch[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   // Current user for role-based scoping
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -285,7 +295,7 @@ export default function ReportsPage() {
   const [error, setError] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
 
-  // Branch item summary payment modes
+  // Branch item summary / itemwise-levy payment modes
   const [paymentModesData, setPaymentModesData] = useState<
     { payment_mode_name: string; amount: number }[]
   >([]);
@@ -301,18 +311,20 @@ export default function ReportsPage() {
   // Fetch dropdown data once on mount
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [branchResp, routeResp, pmResp, meResp] = await Promise.all([
+      const [branchResp, routeResp, pmResp, meResp, usersResp] = await Promise.all([
         api.get<Branch[]>(
           "/api/branches/?limit=200&status=active&sort_by=name&sort_order=asc"
         ),
         api.get<Route[]>("/api/routes/?limit=200&status=active"),
         api.get<PaymentMode[]>("/api/payment-modes/?limit=200&status=active"),
         api.get<User>("/api/auth/me"),
+        api.get<User[]>("/api/users/?limit=200&status=active"),
       ]);
       setBranches(branchResp.data);
       setRoutes(routeResp.data);
       setPaymentModes(pmResp.data);
       setCurrentUser(meResp.data);
+      setUsers(usersResp.data);
     } catch {
       // non-critical
     }
@@ -360,8 +372,11 @@ export default function ReportsPage() {
     if (config.filters.includes("route") && routeId) {
       params.route_id = routeId;
     }
+    if (config.filters.includes("user") && userId) {
+      params.user_id = userId;
+    }
     return params;
-  }, [activeIndex, dateFrom, dateTo, singleDate, branchId, paymentModeId, routeId]);
+  }, [activeIndex, dateFrom, dateTo, singleDate, branchId, paymentModeId, routeId, userId]);
 
   // Generate report
   const generateReport = useCallback(async () => {
@@ -372,45 +387,27 @@ export default function ReportsPage() {
       const config = REPORT_TYPES[activeIndex];
       const params = buildFilterParams();
 
-      // Ticket details endpoint has a different response shape
-      if (config.key === "ticket-details") {
-        const ticketParams: Record<string, string> = {
-          date_from: params.date || getToday(),
-          date_to: params.date || getToday(),
-          limit: "1000",
-        };
-        if (params.branch_id) {
-          ticketParams.branch_filter = params.branch_id;
-        }
-        const response = await api.get(config.endpoint, {
-          params: ticketParams,
-        });
-        const data = response.data;
-        setRows(Array.isArray(data) ? data : []);
-        setGrandTotal(null);
-      } else {
-        const response = await api.get(config.endpoint, { params });
-        const data = response.data;
-        if (data && typeof data === "object" && !Array.isArray(data)) {
-          setRows(Array.isArray(data.rows) ? data.rows : []);
-          setGrandTotal(
-            data.grand_total != null ? Number(data.grand_total) : null
-          );
-          // Extract payment modes for branch-item-summary
-          if (config.key === "branch-item-summary" && Array.isArray(data.payment_modes)) {
-            setPaymentModesData(data.payment_modes);
-          } else {
-            setPaymentModesData([]);
-          }
-        } else if (Array.isArray(data)) {
-          setRows(data);
-          setGrandTotal(null);
-          setPaymentModesData([]);
+      const response = await api.get(config.endpoint, { params });
+      const data = response.data;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        setRows(Array.isArray(data.rows) ? data.rows : []);
+        setGrandTotal(
+          data.grand_total != null ? Number(data.grand_total) : null
+        );
+        // Extract payment modes for branch-item-summary and itemwise-levy
+        if ((config.key === "branch-item-summary" || config.key === "itemwise-levy") && Array.isArray(data.payment_modes)) {
+          setPaymentModesData(data.payment_modes);
         } else {
-          setRows([]);
-          setGrandTotal(null);
           setPaymentModesData([]);
         }
+      } else if (Array.isArray(data)) {
+        setRows(data);
+        setGrandTotal(null);
+        setPaymentModesData([]);
+      } else {
+        setRows([]);
+        setGrandTotal(null);
+        setPaymentModesData([]);
       }
     } catch {
       setError("Failed to load report data. Please try again.");
@@ -428,17 +425,8 @@ export default function ReportsPage() {
       const params = buildFilterParams();
       const config = REPORT_TYPES[activeIndex];
 
-      // For ticket-details, backend expects `date` (singular), not date_from/date_to
-      const pdfParams =
-        config.key === "ticket-details"
-          ? {
-              date: params.date || getToday(),
-              ...(params.branch_id ? { branch_id: params.branch_id } : {}),
-            }
-          : params;
-
       const response = await api.get(config.pdfEndpoint, {
-        params: pdfParams,
+        params,
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -506,8 +494,11 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Print Stylesheet */}
+      <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-2xl font-bold">Reports</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -554,7 +545,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Report Type Tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-border pb-0 scrollbar-thin">
+      <div className="flex gap-1 overflow-x-auto border-b border-border pb-0 scrollbar-thin print:hidden">
         {REPORT_TYPES.map((report, index) => (
           <button
             key={report.key}
@@ -571,7 +562,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Filter Panel */}
-      <Card>
+      <Card className="print:hidden">
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-3">
             {/* Date Range Filters */}
@@ -635,6 +626,30 @@ export default function ReportsPage() {
               </div>
             )}
 
+            {/* Route Filter */}
+            {activeFilters.includes("route") && (
+              <div>
+                <Label className="mb-1.5 block">Route</Label>
+                <Select
+                  value={routeId || "all"}
+                  onValueChange={(v) => setRouteId(v === "all" ? "" : v)}
+                  disabled={isScoped}
+                >
+                  <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue placeholder="All Routes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Routes</SelectItem>
+                    {routes.map((r) => (
+                      <SelectItem key={r.id} value={String(r.id)}>
+                        {formatRouteLabel(r)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Payment Mode Filter */}
             {activeFilters.includes("payment_mode") && (
               <div>
@@ -658,23 +673,22 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {/* Route Filter */}
-            {activeFilters.includes("route") && (
+            {/* User / Billing Operator Filter */}
+            {activeFilters.includes("user") && (
               <div>
-                <Label className="mb-1.5 block">Route</Label>
+                <Label className="mb-1.5 block">Billing Operator</Label>
                 <Select
-                  value={routeId || "all"}
-                  onValueChange={(v) => setRouteId(v === "all" ? "" : v)}
-                  disabled={isScoped}
+                  value={userId || "all"}
+                  onValueChange={(v) => setUserId(v === "all" ? "" : v)}
                 >
-                  <SelectTrigger className="w-full sm:w-[220px]">
-                    <SelectValue placeholder="All Routes" />
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="All Operators" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Routes</SelectItem>
-                    {routes.map((r) => (
-                      <SelectItem key={r.id} value={String(r.id)}>
-                        {formatRouteLabel(r)}
+                    <SelectItem value="all">All Operators</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -701,7 +715,7 @@ export default function ReportsPage() {
 
       {/* Error */}
       {error && (
-        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm print:hidden">
           {error}
         </div>
       )}
@@ -814,8 +828,8 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Payment Mode Breakdown (branch-item-summary only) */}
-      {activeReport.key === "branch-item-summary" && paymentModesData.length > 0 && (
+      {/* Payment Mode Breakdown (branch-item-summary and itemwise-levy) */}
+      {(activeReport.key === "branch-item-summary" || activeReport.key === "itemwise-levy") && paymentModesData.length > 0 && (
         <Card>
           <CardContent className="pt-6">
             <h3 className="font-semibold mb-3">Payment Mode Breakdown</h3>
@@ -841,7 +855,7 @@ export default function ReportsPage() {
 
       {/* Row count footer */}
       {rows.length > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex items-center justify-between text-sm text-muted-foreground print:hidden">
           <span>
             Showing {rows.length} {rows.length === 1 ? "row" : "rows"}
           </span>

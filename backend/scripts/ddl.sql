@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS item_rates (
     updated_at          TIMESTAMPTZ,
     created_by          UUID DEFAULT uuid_generate_v4(),
     updated_by          UUID DEFAULT uuid_generate_v4(),
-    CONSTRAINT check_item_rate CHECK (rate > 1)
+    CONSTRAINT check_item_rate CHECK (rate >= 1)
 );
 
 -- Portal users table (customer-facing authentication)

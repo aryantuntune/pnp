@@ -55,6 +55,15 @@ import {
   setReceiptPaperWidth,
 } from "@/lib/print-receipt";
 
+/** Return today's date as YYYY-MM-DD in the user's local timezone. */
+function localToday(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 interface FormItem {
   tempId: string;
   id: number | null;
@@ -236,8 +245,8 @@ export default function TicketingPage() {
   // Filters
   const [branchFilter, setBranchFilter] = useState("");
   const [routeFilter, setRouteFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState(new Date().toISOString().split("T")[0]);
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0]);
+  const [dateFrom, setDateFrom] = useState(localToday());
+  const [dateTo, setDateTo] = useState(localToday());
   const [statusFilter, setStatusFilter] = useState("");
   const [ticketNoInput, setTicketNoInput] = useState("");
   const [ticketNoFilter, setTicketNoFilter] = useState("");
@@ -607,7 +616,7 @@ export default function TicketingPage() {
   // Open create modal
   const openCreateModal = async () => {
     setEditingTicket(null);
-    setFormTicketDate(new Date().toISOString().split("T")[0]);
+    setFormTicketDate(localToday());
     setFormDeparture("");
     setFormPaymentModeId(paymentModes.length > 0 ? paymentModes[0].id : 0);
     setFormDiscount(0);
@@ -1009,8 +1018,8 @@ export default function TicketingPage() {
     if (!isRouteRestricted) {
       setRouteFilter("");
     }
-    setDateFrom(new Date().toISOString().split("T")[0]);
-    setDateTo(new Date().toISOString().split("T")[0]);
+    setDateFrom(localToday());
+    setDateTo(localToday());
     setStatusFilter("");
     setTicketNoInput("");
     setTicketNoFilter("");
@@ -1025,8 +1034,8 @@ export default function TicketingPage() {
   const hasActiveFilters =
     branchFilter ||
     (!isRouteRestricted && routeFilter) ||
-    (dateFrom && dateFrom !== new Date().toISOString().split("T")[0]) ||
-    (dateTo && dateTo !== new Date().toISOString().split("T")[0]) ||
+    (dateFrom && dateFrom !== localToday()) ||
+    (dateTo && dateTo !== localToday()) ||
     statusFilter ||
     ticketNoInput ||
     idInput ||

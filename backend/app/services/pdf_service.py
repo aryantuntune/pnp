@@ -121,6 +121,7 @@ def _build_pdf(
     rows: list[list[str]],
     col_widths: list[float] | None = None,
     landscape_mode: bool = False,
+    branch_name: str | None = None,
 ) -> BytesIO:
     """Build a PDF document with company header, title, subtitle and data table.
 
@@ -139,6 +140,8 @@ def _build_pdf(
         Optional explicit column widths.
     landscape_mode : bool
         Use landscape A4 when True.
+    branch_name : str | None
+        Optional branch name displayed between the company name and report title.
 
     Returns
     -------
@@ -159,6 +162,8 @@ def _build_pdf(
 
     elements: list = []
     elements.append(Paragraph(COMPANY_NAME, styles["CompanyHeader"]))
+    if branch_name:
+        elements.append(Paragraph(branch_name, styles["ReportTitle"]))
     elements.append(Paragraph(title, styles["ReportTitle"]))
     if subtitle:
         elements.append(Paragraph(subtitle, styles["Subtitle"]))
@@ -258,6 +263,7 @@ def generate_date_wise_amount_pdf(data: dict) -> BytesIO:
     """
     title = "Date Wise Amount Summary"
     subtitle = _date_range_subtitle(data, _optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
     headers = ["Ticket Date", "Amount"]
     pdf_rows: list[list[str]] = []
@@ -275,6 +281,7 @@ def generate_date_wise_amount_pdf(data: dict) -> BytesIO:
         subtitle=subtitle,
         headers=headers,
         rows=pdf_rows,
+        branch_name=branch_name,
     )
 
 
@@ -290,6 +297,7 @@ def generate_ferry_wise_item_pdf(data: dict) -> BytesIO:
     """
     title = "Ferry Wise Item Summary"
     subtitle = _single_date_subtitle(data, extra_parts=_optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
     headers = ["Time", "Item", "Quantity"]
     pdf_rows: list[list[str]] = []
@@ -305,47 +313,66 @@ def generate_ferry_wise_item_pdf(data: dict) -> BytesIO:
         subtitle=subtitle,
         headers=headers,
         rows=pdf_rows,
+        branch_name=branch_name,
     )
 
 
 # ---------------------------------------------------------------------------
-# 3. Itemwise Levy Summary
+# 3. Item Wise Summary
 # ---------------------------------------------------------------------------
 
-def generate_itemwise_levy_pdf(data: dict) -> BytesIO:
-    """Generate PDF for the Itemwise Levy Summary report.
+def generate_item_wise_summary_pdf(data: dict) -> BytesIO:
+    """Generate PDF for the Item Wise Summary report.
 
-    Expected data keys (from report_service.get_itemwise_levy_summary):
+    Expected data keys (from report_service.get_item_wise_summary):
         date_from, date_to, branch_name, route_name,
-        rows (list of {item_name, levy, quantity, amount}), grand_total
+        rows (list of {item_name, rate, quantity, net}), grand_total,
+        payment_modes (list of {payment_mode_name, amount})
     """
-    title = "Itemwise Levy Summary"
+    title = "Item Wise Summary"
     subtitle = _date_range_subtitle(data, _optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
-    headers = ["Item", "Levy", "Quantity", "Amount"]
+    headers = ["Item", "Rate", "Qty", "Net"]
     pdf_rows: list[list[str]] = []
     for row in data.get("rows", []):
         pdf_rows.append([
             str(row.get("item_name", "")),
-            _fmt_amount(row.get("levy", 0)),
+            _fmt_amount(row.get("rate", 0)),
             str(row.get("quantity", 0)),
-            _fmt_amount(row.get("amount", 0)),
+            _fmt_amount(row.get("net", 0)),
         ])
 
-    # Totals row
+    # Grand Total row
     total_qty = sum(r.get("quantity", 0) for r in data.get("rows", []))
     pdf_rows.append([
-        "Total",
+        "Grand Total",
         "",
         str(total_qty),
         _fmt_amount(data.get("grand_total", 0)),
     ])
+
+    # Payment mode breakdown rows
+    payment_modes = data.get("payment_modes", [])
+    if payment_modes:
+        # Empty separator row
+        pdf_rows.append(["", "", "", ""])
+        # Section header row
+        pdf_rows.append(["Payment Mode", "", "", "Amount"])
+        for pm in payment_modes:
+            pdf_rows.append([
+                str(pm.get("payment_mode_name", "")),
+                "",
+                "",
+                _fmt_amount(pm.get("amount", 0)),
+            ])
 
     return _build_pdf(
         title=title,
         subtitle=subtitle,
         headers=headers,
         rows=pdf_rows,
+        branch_name=branch_name,
     )
 
 
@@ -363,6 +390,7 @@ def generate_payment_mode_pdf(data: dict) -> BytesIO:
     """
     title = "Payment Mode Wise Summary"
     subtitle = _date_range_subtitle(data, _optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
     headers = ["Payment Mode", "Tickets", "Amount"]
     pdf_rows: list[list[str]] = []
@@ -389,6 +417,7 @@ def generate_payment_mode_pdf(data: dict) -> BytesIO:
         subtitle=subtitle,
         headers=headers,
         rows=pdf_rows,
+        branch_name=branch_name,
     )
 
 
@@ -414,12 +443,13 @@ def generate_ticket_details_pdf(data: dict) -> BytesIO:
         subtitle = _single_date_subtitle(data, date_key="report_date", extra_parts=extra)
     else:
         subtitle = _date_range_subtitle(data, extra)
+    branch_name = data.get("branch_name")
 
-    headers = ["Date", "Ticket No", "Time", "Payment Mode", "Amount", "Status"]
+    headers = ["Ticket Date", "TicketNo", "Payment Mode", "Boat Name", "Time", "Ferry Type", "ClientName", "Amount"]
     pdf_rows: list[list[str]] = []
     total_amount = 0.0
     for row in data.get("rows", []):
-        net_amount = float(row.get("net_amount", 0))
+        net_amount = float(row.get("amount", 0))
         is_cancelled = row.get("is_cancelled", False)
         if not is_cancelled:
             total_amount += net_amount
@@ -427,14 +457,16 @@ def generate_ticket_details_pdf(data: dict) -> BytesIO:
         pdf_rows.append([
             _fmt_date(row.get("ticket_date")),
             str(row.get("ticket_no", "")),
+            str(row.get("payment_mode", "") or row.get("payment_mode_name", "")),
+            str(row.get("boat_name", "")),
             str(row.get("departure", "")),
-            str(row.get("payment_mode_name", "")),
+            str(row.get("ferry_type", "")),
+            str(row.get("client_name", "")),
             _fmt_amount(net_amount),
-            "Cancelled" if is_cancelled else "Active",
         ])
 
     # Totals row
-    pdf_rows.append(["", "", "", "Total", _fmt_amount(total_amount), ""])
+    pdf_rows.append(["", "", "", "", "", "", "Grand Total", _fmt_amount(total_amount)])
 
     return _build_pdf(
         title=title,
@@ -442,6 +474,7 @@ def generate_ticket_details_pdf(data: dict) -> BytesIO:
         headers=headers,
         rows=pdf_rows,
         landscape_mode=True,
+        branch_name=branch_name,
     )
 
 
@@ -457,6 +490,7 @@ def generate_user_wise_summary_pdf(data: dict) -> BytesIO:
     """
     title = "User Wise Daily Cash Summary"
     subtitle = _single_date_subtitle(data, extra_parts=_optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
     headers = ["User Name", "Amount"]
     pdf_rows: list[list[str]] = []
@@ -474,6 +508,7 @@ def generate_user_wise_summary_pdf(data: dict) -> BytesIO:
         subtitle=subtitle,
         headers=headers,
         rows=pdf_rows,
+        branch_name=branch_name,
     )
 
 
@@ -492,21 +527,25 @@ def generate_vehicle_wise_tickets_pdf(data: dict) -> BytesIO:
     """
     title = "Vehicle Wise Ticket Details"
     subtitle = _single_date_subtitle(data, extra_parts=_optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
-    headers = ["Date", "Ticket No", "Time", "Payment Mode", "Amount", "Vehicle No"]
+    headers = ["Ticket Date", "TicketNo", "Payment Mode", "Boat Name", "Time", "Ferry Type", "VehicleNo", "VehicleName", "Amount"]
     pdf_rows: list[list[str]] = []
     for row in data.get("rows", []):
         pdf_rows.append([
             _fmt_date(row.get("ticket_date")),
             str(row.get("ticket_no", "")),
-            str(row.get("departure", "")),
             str(row.get("payment_mode", "")),
-            _fmt_amount(row.get("amount", 0)),
+            str(row.get("boat_name", "")),
+            str(row.get("departure", "")),
+            str(row.get("ferry_type", "")),
             str(row.get("vehicle_no", "") or ""),
+            str(row.get("vehicle_name", "") or ""),
+            _fmt_amount(row.get("amount", 0)),
         ])
 
     # Totals row
-    pdf_rows.append(["", "", "", "Total", _fmt_amount(data.get("grand_total", 0)), ""])
+    pdf_rows.append(["", "", "", "", "", "", "", "Grand Total", _fmt_amount(data.get("grand_total", 0))])
 
     return _build_pdf(
         title=title,
@@ -514,6 +553,7 @@ def generate_vehicle_wise_tickets_pdf(data: dict) -> BytesIO:
         headers=headers,
         rows=pdf_rows,
         landscape_mode=True,
+        branch_name=branch_name,
     )
 
 
@@ -531,6 +571,7 @@ def generate_branch_summary_pdf(data: dict) -> BytesIO:
     """
     title = "Branch Summary"
     subtitle = _date_range_subtitle(data)
+    branch_name = data.get("branch_name")
 
     headers = ["Branch", "Tickets", "Bookings", "Ticket Revenue", "Booking Revenue", "Total Revenue"]
     pdf_rows: list[list[str]] = []
@@ -575,6 +616,7 @@ def generate_branch_summary_pdf(data: dict) -> BytesIO:
         headers=headers,
         rows=pdf_rows,
         landscape_mode=True,
+        branch_name=branch_name,
     )
 
 
@@ -593,6 +635,7 @@ def generate_branch_item_summary_pdf(data: dict) -> BytesIO:
     """
     title = "Branch Item Summary"
     subtitle = _date_range_subtitle(data, _optional_filter_parts(data))
+    branch_name = data.get("branch_name")
 
     headers = ["Item", "Rate", "Qty", "Net"]
     pdf_rows: list[list[str]] = []
@@ -633,4 +676,5 @@ def generate_branch_item_summary_pdf(data: dict) -> BytesIO:
         subtitle=subtitle,
         headers=headers,
         rows=pdf_rows,
+        branch_name=branch_name,
     )

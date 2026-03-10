@@ -55,6 +55,11 @@ async def list_tickets(
     # Force route scoping for non-admin roles
     if needs_route_scope(current_user):
         route_filter = current_user.route_id
+    # Billing operators can only view today's tickets
+    if current_user.role == UserRole.BILLING_OPERATOR:
+        today = date.today()
+        date_from = today
+        date_to = today
     return await ticket_service.get_all_tickets(
         db, skip, limit, sort_by, sort_order,
         status, branch_filter, route_filter, date_from, date_to,
@@ -89,6 +94,11 @@ async def count_tickets(
     # Force route scoping for non-admin roles
     if needs_route_scope(current_user):
         route_filter = current_user.route_id
+    # Billing operators can only view today's tickets
+    if current_user.role == UserRole.BILLING_OPERATOR:
+        today = date.today()
+        date_from = today
+        date_to = today
     return await ticket_service.count_tickets(
         db, status, branch_filter, route_filter, date_from, date_to,
         id_filter, id_op, id_filter_end, ticket_no_filter,

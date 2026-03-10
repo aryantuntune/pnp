@@ -17,12 +17,13 @@ from app.schemas.report import (
     PaymentModeReport,
     DateWiseAmountReport,
     FerryWiseItemReport,
-    ItemwiseLevyReport,
+    ItemWiseSummaryReport,
     UserWiseSummaryReport,
     VehicleWiseTicketReport,
     BranchItemSummaryReport,
+    TicketDetailsReport,
 )
-from app.services import report_service, pdf_service, ticket_service
+from app.services import report_service, pdf_service
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
@@ -196,12 +197,13 @@ async def date_wise_amount_report(
     date_from: datetime.date = Query(...),
     date_to: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     payment_mode_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    return await report_service.get_date_wise_amount(db, date_from, date_to, branch_id, payment_mode_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    return await report_service.get_date_wise_amount(db, date_from, date_to, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
 
 
 @router.get(
@@ -213,19 +215,20 @@ async def date_wise_amount_report(
 async def ferry_wise_item_report(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     payment_mode_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    return await report_service.get_ferry_wise_item_summary(db, date, branch_id, payment_mode_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    return await report_service.get_ferry_wise_item_summary(db, date, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
 
 
 @router.get(
     "/itemwise-levy",
-    response_model=ItemwiseLevyReport,
-    summary="Itemwise levy summary",
-    description="Levy breakdown per item over a date range.",
+    response_model=ItemWiseSummaryReport,
+    summary="Item wise summary",
+    description="Item wise summary with rate and payment mode breakdown.",
 )
 async def itemwise_levy_report(
     date_from: datetime.date = Query(...),
@@ -236,7 +239,7 @@ async def itemwise_levy_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
-    return await report_service.get_itemwise_levy_summary(db, date_from, date_to, branch_id, route_id)
+    return await report_service.get_item_wise_summary(db, date_from, date_to, branch_id, route_id)
 
 
 @router.get(
@@ -248,11 +251,15 @@ async def itemwise_levy_report(
 async def user_wise_summary_report(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
+    user_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    return await report_service.get_user_wise_summary(db, date, branch_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    if current_user.role == UserRole.BILLING_OPERATOR:
+        user_id = str(current_user.id)
+    return await report_service.get_user_wise_summary(db, date, branch_id, route_id, user_id)
 
 
 @router.get(
@@ -264,11 +271,12 @@ async def user_wise_summary_report(
 async def vehicle_wise_ticket_report(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    return await report_service.get_vehicle_wise_tickets(db, date, branch_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    return await report_service.get_vehicle_wise_tickets(db, date, branch_id, route_id)
 
 
 @router.get(
@@ -281,11 +289,12 @@ async def branch_item_summary_report(
     date_from: datetime.date = Query(...),
     date_to: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    return await report_service.get_branch_item_summary(db, date_from, date_to, branch_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    return await report_service.get_branch_item_summary(db, date_from, date_to, branch_id, route_id)
 
 
 # ---------------------------------------------------------------------------
@@ -302,12 +311,13 @@ async def get_date_wise_amount_pdf(
     date_from: datetime.date = Query(...),
     date_to: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     payment_mode_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    data = await report_service.get_date_wise_amount(db, date_from, date_to, branch_id, payment_mode_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    data = await report_service.get_date_wise_amount(db, date_from, date_to, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
     pdf_buf = pdf_service.generate_date_wise_amount_pdf(data)
     return StreamingResponse(
         pdf_buf,
@@ -324,12 +334,13 @@ async def get_date_wise_amount_pdf(
 async def get_ferry_wise_item_pdf(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     payment_mode_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    data = await report_service.get_ferry_wise_item_summary(db, date, branch_id, payment_mode_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    data = await report_service.get_ferry_wise_item_summary(db, date, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
     pdf_buf = pdf_service.generate_ferry_wise_item_pdf(data)
     return StreamingResponse(
         pdf_buf,
@@ -352,8 +363,8 @@ async def get_itemwise_levy_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
-    data = await report_service.get_itemwise_levy_summary(db, date_from, date_to, branch_id, route_id)
-    pdf_buf = pdf_service.generate_itemwise_levy_pdf(data)
+    data = await report_service.get_item_wise_summary(db, date_from, date_to, branch_id, route_id)
+    pdf_buf = pdf_service.generate_item_wise_summary_pdf(data)
     return StreamingResponse(
         pdf_buf,
         media_type="application/pdf",
@@ -385,6 +396,23 @@ async def get_payment_mode_pdf(
 
 
 @router.get(
+    "/ticket-details",
+    response_model=TicketDetailsReport,
+    summary="Ticket details report",
+    description="Detailed ticket list for a single date with boat name and payment mode.",
+)
+async def ticket_details_report(
+    date: datetime.date = Query(...),
+    branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_report_roles),
+):
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    return await report_service.get_ticket_details_report(db, date, branch_id, route_id)
+
+
+@router.get(
     "/ticket-details/pdf",
     summary="Ticket details PDF",
     description="Download the Ticket Details report as a PDF file.",
@@ -392,45 +420,12 @@ async def get_payment_mode_pdf(
 async def get_ticket_details_pdf(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    # Fetch all tickets for the given date and optional branch, using a large
-    # limit so that all tickets for a single day are included in the PDF.
-    tickets = await ticket_service.get_all_tickets(
-        db,
-        skip=0,
-        limit=10000,
-        sort_by="ticket_no",
-        sort_order="asc",
-        branch_filter=branch_id,
-        date_from=date,
-        date_to=date,
-    )
-
-    # Resolve the branch name for the subtitle
-    branch_name = None
-    if branch_id:
-        branch_name = await ticket_service._get_branch_name(db, branch_id)
-
-    # Build the data dict expected by generate_ticket_details_pdf
-    data = {
-        "date": date,
-        "branch_name": branch_name,
-        "rows": [
-            {
-                "ticket_date": t["ticket_date"],
-                "ticket_no": t["ticket_no"],
-                "departure": t["departure"] or "",
-                "payment_mode_name": t["payment_mode_name"] or "",
-                "net_amount": t["net_amount"],
-                "is_cancelled": t["is_cancelled"],
-            }
-            for t in tickets
-        ],
-    }
-
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    data = await report_service.get_ticket_details_report(db, date, branch_id, route_id)
     pdf_buf = pdf_service.generate_ticket_details_pdf(data)
     return StreamingResponse(
         pdf_buf,
@@ -447,11 +442,15 @@ async def get_ticket_details_pdf(
 async def get_user_wise_summary_pdf(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
+    user_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    data = await report_service.get_user_wise_summary(db, date, branch_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    if current_user.role == UserRole.BILLING_OPERATOR:
+        user_id = str(current_user.id)
+    data = await report_service.get_user_wise_summary(db, date, branch_id, route_id, user_id)
     pdf_buf = pdf_service.generate_user_wise_summary_pdf(data)
     return StreamingResponse(
         pdf_buf,
@@ -468,11 +467,12 @@ async def get_user_wise_summary_pdf(
 async def get_vehicle_wise_tickets_pdf(
     date: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    data = await report_service.get_vehicle_wise_tickets(db, date, branch_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    data = await report_service.get_vehicle_wise_tickets(db, date, branch_id, route_id)
     pdf_buf = pdf_service.generate_vehicle_wise_tickets_pdf(data)
     return StreamingResponse(
         pdf_buf,
@@ -514,11 +514,12 @@ async def get_branch_item_summary_pdf(
     date_from: datetime.date = Query(...),
     date_to: datetime.date = Query(...),
     branch_id: int | None = Query(None),
+    route_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    branch_id = await _scope_branch_only(db, current_user, branch_id)
-    data = await report_service.get_branch_item_summary(db, date_from, date_to, branch_id)
+    route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    data = await report_service.get_branch_item_summary(db, date_from, date_to, branch_id, route_id)
     pdf_buf = pdf_service.generate_branch_item_summary_pdf(data)
     return StreamingResponse(
         pdf_buf,

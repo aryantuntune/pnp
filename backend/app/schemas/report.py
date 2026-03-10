@@ -131,22 +131,30 @@ class FerryWiseItemReport(BaseModel):
     rows: list[FerryWiseItemRow]
 
 
-# --- Itemwise Levy Summary ---
+# --- Payment Mode (shared) ---
 
-class ItemwiseLevyRow(BaseModel):
-    item_name: str
-    levy: Decimal
-    quantity: int
+class BranchItemSummaryPaymentMode(BaseModel):
+    payment_mode_name: str
     amount: Decimal
 
 
-class ItemwiseLevyReport(BaseModel):
+# --- Item Wise Summary ---
+
+class ItemWiseSummaryRow(BaseModel):
+    item_name: str
+    rate: Decimal
+    quantity: int
+    net: Decimal
+
+
+class ItemWiseSummaryReport(BaseModel):
     date_from: datetime.date
     date_to: datetime.date
     branch_name: str | None = None
     route_name: str | None = None
-    rows: list[ItemwiseLevyRow]
+    rows: list[ItemWiseSummaryRow]
     grand_total: Decimal
+    payment_modes: list[BranchItemSummaryPaymentMode] = []
 
 
 # --- User Wise Daily Summary ---
@@ -170,8 +178,10 @@ class VehicleWiseTicketRow(BaseModel):
     boat_name: str | None = None
     departure: str | None = None
     payment_mode: str
+    ferry_type: str = "REGULAR"
     amount: Decimal
     vehicle_no: str | None = None
+    vehicle_name: str | None = None
 
 
 class VehicleWiseTicketReport(BaseModel):
@@ -190,11 +200,6 @@ class BranchItemSummaryRow(BaseModel):
     net: Decimal
 
 
-class BranchItemSummaryPaymentMode(BaseModel):
-    payment_mode_name: str
-    amount: Decimal
-
-
 class BranchItemSummaryReport(BaseModel):
     date_from: datetime.date
     date_to: datetime.date
@@ -202,3 +207,24 @@ class BranchItemSummaryReport(BaseModel):
     rows: list[BranchItemSummaryRow]
     grand_total: Decimal
     payment_modes: list[BranchItemSummaryPaymentMode]
+
+
+# --- Ticket Details Report ---
+
+class TicketDetailsReportRow(BaseModel):
+    ticket_date: datetime.date
+    ticket_no: int
+    payment_mode: str
+    boat_name: str | None = None
+    departure: str | None = None
+    ferry_type: str = "REGULAR"
+    client_name: str = ""
+    amount: Decimal
+    is_cancelled: bool = False
+
+
+class TicketDetailsReport(BaseModel):
+    report_date: datetime.date
+    branch_name: str | None = None
+    rows: list[TicketDetailsReportRow]
+    grand_total: Decimal
