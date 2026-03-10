@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { PWARegister } from "@/components/pwa-register";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
   title: "Suvarnadurga Shipping & Marine Services - Ferry Boat Ticketing",
   description:
     "Maharashtra's premier ferry service connecting the Konkan coast since 2003. Book ferry tickets for Dabhol-Dhopave, Jaigad-Tawsal, Dighi-Agardande, and more routes.",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -21,12 +23,21 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SSMSPL Checker",
+  },
   openGraph: {
     title: "Suvarnadurga Shipping & Marine Services",
     description:
       "Maharashtra's premier ferry service connecting the Konkan coast since 2003.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1e3a5f",
 };
 
 export default function RootLayout({
@@ -40,6 +51,7 @@ export default function RootLayout({
         className={`${inter.variable} antialiased`}
       >
         {children}
+        <PWARegister />
       </body>
     </html>
   );
