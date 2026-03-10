@@ -60,3 +60,16 @@ backend/tests/
 # Throwaway / generated files
 tsc_output.txt
 ssmspl_project_structure.txt
+carferry_in_content.json
+test_quick.py
+updates_to_deploys_today.md
+
+# Dev utility scripts
+scrape_carferry.py
+screenshot_portal.py
+screenshot_sidebar.py
+
+# Screenshots & reference images (local only)
+screenshots_legacy/
+screenshots_responsive/
+data/ticket_reference.jpeg
