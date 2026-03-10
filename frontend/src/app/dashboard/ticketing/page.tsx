@@ -195,6 +195,7 @@ function ItemSearchSelect({
       {open && (
         <ul
           ref={listRef}
+          tabIndex={-1}
           className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg text-sm"
         >
           {filtered.length === 0 ? (
