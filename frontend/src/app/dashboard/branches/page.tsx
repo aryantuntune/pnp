@@ -57,6 +57,7 @@ export default function BranchesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
@@ -66,6 +67,10 @@ export default function BranchesPage() {
   const [viewBranch, setViewBranch] = useState<Branch | null>(null);
 
   const fetchBranches = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setTableLoading(true);
     try {
       const skip = (page - 1) * pageSize;
@@ -89,16 +94,17 @@ export default function BranchesPage() {
       );
 
       const [pageResp, countResp] = await Promise.all([
-        api.get<Branch[]>(`/api/branches/?${params}`),
-        api.get<number>(`/api/branches/count?${countParams}`),
+        api.get<Branch[]>(`/api/branches/?${params}`, { signal: controller.signal }),
+        api.get<number>(`/api/branches/count?${countParams}`, { signal: controller.signal }),
       ]);
       setBranches(pageResp.data);
       setTotalCount(countResp.data as unknown as number);
       setError("");
-    } catch {
+    } catch (err) {
+      if (controller.signal.aborted) return;
       setError("Failed to load branches.");
     } finally {
-      setTableLoading(false);
+      if (!controller.signal.aborted) setTableLoading(false);
     }
   }, [page, pageSize, sortBy, sortOrder, search, statusFilter]);
 

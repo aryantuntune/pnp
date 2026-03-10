@@ -49,6 +49,7 @@ export default function FerriesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [editingBoat, setEditingBoat] = useState<Boat | null>(null);
@@ -56,6 +57,10 @@ export default function FerriesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const fetchBoats = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setTableLoading(true);
     try {
       const skip = (page - 1) * pageSize;
@@ -79,16 +84,17 @@ export default function FerriesPage() {
       );
 
       const [pageResp, countResp] = await Promise.all([
-        api.get<Boat[]>(`/api/boats/?${params}`),
-        api.get<number>(`/api/boats/count?${countParams}`),
+        api.get<Boat[]>(`/api/boats/?${params}`, { signal: controller.signal }),
+        api.get<number>(`/api/boats/count?${countParams}`, { signal: controller.signal }),
       ]);
       setBoats(pageResp.data);
       setTotalCount(countResp.data as unknown as number);
       setError("");
-    } catch {
+    } catch (err) {
+      if (controller.signal.aborted) return;
       setError("Failed to load boats.");
     } finally {
-      setTableLoading(false);
+      if (!controller.signal.aborted) setTableLoading(false);
     }
   }, [page, pageSize, sortBy, sortOrder, search, statusFilter]);
 
