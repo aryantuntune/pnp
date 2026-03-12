@@ -34,15 +34,15 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 @router.post(
     "/login",
     summary="Authenticate user",
-    description="Validate email & password and return a JWT access token and refresh token via HttpOnly cookies.",
+    description="Validate username & password and return a JWT access token and refresh token via HttpOnly cookies.",
     responses={
         200: {"description": "Successfully authenticated"},
-        401: {"description": "Invalid email or password"},
+        401: {"description": "Invalid username or password"},
     },
 )
 @limiter.limit("10/minute")
 async def login(request: Request, body: LoginRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    tokens = await auth_service.login(db, body.email, body.password)
+    tokens = await auth_service.login(db, body.username, body.password)
     # Probabilistic cleanup (~5% of logins) to avoid expired token buildup
     if random.random() < 0.05:
         background_tasks.add_task(cleanup_expired_background)
@@ -58,7 +58,7 @@ async def login(request: Request, body: LoginRequest, background_tasks: Backgrou
     description="Authenticate a ticket checker for the mobile app. Returns tokens in JSON body (no cookies). Rejects non-TICKET_CHECKER roles.",
     responses={
         200: {"description": "Successfully authenticated"},
-        401: {"description": "Invalid email or password"},
+        401: {"description": "Invalid username or password"},
         403: {"description": "Not a ticket checker account"},
     },
 )
@@ -70,11 +70,11 @@ async def mobile_login(
     db: AsyncSession = Depends(get_db),
 ):
     # Authenticate first
-    user = await auth_service.authenticate_user(db, body.email, body.password)
+    user = await auth_service.authenticate_user(db, body.username, body.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect username or password",
         )
     # Check role BEFORE generating tokens
     if user.role != UserRole.TICKET_CHECKER:
@@ -158,6 +158,41 @@ async def refresh(request: Request, body: RefreshRequest | None = None, db: Asyn
     response = JSONResponse(content={"message": "Token refreshed", "token_type": "bearer"})
     set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"])
     return response
+
+
+@router.post(
+    "/select-branch",
+    summary="Set active branch for the current session",
+    description="Billing operators (or managers) select which branch they are operating from. "
+                "The backend validates the branch belongs to the user's assigned route.",
+    responses={
+        200: {"description": "Branch set successfully"},
+        400: {"description": "Branch does not belong to user's route"},
+        401: {"description": "Not authenticated"},
+    },
+)
+async def select_branch(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    branch_id = body.get("branch_id")
+    if branch_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="branch_id is required")
+
+    # Validate branch belongs to user's route
+    if current_user.route_id:
+        from app.core.route_scope import get_route_branch_ids
+        b1, b2 = await get_route_branch_ids(db, current_user.route_id)
+        if branch_id not in (b1, b2):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Branch does not belong to your assigned route.",
+            )
+
+    current_user.active_branch_id = branch_id
+    await db.commit()
+    return {"message": "Branch set successfully", "active_branch_id": branch_id}
 
 
 @router.get(

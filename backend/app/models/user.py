@@ -25,6 +25,9 @@ class User(Base):
     route_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("routes.id"), nullable=True
     )
+    active_branch_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("branches.id"), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -17,6 +17,7 @@ from app.models.sys_update_log import SysUpdateLog
 from app.models.refresh_token import RefreshToken
 from app.models.payment_transaction import PaymentTransaction
 from app.models.daily_report_recipient import DailyReportRecipient
+from app.models.rate_change_log import RateChangeLog
 
 __all__ = [
     "User",
@@ -39,4 +40,5 @@ __all__ = [
     "RefreshToken",
     "PaymentTransaction",
     "DailyReportRecipient",
+    "RateChangeLog",
 ]

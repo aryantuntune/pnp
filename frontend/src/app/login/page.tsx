@@ -11,7 +11,7 @@ import { LoginRequest, User, RouteBranch } from "@/types";
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState<LoginRequest>({
-    email: "",
+    username: "",
     password: "",
   });
   const [error, setError] = useState<string>("");
@@ -68,7 +68,13 @@ export default function LoginPage() {
     }
   };
 
-  const handleBranchSelect = (branch: RouteBranch) => {
+  const handleBranchSelect = async (branch: RouteBranch) => {
+    try {
+      // Persist branch selection on the server (enforced for billing operators)
+      await api.post("/api/auth/select-branch", { branch_id: branch.branch_id });
+    } catch {
+      // Non-critical: server will still use route scoping
+    }
     setSelectedBranch(branch.branch_id, branch.branch_name);
     router.push("/dashboard");
   };
@@ -180,10 +186,10 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Email */}
+                {/* Username */}
                 <div className="animate-slide-up-delayed-2">
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Email
+                    Username
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -199,19 +205,19 @@ export default function LoginPage() {
                         strokeLinejoin="round"
                         className="text-slate-400"
                       >
-                        <rect width="20" height="16" x="2" y="4" rx="2" />
-                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
                       </svg>
                     </div>
                     <input
-                      type="email"
+                      type="text"
                       required
-                      value={form.email}
+                      value={form.username}
                       onChange={(e) =>
-                        setForm({ ...form, email: e.target.value })
+                        setForm({ ...form, username: e.target.value })
                       }
                       className="w-full border-2 border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                      placeholder="Enter your email"
+                      placeholder="Enter your username"
                     />
                   </div>
                 </div>

@@ -172,4 +172,4 @@ async def update_item_rate(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Managers can only update item rates for their assigned route",
             )
-    return await item_rate_service.update_item_rate(db, item_rate_id, body)
+    return await item_rate_service.update_item_rate(db, item_rate_id, body, user_id=current_user.id)

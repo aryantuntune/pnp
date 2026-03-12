@@ -14,8 +14,8 @@ from app.services import token_service
 SESSION_TIMEOUT_SECONDS = 120
 
 
-async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email, User.is_active == True))
+async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
+    result = await db.execute(select(User).where(User.username == username, User.is_active == True))
     user = result.scalar_one_or_none()
     if not user or not verify_password(password, user.hashed_password):
         return None
@@ -38,13 +38,13 @@ def _start_session(user: User) -> str:
     return sid
 
 
-async def login(db: AsyncSession, email: str, password: str) -> dict:
+async def login(db: AsyncSession, username: str, password: str) -> dict:
     from fastapi import HTTPException, status
-    user = await authenticate_user(db, email, password)
+    user = await authenticate_user(db, username, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect username or password",
         )
 
     # Single-session enforcement

@@ -117,3 +117,7 @@ class UserMeResponse(UserRead):
         default=[],
         description="Branches on the user's assigned route (for branch selection at login)",
     )
+    active_branch_id: int | None = Field(
+        default=None,
+        description="Currently selected operating branch (set after login branch selection)",
+    )

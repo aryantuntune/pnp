@@ -556,6 +556,7 @@ async def get_item_wise_summary(
     date_to: datetime.date,
     branch_id: int | None = None,
     route_id: int | None = None,
+    payment_mode_id: int | None = None,
 ) -> dict:
     q = (
         select(
@@ -575,6 +576,8 @@ async def get_item_wise_summary(
         .order_by(Item.name)
     )
     q = _apply_ticket_filters(q, date_from, date_to, branch_id, route_id)
+    if payment_mode_id:
+        q = q.where(Ticket.payment_mode_id == payment_mode_id)
 
     result = (await db.execute(q)).all()
 
@@ -606,6 +609,8 @@ async def get_item_wise_summary(
         .order_by(PaymentMode.description)
     )
     pm_q = _apply_ticket_filters(pm_q, date_from, date_to, branch_id, route_id)
+    if payment_mode_id:
+        pm_q = pm_q.where(Ticket.payment_mode_id == payment_mode_id)
 
     pm_result = (await db.execute(pm_q)).all()
     payment_modes = [
@@ -644,6 +649,7 @@ async def get_user_wise_summary(
     branch_id: int | None = None,
     route_id: int | None = None,
     user_id: str | None = None,
+    payment_mode_id: int | None = None,
 ) -> dict:
     q = (
         select(
@@ -658,6 +664,8 @@ async def get_user_wise_summary(
         .order_by(User.full_name)
     )
     q = _apply_ticket_filters(q, report_date, report_date, branch_id, route_id)
+    if payment_mode_id:
+        q = q.where(Ticket.payment_mode_id == payment_mode_id)
     if user_id:
         q = q.where(Ticket.created_by == user_id)
 
@@ -686,6 +694,7 @@ async def get_vehicle_wise_tickets(
     report_date: datetime.date,
     branch_id: int | None = None,
     route_id: int | None = None,
+    payment_mode_id: int | None = None,
 ) -> dict:
     q = (
         select(
@@ -711,6 +720,8 @@ async def get_vehicle_wise_tickets(
         .order_by(Ticket.ticket_no)
     )
     q = _apply_ticket_filters(q, report_date, report_date, branch_id, route_id)
+    if payment_mode_id:
+        q = q.where(Ticket.payment_mode_id == payment_mode_id)
 
     result = (await db.execute(q)).all()
 
@@ -754,6 +765,7 @@ async def get_branch_item_summary(
     date_to: datetime.date,
     branch_id: int | None = None,
     route_id: int | None = None,
+    payment_mode_id: int | None = None,
 ) -> dict:
     # Item rows: group by item name, rate, and levy.
     # The "Rate" shown on the receipt includes levy so that
@@ -776,6 +788,8 @@ async def get_branch_item_summary(
         .order_by(Item.name)
     )
     q = _apply_ticket_filters(q, date_from, date_to, branch_id, route_id)
+    if payment_mode_id:
+        q = q.where(Ticket.payment_mode_id == payment_mode_id)
 
     result = (await db.execute(q)).all()
 
@@ -807,6 +821,8 @@ async def get_branch_item_summary(
         .order_by(PaymentMode.description)
     )
     pm_q = _apply_ticket_filters(pm_q, date_from, date_to, branch_id, route_id)
+    if payment_mode_id:
+        pm_q = pm_q.where(Ticket.payment_mode_id == payment_mode_id)
 
     pm_result = (await db.execute(pm_q)).all()
     payment_modes = [
@@ -839,6 +855,8 @@ async def get_ticket_details_report(
     report_date: datetime.date,
     branch_id: int | None = None,
     route_id: int | None = None,
+    payment_mode_id: int | None = None,
+    boat_id: int | None = None,
 ) -> dict:
     q = (
         select(
@@ -856,6 +874,10 @@ async def get_ticket_details_report(
         .order_by(Ticket.ticket_no)
     )
     q = _apply_ticket_filters(q, report_date, report_date, branch_id, route_id)
+    if payment_mode_id:
+        q = q.where(Ticket.payment_mode_id == payment_mode_id)
+    if boat_id:
+        q = q.where(Ticket.boat_id == boat_id)
 
     result = (await db.execute(q)).all()
 

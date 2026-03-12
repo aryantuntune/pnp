@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Ticket, TicketCheck, BarChart3,
   Ship, MapPin, Route as RouteIcon, Clock, Package, DollarSign,
-  CreditCard, Users, ArrowLeftRight, Settings, Shield,
+  CreditCard, Users, ArrowLeftRight, Settings, Shield, FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -35,6 +35,7 @@ export const SIDEBAR_CONFIG: SidebarSection[] = [
         label: "Reports",
         items: [
           { label: "Reports", icon: BarChart3, href: "/dashboard/reports" },
+          { label: "Rate Change Logs", icon: FileText, href: "/dashboard/rate-change-logs" },
         ],
       },
     ],

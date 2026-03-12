@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, update as sa_update
@@ -7,6 +9,7 @@ from app.models.item import Item
 from app.models.route import Route
 from app.models.branch import Branch
 from app.schemas.item_rate import ItemRateCreate, ItemRateUpdate
+from app.services.rate_change_log_service import insert_rate_change_log
 
 
 async def _get_route_display_name(db: AsyncSession, route_id: int) -> str | None:
@@ -180,7 +183,9 @@ async def create_item_rate(db: AsyncSession, data: ItemRateCreate) -> dict:
     return await get_item_rate_by_id(db, ir.id)
 
 
-async def update_item_rate(db: AsyncSession, item_rate_id: int, data: ItemRateUpdate) -> dict:
+async def update_item_rate(
+    db: AsyncSession, item_rate_id: int, data: ItemRateUpdate, user_id: uuid.UUID | None = None,
+) -> dict:
     result = await db.execute(select(ItemRate).where(ItemRate.id == item_rate_id))
     ir = result.scalar_one_or_none()
     if not ir:
@@ -194,6 +199,15 @@ async def update_item_rate(db: AsyncSession, item_rate_id: int, data: ItemRateUp
     if "item_id" in update_data or "route_id" in update_data:
         await _validate_references(db, new_item_id, new_route_id)
         await _check_duplicate(db, new_item_id, new_route_id, exclude_id=item_rate_id)
+
+    # Log rate change if rate is being updated
+    if "rate" in update_data and user_id and ir.route_id and ir.item_id:
+        old_rate = float(ir.rate) if ir.rate is not None else None
+        new_rate = float(update_data["rate"]) if update_data["rate"] is not None else None
+        if old_rate != new_rate:
+            await insert_rate_change_log(
+                db, ir.route_id, ir.item_id, old_rate, new_rate, user_id,
+            )
 
     for field, value in update_data.items():
         setattr(ir, field, value)

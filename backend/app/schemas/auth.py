@@ -16,13 +16,13 @@ def _validate_password_complexity(v: str) -> str:
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr = Field(..., description="The user's login email", examples=["admin@ssmspl.com"])
+    username: str = Field(..., description="The user's login username", examples=["admin"])
     password: str = Field(..., description="The user's password", examples=["Password@123"])
 
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"email": "admin@ssmspl.com", "password": "Password@123"}
+                {"username": "admin", "password": "Password@123"}
             ]
         }
     }

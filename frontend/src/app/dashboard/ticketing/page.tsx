@@ -640,8 +640,8 @@ export default function TicketingPage() {
     setFormError("");
 
     if (isRouteRestricted) {
-      // Restricted user: lock route and branch
-      const selectedBranchId = getSelectedBranchId();
+      // Restricted user: lock route and branch — prefer server-side active_branch_id
+      const selectedBranchId = user?.active_branch_id || getSelectedBranchId();
       setFormRouteId(user!.route_id!);
       setFormBranchId(selectedBranchId || 0);
       setFilteredBranches([]);
@@ -777,8 +777,8 @@ export default function TicketingPage() {
       setDiscountStr((t.discount || 0).toFixed(2));
 
       if (isRouteRestricted) {
-        // Restricted user: lock to assigned route and login branch
-        const selectedBranchId = getSelectedBranchId();
+        // Restricted user: lock to assigned route and login branch — prefer server-side active_branch_id
+        const selectedBranchId = user?.active_branch_id || getSelectedBranchId();
         setFormRouteId(user!.route_id!);
         setFormBranchId(selectedBranchId || t.branch_id);
         setFilteredBranches([]);
@@ -989,9 +989,55 @@ export default function TicketingPage() {
         /* print failure is non-fatal */
       });
 
+      // Update last-ticket info from the ticket we just created
+      const upiPr = paymentRows.find((pr) => {
+        const pm = paymentModes.find((m) => m.id === pr.payment_mode_id);
+        return pm?.description.toUpperCase() === "UPI";
+      });
+      const totalPaid = paymentRows.reduce((s, pr) => s + pr.amount, 0);
+      const change = Math.round((totalPaid - formNetAmount) * 100) / 100;
+      const modeNames = [
+        ...new Set(
+          paymentRows.map(
+            (pr) =>
+              paymentModes.find((m) => m.id === pr.payment_mode_id)?.description || "-"
+          )
+        ),
+      ];
+      setLastTicketInfo({
+        paymentModes: modeNames,
+        amount: formNetAmount,
+        repayment: change,
+        refNo: upiPr?.reference_id.trim() || null,
+      });
+
+      // Reset form for next ticket (keep modal open)
       setShowPaymentModal(false);
-      closeModal();
-      await fetchTickets();
+      const newTempId = crypto.randomUUID();
+      setFormItems([{
+        tempId: newTempId,
+        id: null,
+        item_id: 0,
+        rate: 0,
+        levy: 0,
+        quantity: 1,
+        vehicle_name: "",
+        vehicle_no: "",
+        is_cancelled: false,
+      }]);
+      setFormDiscount(0);
+      setDiscountStr("0.00");
+      setFormError("");
+      setPaymentRows([]);
+      setPaymentError("");
+
+      // Focus first item input after DOM updates
+      requestAnimationFrame(() => {
+        document.getElementById(`item-id-${newTempId}`)?.focus();
+      });
+
+      // Refresh ticket list in background
+      fetchTickets();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data

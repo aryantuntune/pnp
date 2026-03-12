@@ -55,11 +55,13 @@ async def list_tickets(
     # Force route scoping for non-admin roles
     if needs_route_scope(current_user):
         route_filter = current_user.route_id
-    # Billing operators can only view today's tickets
+    # Billing operators: force branch to active session branch + today only
     if current_user.role == UserRole.BILLING_OPERATOR:
         today = date.today()
         date_from = today
         date_to = today
+        if current_user.active_branch_id:
+            branch_filter = current_user.active_branch_id
     return await ticket_service.get_all_tickets(
         db, skip, limit, sort_by, sort_order,
         status, branch_filter, route_filter, date_from, date_to,
@@ -94,11 +96,13 @@ async def count_tickets(
     # Force route scoping for non-admin roles
     if needs_route_scope(current_user):
         route_filter = current_user.route_id
-    # Billing operators can only view today's tickets
+    # Billing operators: force branch to active session branch + today only
     if current_user.role == UserRole.BILLING_OPERATOR:
         today = date.today()
         date_from = today
         date_to = today
+        if current_user.active_branch_id:
+            branch_filter = current_user.active_branch_id
     return await ticket_service.count_tickets(
         db, status, branch_filter, route_filter, date_from, date_to,
         id_filter, id_op, id_filter_end, ticket_no_filter,
@@ -209,6 +213,18 @@ async def create_ticket(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
+    # BILLING_OPERATOR: force branch_id to their active session branch
+    if current_user.role == UserRole.BILLING_OPERATOR and current_user.active_branch_id:
+        if body.branch_id != current_user.active_branch_id:
+            body.branch_id = current_user.active_branch_id
+    # Scoped users: validate branch belongs to their route
+    if needs_route_scope(current_user) and current_user.route_id:
+        b1, b2 = await get_route_branch_ids(db, current_user.route_id)
+        if body.branch_id not in (b1, b2):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Branch does not belong to your assigned route.",
+            )
     return await ticket_service.create_ticket(db, body, user_id=current_user.id)
 
 

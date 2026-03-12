@@ -18,6 +18,7 @@ export interface User {
   role: UserRole;
   route_id: number | null;
   route_name: string | null;
+  active_branch_id: number | null;
   is_active: boolean;
   is_verified: boolean;
   last_login: string | null;
@@ -28,7 +29,7 @@ export interface User {
 }
 
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 

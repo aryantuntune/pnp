@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Branch, Route, PaymentMode, User } from "@/types";
+import { Boat, Branch, Route, PaymentMode, User } from "@/types";
 import {
   Table,
   TableBody,
@@ -63,7 +63,7 @@ function getToday(): string {
 
 // ── Report Type Configuration ──
 
-type FilterType = "date_range" | "single_date" | "branch" | "payment_mode" | "route" | "user";
+type FilterType = "date_range" | "single_date" | "branch" | "payment_mode" | "route" | "user" | "boat";
 
 interface ReportColumnConfig {
   key: string;
@@ -87,7 +87,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Date Wise Amount",
     endpoint: "/api/reports/date-wise-amount",
     pdfEndpoint: "/api/reports/date-wise-amount/pdf",
-    filters: ["date_range", "branch", "route", "payment_mode"],
+    filters: ["date_range", "route", "branch", "payment_mode"],
     columns: [
       {
         key: "ticket_date",
@@ -107,7 +107,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Ferry Wise Item",
     endpoint: "/api/reports/ferry-wise-item",
     pdfEndpoint: "/api/reports/ferry-wise-item/pdf",
-    filters: ["single_date", "branch", "route", "payment_mode"],
+    filters: ["single_date", "route", "branch", "payment_mode"],
     columns: [
       { key: "departure", label: "Time" },
       { key: "item_name", label: "Item" },
@@ -119,7 +119,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Item Wise Summary",
     endpoint: "/api/reports/itemwise-levy",
     pdfEndpoint: "/api/reports/itemwise-levy/pdf",
-    filters: ["date_range", "branch", "route"],
+    filters: ["date_range", "route", "branch", "payment_mode"],
     columns: [
       { key: "item_name", label: "Item" },
       {
@@ -142,7 +142,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Payment Mode Wise",
     endpoint: "/api/reports/payment-mode",
     pdfEndpoint: "/api/reports/payment-mode/pdf",
-    filters: ["date_range", "branch", "route"],
+    filters: ["date_range", "route", "branch"],
     columns: [
       { key: "payment_mode_name", label: "Payment Mode" },
       { key: "ticket_count", label: "Tickets", align: "right" },
@@ -162,7 +162,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Ticket Details",
     endpoint: "/api/reports/ticket-details",
     pdfEndpoint: "/api/reports/ticket-details/pdf",
-    filters: ["single_date", "branch", "route"],
+    filters: ["single_date", "route", "branch", "payment_mode", "boat"],
     columns: [
       {
         key: "ticket_date",
@@ -188,7 +188,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "User Wise Daily",
     endpoint: "/api/reports/user-wise-summary",
     pdfEndpoint: "/api/reports/user-wise-summary/pdf",
-    filters: ["single_date", "branch", "route", "user"],
+    filters: ["single_date", "route", "branch", "payment_mode", "user"],
     columns: [
       { key: "user_name", label: "User Name" },
       {
@@ -204,7 +204,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Vehicle Wise Tickets",
     endpoint: "/api/reports/vehicle-wise-tickets",
     pdfEndpoint: "/api/reports/vehicle-wise-tickets/pdf",
-    filters: ["single_date", "branch", "route"],
+    filters: ["single_date", "route", "branch", "payment_mode"],
     columns: [
       {
         key: "ticket_date",
@@ -231,7 +231,7 @@ const REPORT_TYPES: ReportConfig[] = [
     label: "Branch Summary",
     endpoint: "/api/reports/branch-item-summary",
     pdfEndpoint: "/api/reports/branch-item-summary/pdf",
-    filters: ["date_range", "branch", "route"],
+    filters: ["date_range", "route", "branch", "payment_mode"],
     columns: [
       { key: "item_name", label: "Item" },
       {
@@ -268,16 +268,21 @@ export default function ReportsPage() {
   const [paymentModeId, setPaymentModeId] = useState("");
   const [routeId, setRouteId] = useState("");
   const [userId, setUserId] = useState("");
+  const [boatId, setBoatId] = useState("");
 
   // Dropdown data
   const [branches, setBranches] = useState<Branch[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [boats, setBoats] = useState<Boat[]>([]);
 
   // Current user for role-based scoping
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const isScoped = currentUser?.route_id != null;
+  const isBillingOperator = currentUser?.role === "BILLING_OPERATOR";
+  const isManager = currentUser?.role === "MANAGER";
+  const isRouteDisabled = isBillingOperator || isManager;
+  const isBranchDisabled = isBillingOperator;
 
   // Report results
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
@@ -304,7 +309,7 @@ export default function ReportsPage() {
   // Fetch dropdown data once on mount
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [branchResp, routeResp, pmResp, meResp, reportUsersResp] = await Promise.all([
+      const [branchResp, routeResp, pmResp, meResp, reportUsersResp, boatResp] = await Promise.all([
         api.get<Branch[]>(
           "/api/branches?limit=200&status=active&sort_by=name&sort_order=asc"
         ),
@@ -312,6 +317,7 @@ export default function ReportsPage() {
         api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active"),
         api.get<User>("/api/auth/me"),
         api.get<{ id: string; full_name: string }[]>("/api/reports/report-users"),
+        api.get<Boat[]>("/api/boats?limit=200&status=active"),
       ]);
       setBranches(branchResp.data);
       setRoutes(routeResp.data);
@@ -319,6 +325,7 @@ export default function ReportsPage() {
       setCurrentUser(meResp.data);
       // Map report-users to User-shaped objects for the dropdown
       setUsers(reportUsersResp.data.map((u) => ({ ...u, id: u.id } as unknown as User)));
+      setBoats(boatResp.data);
     } catch {
       // non-critical
     }
@@ -328,12 +335,36 @@ export default function ReportsPage() {
     fetchDropdowns();
   }, [fetchDropdowns]);
 
-  // Auto-lock route filter for scoped users
+  // Auto-lock route filter for scoped users (MANAGER / BILLING_OPERATOR)
   useEffect(() => {
-    if (isScoped && currentUser?.route_id) {
+    if ((isManager || isBillingOperator) && currentUser?.route_id) {
       setRouteId(String(currentUser.route_id));
     }
-  }, [isScoped, currentUser?.route_id]);
+    // Auto-lock branch for billing operators using server-side active_branch_id
+    if (isBillingOperator && currentUser?.active_branch_id) {
+      setBranchId(String(currentUser.active_branch_id));
+    }
+  }, [isManager, isBillingOperator, currentUser?.route_id, currentUser?.active_branch_id]);
+
+  // Filter branches based on selected route
+  const filteredBranches = useMemo(() => {
+    if (!routeId) return branches;
+    const route = routes.find((r) => String(r.id) === routeId);
+    if (!route) return branches;
+    return branches.filter(
+      (b) => b.id === route.branch_id_one || b.id === route.branch_id_two
+    );
+  }, [routeId, routes, branches]);
+
+  // Reset branch when route changes and current branch doesn't belong to route
+  useEffect(() => {
+    if (branchId && routeId) {
+      const route = routes.find((r) => String(r.id) === routeId);
+      if (route && ![route.branch_id_one, route.branch_id_two].includes(Number(branchId))) {
+        setBranchId("");
+      }
+    }
+  }, [routeId, routes, branchId]);
 
   // Clear results when switching tabs
   const handleTabChange = (index: number) => {
@@ -343,6 +374,7 @@ export default function ReportsPage() {
     setPaymentModesData([]);
     setError("");
     setHasGenerated(false);
+    setBoatId("");
   };
 
   // Build filter params for the active report
@@ -369,8 +401,11 @@ export default function ReportsPage() {
     if (config.filters.includes("user") && userId) {
       params.user_id = userId;
     }
+    if (config.filters.includes("boat") && boatId) {
+      params.boat_id = boatId;
+    }
     return params;
-  }, [activeIndex, dateFrom, dateTo, singleDate, branchId, paymentModeId, routeId, userId]);
+  }, [activeIndex, dateFrom, dateTo, singleDate, branchId, paymentModeId, routeId, userId, boatId]);
 
   // Generate report
   const generateReport = useCallback(async () => {
@@ -666,30 +701,6 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {/* Branch Filter */}
-            {activeFilters.includes("branch") && (
-              <div>
-                <Label className="mb-1.5 block">Branch</Label>
-                <Select
-                  value={branchId || "all"}
-                  onValueChange={(v) => setBranchId(v === "all" ? "" : v)}
-                  disabled={isScoped}
-                >
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder="All Branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={String(b.id)}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             {/* Route Filter */}
             {activeFilters.includes("route") && (
               <div>
@@ -697,7 +708,7 @@ export default function ReportsPage() {
                 <Select
                   value={routeId || "all"}
                   onValueChange={(v) => setRouteId(v === "all" ? "" : v)}
-                  disabled={isScoped}
+                  disabled={isRouteDisabled}
                 >
                   <SelectTrigger className="w-full sm:w-[220px]">
                     <SelectValue placeholder="All Routes" />
@@ -707,6 +718,30 @@ export default function ReportsPage() {
                     {routes.map((r) => (
                       <SelectItem key={r.id} value={String(r.id)}>
                         {formatRouteLabel(r)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Branch Filter */}
+            {activeFilters.includes("branch") && (
+              <div>
+                <Label className="mb-1.5 block">Branch</Label>
+                <Select
+                  value={branchId || "all"}
+                  onValueChange={(v) => setBranchId(v === "all" ? "" : v)}
+                  disabled={isBranchDisabled}
+                >
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="All Branches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {filteredBranches.map((b) => (
+                      <SelectItem key={b.id} value={String(b.id)}>
+                        {b.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -737,8 +772,31 @@ export default function ReportsPage() {
               </div>
             )}
 
+            {/* Boat Filter (Ticket Details only) */}
+            {activeFilters.includes("boat") && (
+              <div>
+                <Label className="mb-1.5 block">Boat</Label>
+                <Select
+                  value={boatId || "all"}
+                  onValueChange={(v) => setBoatId(v === "all" ? "" : v)}
+                >
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="All Boats" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Boats</SelectItem>
+                    {boats.map((bt) => (
+                      <SelectItem key={bt.id} value={String(bt.id)}>
+                        {bt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* User / Billing Operator Filter */}
-            {activeFilters.includes("user") && currentUser?.role !== "BILLING_OPERATOR" && (
+            {activeFilters.includes("user") && !isBillingOperator && (
               <div>
                 <Label className="mb-1.5 block">Billing Operator</Label>
                 <Select
