@@ -202,6 +202,7 @@ class RouteResult:
     added: int = 0
     updated: int = 0
     skipped: int = 0
+    deleted: int = 0
     errors: list[str] | None = None
 
     def __post_init__(self) -> None:
@@ -287,6 +288,7 @@ async def upsert_rates(
     entries: list[RateEntry],
     db_url: str,
     dry_run: bool,
+    cleanup: bool = False,
 ) -> list[RouteResult]:
     """Connect to database and upsert item rates. Returns per-route results."""
     import asyncpg  # import here so --help works without asyncpg
@@ -296,6 +298,11 @@ async def upsert_rates(
         # Group entries by route_id for per-route reporting
         routes_seen: dict[int, RouteResult] = {}
         route_name_map = {v: k for k, v in ROUTE_SHEET_MAP.items()}
+
+        # Build lookup of valid (item_id, route_id) pairs from Excel
+        valid_pairs: dict[int, set[int]] = {}  # route_id -> set of item_ids
+        for entry in entries:
+            valid_pairs.setdefault(entry.route_id, set()).add(entry.item_id)
 
         for entry in entries:
             route_id = entry.route_id
@@ -355,6 +362,34 @@ async def upsert_rates(
                 else:
                     result.skipped += 1
 
+        # --- Cleanup: delete rates NOT in the Excel for affected routes ---
+        if cleanup:
+            print(f"\n  --- Cleanup: removing rates not in Excel ---")
+            for route_id, valid_item_ids in valid_pairs.items():
+                rname = route_name_map.get(route_id, f"Route {route_id}")
+                if route_id not in routes_seen:
+                    routes_seen[route_id] = RouteResult(route_name=rname)
+                result = routes_seen[route_id]
+
+                # Find item_rates on this route that are NOT in the Excel
+                bogus_rows = await conn.fetch(
+                    "SELECT ir.id, ir.item_id, i.short_name, ir.rate, ir.levy "
+                    "FROM item_rates ir "
+                    "JOIN items i ON i.id = ir.item_id "
+                    "WHERE ir.route_id = $1 AND ir.item_id != ALL($2::int[])",
+                    route_id, list(valid_item_ids),
+                )
+
+                for row in bogus_rows:
+                    if not dry_run:
+                        await conn.execute(
+                            "DELETE FROM item_rates WHERE id = $1", row["id"]
+                        )
+                    result.deleted += 1
+                    print(f"  [DEL]  {rname} | {row['short_name']} (item_id={row['item_id']}) | "
+                          f"rate={row['rate']} levy={row['levy']}"
+                          f"{' (DRY RUN)' if dry_run else ''}")
+
         return list(routes_seen.values())
     finally:
         await conn.close()
@@ -395,24 +430,27 @@ async def async_main(args: argparse.Namespace) -> None:
             print(f"  WARNING: Duplicate entry for item_id={e.item_id} route_id={e.route_id}")
         seen_pairs.add(pair)
 
-    # Step 3: Database upsert
+    # Step 3: Database upsert (+ optional cleanup)
     db_url = load_database_url(env_path)
     print("Connecting to database...")
-    results = await upsert_rates(entries, db_url, args.dry_run)
+    results = await upsert_rates(entries, db_url, args.dry_run, cleanup=args.cleanup)
 
     # Step 4: Per-route summary
     print(f"\n{'='*60}")
     print("  Per-Route Summary")
     print(f"{'='*60}")
-    total_added = total_updated = total_skipped = 0
+    total_added = total_updated = total_skipped = total_deleted = 0
     for r in results:
         print(f"  Route: {r.route_name}")
         print(f"    Added:   {r.added}")
         print(f"    Updated: {r.updated}")
         print(f"    Skipped: {r.skipped}")
+        if r.deleted:
+            print(f"    Deleted: {r.deleted}")
         total_added += r.added
         total_updated += r.updated
         total_skipped += r.skipped
+        total_deleted += r.deleted
         if r.errors:
             for err in r.errors:
                 print(f"    ERROR: {err}")
@@ -425,6 +463,8 @@ async def async_main(args: argparse.Namespace) -> None:
     print(f"  Total items added: {total_added}")
     print(f"  Total updated    : {total_updated}")
     print(f"  Total skipped    : {total_skipped}")
+    if total_deleted:
+        print(f"  Total deleted    : {total_deleted}")
     if args.dry_run:
         print(f"\n  ** DRY RUN — no changes were written to the database **")
     print()
@@ -438,6 +478,11 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Preview changes without writing to the database.",
+    )
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Delete item_rates not in the Excel for affected routes.",
     )
     parser.add_argument(
         "--excel",
