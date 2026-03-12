@@ -251,31 +251,8 @@ const REPORT_TYPES: ReportConfig[] = [
   },
 ];
 
-// ── Print Stylesheet ──
-
-const PRINT_STYLES = `
-@page {
-  size: A4;
-  margin: 10mm;
-}
-@media print {
-  html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  nav, aside, header, footer, .print\\:hidden { display: none !important; }
-  main { padding: 0 !important; margin: 0 !important; }
-  .rounded-lg { box-shadow: none !important; border: none !important; }
-  table { font-size: 11px; }
-  /* Remove card borders in print */
-  [class*="border-border"] { border-color: #ddd !important; }
-}
-@media print and (max-width: 80mm) {
-  @page { size: 80mm auto; margin: 2mm; }
-  table { font-size: 9px; }
-}
-@media print and (max-width: 58mm) {
-  @page { size: 58mm auto; margin: 1mm; }
-  table { font-size: 8px; }
-}
-`;
+// Print styles removed — all printing now uses dedicated iframe templates
+// (printA4Report for A4, printBranchItemSummary for thermal)
 
 // ── Main Component ──
 
@@ -461,8 +438,73 @@ export default function ReportsPage() {
     }
   };
 
-  // Print thermal receipt for branch item summary
-  const handlePrint = async () => {
+  // Build date label for print meta
+  const buildDateLabel = useCallback(() => {
+    const config = REPORT_TYPES[activeIndex];
+    if (config.filters.includes("date_range")) {
+      return `From ${formatDate(dateFrom)} To ${formatDate(dateTo)}`;
+    }
+    return `Date: ${formatDate(singleDate)}`;
+  }, [activeIndex, dateFrom, dateTo, singleDate]);
+
+  // Build resolved names for print meta
+  const getResolvedBranchName = useCallback(() => {
+    if (!branchId) return undefined;
+    return branches.find((b) => String(b.id) === branchId)?.name;
+  }, [branchId, branches]);
+
+  const getResolvedRouteName = useCallback(() => {
+    if (!routeId) return undefined;
+    const r = routes.find((rt) => String(rt.id) === routeId);
+    return r ? formatRouteLabel(r) : undefined;
+  }, [routeId, routes]);
+
+  // Print A4 report (all reports)
+  const handlePrintA4 = async () => {
+    setPrinting(true);
+    try {
+      const { printA4Report } = await import("@/lib/print-report");
+      const config = REPORT_TYPES[activeIndex];
+
+      // Build rendered rows: apply column renderers to produce display strings
+      const renderedRows = rows.map((row) => {
+        const rendered: Record<string, unknown> = {};
+        for (const col of config.columns) {
+          rendered[col.key] = col.render ? col.render(row) : row[col.key];
+        }
+        return rendered;
+      });
+
+      await printA4Report({
+        reportTitle: config.label,
+        columns: config.columns.map((c) => ({ key: c.key, label: c.label, align: c.align })),
+        rows: renderedRows,
+        grandTotal:
+          typeof grandTotal === "number" ? formatCurrency(grandTotal) : null,
+        paymentModes:
+          paymentModesData.length > 0
+            ? paymentModesData.map((pm) => ({
+                payment_mode_name: pm.payment_mode_name,
+                amount: formatCurrency(Number(pm.amount)),
+              }))
+            : undefined,
+        meta: {
+          dateLabel: buildDateLabel(),
+          branchName: getResolvedBranchName(),
+          routeName: getResolvedRouteName(),
+          generatedBy: currentUser?.full_name || "\u2014",
+          generatedAt: new Date().toLocaleString("en-IN"),
+        },
+      });
+    } catch {
+      setError("Failed to print report.");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  // Print thermal receipt for branch item summary (80mm)
+  const handlePrintThermal = async () => {
     setPrinting(true);
     try {
       const branchName = branchId
@@ -483,7 +525,10 @@ export default function ReportsPage() {
           net: Number(r.net || 0),
         })),
         grandTotal: typeof grandTotal === "number" ? grandTotal : 0,
-        paymentModes: paymentModesData,
+        paymentModes: paymentModesData.map((pm) => ({
+          payment_mode_name: pm.payment_mode_name,
+          amount: Number(pm.amount),
+        })),
         paperWidth: getReceiptPaperWidth(),
       });
     } catch {
@@ -511,30 +556,6 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Print Stylesheet */}
-      <style dangerouslySetInnerHTML={{ __html: PRINT_STYLES }} />
-
-      {/* Print-only Report Header (hidden on screen, shown on paper) */}
-      <div className="hidden print:block text-center mb-4">
-        <h1 className="text-lg font-bold">SSMSPL Ferry Ticketing System</h1>
-        <h2 className="text-base font-semibold mt-1">{activeReport.label}</h2>
-        {routeId && routes.length > 0 && (
-          <p className="text-sm">Route: {formatRouteLabel(routes.find((r) => String(r.id) === routeId) || {} as Route)}</p>
-        )}
-        {branchId && branches.length > 0 && (
-          <p className="text-sm">Branch: {branches.find((b) => String(b.id) === branchId)?.name || "All"}</p>
-        )}
-        <p className="text-sm">
-          {activeReport.filters.includes("date_range")
-            ? `From ${dateFrom} To ${dateTo}`
-            : `Date: ${singleDate}`}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Generated by: {currentUser?.full_name || "—"} | {new Date().toLocaleString("en-IN")}
-        </p>
-        <hr className="mt-2" />
-      </div>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print:hidden">
         <div>
@@ -547,7 +568,7 @@ export default function ReportsPage() {
           <div className="flex gap-2">
             {activeReport.key === "branch-item-summary" && (
               <Button
-                onClick={handlePrint}
+                onClick={handlePrintThermal}
                 disabled={printing}
                 variant="outline"
               >
@@ -560,10 +581,15 @@ export default function ReportsPage() {
               </Button>
             )}
             <Button
-              onClick={() => window.print()}
+              onClick={handlePrintA4}
+              disabled={printing}
               variant="outline"
             >
-              <Printer className="h-4 w-4 mr-2" />
+              {printing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4 mr-2" />
+              )}
               Print
             </Button>
             <Button

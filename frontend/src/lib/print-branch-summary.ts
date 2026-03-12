@@ -18,8 +18,10 @@ function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function fmtNum(n: number): string {
-  return n.toFixed(2);
+function fmtNum(n: number | string): string {
+  const num = typeof n === "string" ? parseFloat(n) : n;
+  if (isNaN(num)) return "0.00";
+  return num.toFixed(2);
 }
 
 function formatDDMMYYYY(isoDate: string): string {
