@@ -38,8 +38,20 @@ SCRIPT_DIR = Path(__file__).resolve().parent          # backend/scripts/
 BACKEND_DIR = SCRIPT_DIR.parent                       # backend/
 PROJECT_DIR = BACKEND_DIR.parent                      # project root
 
-DEFAULT_EXCEL = PROJECT_DIR / "data" / "item_rates" / "item_rates_list_final_all_routes.xlsx"
-DEFAULT_ENV   = BACKEND_DIR / ".env.development"
+# In Docker, BACKEND_DIR is /app and PROJECT_DIR becomes /.
+# The data folder may be at /app/data (copied in) or at PROJECT_DIR/data (local).
+_EXCEL_NAME = Path("data") / "item_rates" / "item_rates_list_final_all_routes.xlsx"
+_EXCEL_CANDIDATES = [
+    PROJECT_DIR / _EXCEL_NAME,   # local dev:  d:\workspace\ssmspl\data\...
+    BACKEND_DIR / _EXCEL_NAME,   # Docker:     /app/data/...
+]
+DEFAULT_EXCEL = next((p for p in _EXCEL_CANDIDATES if p.exists()), _EXCEL_CANDIDATES[0])
+
+_ENV_CANDIDATES = [
+    BACKEND_DIR / ".env.production",    # production first
+    BACKEND_DIR / ".env.development",   # fallback to dev
+]
+DEFAULT_ENV = next((p for p in _ENV_CANDIDATES if p.exists()), BACKEND_DIR / ".env.development")
 
 # ---------------------------------------------------------------------------
 # Excel sheet name  →  DB route_id
