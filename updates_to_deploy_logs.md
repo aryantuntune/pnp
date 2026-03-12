@@ -192,3 +192,49 @@ sudo systemctl restart ssmspl-frontend
 * Login now uses **username** instead of email. Ensure frontend login form sends `username` field. All existing dev credentials use usernames (superadmin, admin, manager, billing_operator, ticket_checker).
 * After deploying, billing operators must log out and log back in to set their `active_branch_id` via the new select-branch API. Until they do, branch enforcement falls back to route-level scoping.
 * The rate_change_logs table will start recording from this deployment forward — no historical backfill is needed.
+
+---
+
+## Deployment Update — 2026-03-12
+
+### Module
+
+ticketing
+
+### Commit ID
+
+31caa07
+
+### Changes
+
+* Ticket creation window now stays open after saving — form resets with empty item row, cursor focuses first input for immediate next ticket entry
+* Last ticket info bar updates inline with payment mode, amount, change, and UPI ref from the just-created ticket
+* Departure, route, branch, and ticket date selections are preserved between consecutive tickets
+* Ticket list refreshes in background without blocking the operator
+
+### Files Modified
+
+* `frontend/src/app/dashboard/ticketing/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* Operators no longer need to click "+ New Ticket" between consecutive tickets — the form auto-resets and focuses the first item input.
