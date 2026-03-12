@@ -6,6 +6,57 @@
 
 ### Module
 
+Seeder — Route Item Rates
+
+### Commit ID
+
+(pending)
+
+### Changes
+
+* Added `seed_route_item_rates.py` — idempotent Python script that reads route-wise item rates from an Excel file and upserts into the `item_rates` table
+* Reads `data/item_rates/item_rates_list_final_all_routes.xlsx` (Marathi item names auto-identified and mapped to DB item IDs)
+* Covers 6 routes: Dabhol-Dhopave, Vesavi-Bagmandale, Jaigad-Tavsal, Dighi-Agardanda, Vasai-Bhayander, Virar-Saphale (Route 6 Ambet-Mhapral untouched)
+* Handles Vasai combined car+sedan row (expands to two item_rate entries)
+* Supports `--dry-run` flag to preview changes without writing to DB
+* Per-route and grand summary logging (added/updated/skipped counts)
+
+### Files Created
+
+* `backend/scripts/seed_route_item_rates.py`
+* `data/item_rates/item_rates_list_final_all_routes.xlsx` (source Excel)
+
+### Database Migrations
+
+None — script directly upserts into existing `item_rates` table.
+
+### Deployment Steps (VPS)
+
+```bash
+cd backend
+source .venv/bin/activate
+
+# Preview changes first
+python scripts/seed_route_item_rates.py --dry-run --env .env.production
+
+# Apply changes
+python scripts/seed_route_item_rates.py --env .env.production
+```
+
+### Notes
+
+* Run with `--dry-run` first to verify the expected changes before applying.
+* The script is idempotent — running it again will skip items that already have the correct rate.
+* Route 6 (Ambet-Mhapral) is NOT in the Excel and will NOT be modified.
+* Existing item_rates not present in the Excel (e.g. older item mappings) are left as-is — only adds and updates, no deletes.
+* Requires `openpyxl` and `asyncpg` Python packages (already in backend dependencies).
+
+---
+
+## Deployment Update — 2026-03-12
+
+### Module
+
 Reports
 
 ### Commit ID
