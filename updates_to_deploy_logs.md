@@ -244,3 +244,62 @@ Frontend:
 * Route 6 (Ambet-Mhapral) is NOT in the Excel and will NOT be modified.
 * Existing item_rates not present in the Excel (e.g. older item mappings) are left as-is — only adds and updates, no deletes.
 * Requires `openpyxl` and `asyncpg` Python packages (already in backend dependencies).
+
+---
+
+## Deployment Update — 2026-03-14
+
+### Module
+
+Authentication / User Management
+
+### Commit ID
+
+50d1f19
+
+### Changes
+
+* Added username field to Edit User form (was previously only shown during user creation)
+* Username validation: min 4 chars, max 50 chars, no spaces, unique across system
+* Backend rejects duplicate usernames with HTTP 409 on user update
+* Added `POST /api/users/{user_id}/reset-password` endpoint for admin password reset
+* Endpoint restricted to ADMIN and SUPER_ADMIN roles only
+* Password reset uses existing complexity validation (8+ chars, uppercase, lowercase, digit, special char)
+* Audit logging on password reset (admin_user_id, target_user_id, timestamp)
+* Reset Password section in Edit User modal visible only to ADMIN/SUPER_ADMIN
+* Added AdminResetPassword Pydantic schema and admin_reset_password service function
+
+### Files Modified
+
+* `backend/app/routers/users.py`
+* `backend/app/schemas/user.py`
+* `backend/app/services/user_service.py`
+* `frontend/src/app/dashboard/users/page.tsx`
+* `frontend/src/types/index.ts`
+
+### Database Migrations
+
+* None — username column already has UNIQUE constraint in the database.
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* No database migration required. The username column and its UNIQUE constraint already exist.
+* SUPER_ADMIN passwords can only be reset by another SUPER_ADMIN.
+* The admin reset password endpoint does NOT send any email notification — it is a manual admin action.
+* Login continues to use username (not email) as implemented in the previous deployment.
