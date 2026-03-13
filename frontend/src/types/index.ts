@@ -49,6 +49,7 @@ export interface ChangePasswordRequest {
 
 export interface UserUpdate {
   full_name?: string;
+  username?: string;
   email?: string;
   role?: UserRole;
   route_id?: number | null;

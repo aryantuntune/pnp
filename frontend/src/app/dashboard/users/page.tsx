@@ -94,6 +94,13 @@ export default function UsersPage() {
   const [viewUser, setViewUser] = useState<User | null>(null);
   const [routes, setRoutes] = useState<Route[]>([]);
 
+  // Reset password state
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
+  const [resetPasswordError, setResetPasswordError] = useState("");
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+
   const fetchCurrentUser = useCallback(async () => {
     try {
       const resp = await api.get<User>("/api/auth/me");
@@ -193,6 +200,50 @@ export default function UsersPage() {
     setEditingUser(null);
     setForm(emptyForm);
     setFormError("");
+    setResetPassword("");
+    setResetPasswordConfirm("");
+    setResetPasswordError("");
+    setResetPasswordSuccess("");
+  };
+
+  const handleResetPassword = async () => {
+    setResetPasswordError("");
+    setResetPasswordSuccess("");
+    if (!resetPassword) {
+      setResetPasswordError("Password is required");
+      return;
+    }
+    if (resetPassword.length < 8) {
+      setResetPasswordError("Password must be at least 8 characters");
+      return;
+    }
+    if (resetPassword !== resetPasswordConfirm) {
+      setResetPasswordError("Passwords do not match");
+      return;
+    }
+    if (!editingUser) return;
+    setResettingPassword(true);
+    try {
+      await api.post(`/api/users/${editingUser.id}/reset-password`, {
+        new_password: resetPassword,
+      });
+      setResetPasswordSuccess("Password reset successfully");
+      setResetPassword("");
+      setResetPasswordConfirm("");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      let msg: string;
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((e: { msg?: string }) => e.msg || "Validation error").join("; ");
+      } else {
+        msg = "Failed to reset password. Please try again.";
+      }
+      setResetPasswordError(msg);
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -204,6 +255,7 @@ export default function UsersPage() {
       if (editingUser) {
         const update: UserUpdate = {};
         if (form.full_name !== editingUser.full_name) update.full_name = form.full_name;
+        if (form.username !== editingUser.username) update.username = form.username;
         if (form.email !== editingUser.email) update.email = form.email;
         const formRole = form.role as UserRole;
         if (formRole !== editingUser.role) update.role = formRole;
@@ -459,19 +511,6 @@ export default function UsersPage() {
             <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!editingUser && (
-              <div>
-                <Label>Username *</Label>
-                <Input
-                  required
-                  maxLength={100}
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  placeholder="e.g. johndoe"
-                  className="mt-1.5"
-                />
-              </div>
-            )}
             <div>
               <Label>Full Name *</Label>
               <Input
@@ -480,6 +519,20 @@ export default function UsersPage() {
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                 placeholder="e.g. John Doe"
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>Username *</Label>
+              <Input
+                required
+                minLength={4}
+                maxLength={50}
+                pattern="^\S+$"
+                title="Username must not contain spaces"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                placeholder="e.g. johndoe"
                 className="mt-1.5"
               />
             </div>
@@ -566,6 +619,53 @@ export default function UsersPage() {
               </Button>
             </DialogFooter>
           </form>
+
+          {/* Reset Password Section — only for ADMIN/SUPER_ADMIN editing an existing user */}
+          {editingUser && (currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN") && (
+            <div className="border-t pt-4 mt-2 space-y-3">
+              <h3 className="text-sm font-semibold">Reset Password</h3>
+              <div>
+                <Label>New Password *</Label>
+                <Input
+                  type="password"
+                  minLength={8}
+                  value={resetPassword}
+                  onChange={(e) => { setResetPassword(e.target.value); setResetPasswordError(""); setResetPasswordSuccess(""); }}
+                  placeholder="Min 8 characters"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Confirm Password *</Label>
+                <Input
+                  type="password"
+                  minLength={8}
+                  value={resetPasswordConfirm}
+                  onChange={(e) => { setResetPasswordConfirm(e.target.value); setResetPasswordError(""); setResetPasswordSuccess(""); }}
+                  placeholder="Re-enter password"
+                  className="mt-1.5"
+                />
+              </div>
+              {resetPasswordError && (
+                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-2">
+                  {resetPasswordError}
+                </p>
+              )}
+              {resetPasswordSuccess && (
+                <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
+                  {resetPasswordSuccess}
+                </p>
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleResetPassword}
+                disabled={resettingPassword}
+              >
+                {resettingPassword ? "Resetting..." : "Reset Password"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

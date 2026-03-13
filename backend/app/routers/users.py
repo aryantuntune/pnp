@@ -8,7 +8,7 @@ from app.dependencies import get_current_user, require_roles
 from app.core.rbac import UserRole
 from app.middleware.rate_limit import limiter
 from app.models.user import User
-from app.schemas.user import ChangePassword, UserCreate, UserRead, UserUpdate
+from app.schemas.user import AdminResetPassword, ChangePassword, UserCreate, UserRead, UserUpdate
 from app.services import user_service
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
@@ -145,13 +145,13 @@ async def get_user(
     "/{user_id}",
     response_model=UserRead,
     summary="Update user details",
-    description="Partially update a user's profile (name, email, role, active status). Requires **Admin** role.",
+    description="Partially update a user's profile (name, username, email, role, active status). Requires **Admin** role.",
     responses={
         200: {"description": "User updated successfully"},
         401: {"description": "Not authenticated"},
         403: {"description": "Insufficient role permissions"},
         404: {"description": "User not found"},
-        409: {"description": "Email already registered"},
+        409: {"description": "Email or username already registered"},
     },
 )
 async def update_user(
@@ -161,6 +161,28 @@ async def update_user(
     current_user: User = Depends(_admin_roles),
 ):
     return await user_service.update_user(db, user_id, body, current_user=current_user)
+
+
+@router.post(
+    "/{user_id}/reset-password",
+    response_model=dict,
+    summary="Admin reset user password",
+    description="Allows an Admin or Super Admin to manually reset a user's password. Does not require the user's current password.",
+    responses={
+        200: {"description": "Password reset successfully"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Insufficient role permissions"},
+        404: {"description": "User not found"},
+    },
+)
+async def admin_reset_password(
+    user_id: uuid.UUID,
+    body: AdminResetPassword,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_admin_roles),
+):
+    await user_service.admin_reset_password(db, user_id, body.new_password, current_user)
+    return {"message": "Password reset successfully"}
 
 
 @router.delete(

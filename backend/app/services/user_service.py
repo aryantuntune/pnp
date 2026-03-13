@@ -259,6 +259,17 @@ async def update_user(db: AsyncSession, user_id: uuid.UUID, user_in: UserUpdate,
         if not current_user or current_user.role != UserRole.SUPER_ADMIN:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. Insufficient permissions.")
 
+    # Check uniqueness if username is being updated
+    if "username" in update_data:
+        existing = await db.execute(
+            select(User).where(User.username == update_data["username"], User.id != user_id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already exists",
+            )
+
     # Check uniqueness if email is being updated
     if "email" in update_data:
         existing = await db.execute(
@@ -288,6 +299,38 @@ async def change_password(db: AsyncSession, user: User, current_password: str, n
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def admin_reset_password(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    new_password: str,
+    admin_user: User,
+) -> dict:
+    """Admin/SuperAdmin resets another user's password."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Non-SUPER_ADMIN cannot reset a SUPER_ADMIN's password
+    if user.role == UserRole.SUPER_ADMIN and admin_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. Insufficient permissions.")
+
+    user.hashed_password = get_password_hash(new_password)
+    await db.commit()
+
+    logger.info(
+        "Password reset by admin | admin_user_id=%s | target_user_id=%s",
+        admin_user.id,
+        user_id,
+    )
+
+    route_name = await _resolve_route_name(db, user.route_id)
+    return _user_with_route_name(user, route_name)
 
 
 async def deactivate_user(db: AsyncSession, user_id: uuid.UUID, current_user: User | None = None) -> dict:

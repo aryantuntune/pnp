@@ -61,18 +61,46 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, description="Updated display name")
+    username: str | None = Field(
+        None,
+        min_length=4,
+        max_length=50,
+        description="Updated login username (unique, no spaces)",
+        examples=["johndoe"],
+    )
     email: EmailStr | None = Field(None, description="Updated email address")
     role: UserRole | None = Field(None, description="Updated RBAC role")
     route_id: int | None = Field(None, description="Updated assigned route ID")
     is_active: bool | None = Field(None, description="Set false to deactivate the user")
 
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str | None) -> str | None:
+        if v is not None and " " in v:
+            raise ValueError("Username must not contain spaces")
+        return v
+
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"full_name": "Updated Name", "role": "manager", "route_id": 1}
+                {"full_name": "Updated Name", "username": "newname", "role": "manager", "route_id": 1}
             ]
         }
     }
+
+
+class AdminResetPassword(BaseModel):
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        description="New password (min 8 chars, must include uppercase, lowercase, digit, special char)",
+        examples=["NewPassword@123"],
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return _validate_password_complexity(v)
 
 
 class UserRead(UserBase):
