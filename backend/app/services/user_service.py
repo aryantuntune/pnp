@@ -322,6 +322,7 @@ async def admin_reset_password(
 
     user.hashed_password = get_password_hash(new_password)
     await db.commit()
+    await db.refresh(user)
 
     logger.info(
         "Password reset by admin | admin_user_id=%s | target_user_id=%s",
