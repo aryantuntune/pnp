@@ -109,12 +109,6 @@ function formatReceiptTime(createdAt: string | null, departure: string | null): 
   }
 }
 
-function formatFooterDateTime(ticketDate: string, createdAt: string | null, departure: string | null): string {
-  const date = formatReceiptDate(ticketDate);
-  const time = formatReceiptTime(createdAt, departure);
-  return `${date} ${time}`;
-}
-
 // ── Receipt HTML builder ──
 
 function buildReceiptHtml(data: ReceiptData, logoBase64: string | null, qrBase64: string | null): string {
@@ -136,7 +130,6 @@ function buildReceiptHtml(data: ReceiptData, logoBase64: string | null, qrBase64
   const widthMm = paperWidth === "58mm" ? 58 : 80;
   const time = formatReceiptTime(createdAt, departure);
   const dateStr = formatReceiptDate(ticketDate);
-  const footerDateTime = formatFooterDateTime(ticketDate, createdAt, departure);
   // Build item rows — single row per item
   const itemRows = items
     .map((item) => {
@@ -206,7 +199,7 @@ ${logoHtml}
 <div class="center bold">${escHtml(fromTo)}</div>
 <div class="header-line"><span>Ph: ${escHtml(branchPhone)}</span><span>TIME: ${time}</span></div>
 <div class="header-line"><span>CASH MEMO NO: ${ticketNo}</span><span>DATE: ${dateStr}</span></div>
-<div>PAYMENT MODE: ${escHtml(paymentModeName)}</div>
+<div class="header-line"><span>PAYMENT MODE: ${escHtml(paymentModeName)}</span><span>BY: ${escHtml(createdBy)}</span></div>
 <div class="dash"></div>
 <table>
 <colgroup><col class="desc"/><col class="num"/><col class="num"/><col class="num"/><col class="amt"/></colgroup>
@@ -217,13 +210,9 @@ ${itemRows}
 <div class="dash"></div>
 <div class="header-line"><span class="bold">NET TOTAL WITH GOVT.TAX. :</span><span class="bold">${fmtNum(netAmount)}</span></div>
 <div class="dash"></div>
-<div class="note">NOTE: Tantrik Durustimule Velevar na sutlyas va ushira pohochlyas company jababdar rahanar nahi. Ferry Boatit TICKET DAKHVAVE.</div>
+<div class="note">NOTE: Tantrik Durustimule Velevar na sutlyas va ushira pohochlyas company jababdar rahanar nahi.</div>
+<div class="center note">Ferry Boatit Ticket Dakhvaa.</div>
 <div class="center note">HAPPY JOURNEY - www.carferry.online</div>
-<div class="dash"></div>
-<div class="header-line"><span>DATE: ${footerDateTime}</span><span>BY: ${escHtml(createdBy)}</span></div>
-<div>CASH MEMO NO: ${ticketNo}</div>
-<div>PAYMENT MODE: ${escHtml(paymentModeName)}</div>
-<div class="header-line"><span>NET TOTAL WITH GOVT.TAX. :</span><span class="bold">${fmtNum(netAmount)}</span></div>
 <div class="dash"></div>
 ${qrHtml}
 </body></html>`;
