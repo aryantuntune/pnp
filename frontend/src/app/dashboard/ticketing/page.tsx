@@ -777,7 +777,7 @@ export default function TicketingPage() {
             vehicleNo: ti.vehicle_no || null,
           })),
         netAmount: t.net_amount,
-        createdBy: user?.full_name || user?.username || "",
+        createdBy: user?.username || "",
         paperWidth,
         paymentModeName: reprintPaymentLabel,
       };
@@ -1019,7 +1019,7 @@ export default function TicketingPage() {
           vehicleNo: fi.vehicle_no || null,
         })),
         netAmount: formNetAmount,
-        createdBy: user?.full_name || user?.username || "",
+        createdBy: user?.username || "",
         paperWidth,
         paymentModeName: paymentModeLabel,
       };
