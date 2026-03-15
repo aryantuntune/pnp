@@ -326,6 +326,7 @@ export default function TicketingPage() {
   const departureRef = useRef<HTMLSelectElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
+  const isSavingRef = useRef(false);
 
   // Auto-focus departure when modal opens
   useEffect(() => {
@@ -750,6 +751,11 @@ export default function TicketingPage() {
       const branchName = branch?.name || "";
       const branchPhone = branch?.contact_nos || "";
 
+      // Derive payment mode label from ticket payments or fallback to payment_mode_name
+      const reprintPaymentLabel = t.payments && t.payments.length > 0
+        ? [...new Set(t.payments.map((p) => p.payment_mode_name || "-"))].join(" / ")
+        : t.payment_mode_name || "-";
+
       // Build receipt data
       const receiptData: ReceiptData = {
         ticketId: t.id,
@@ -773,6 +779,7 @@ export default function TicketingPage() {
         netAmount: t.net_amount,
         createdBy: user?.full_name || user?.username || "",
         paperWidth,
+        paymentModeName: reprintPaymentLabel,
       };
 
       // Print receipt (non-blocking)
@@ -983,6 +990,16 @@ export default function TicketingPage() {
       const branchName = branch?.name || "";
       const branchPhone = branch?.contact_nos || "";
 
+      // Derive payment mode label from payment rows
+      const paymentModeLabel = [
+        ...new Set(
+          paymentRows.map(
+            (pr) =>
+              paymentModes.find((m) => m.id === pr.payment_mode_id)?.description || "-"
+          )
+        ),
+      ].join(" / ");
+
       // Build receipt data
       const receiptData: ReceiptData = {
         ticketId: savedTicket.id,
@@ -1004,6 +1021,7 @@ export default function TicketingPage() {
         netAmount: formNetAmount,
         createdBy: user?.full_name || user?.username || "",
         paperWidth,
+        paymentModeName: paymentModeLabel,
       };
 
       // Print receipt (non-blocking - ticket already saved)
@@ -1034,6 +1052,7 @@ export default function TicketingPage() {
       });
 
       // Reset form for next ticket (keep modal open)
+      isSavingRef.current = true;
       setShowPaymentModal(false);
       const newTempId = crypto.randomUUID();
       setFormItems([{
@@ -1056,6 +1075,7 @@ export default function TicketingPage() {
       // Focus first item input after DOM updates
       requestAnimationFrame(() => {
         document.getElementById(`item-id-${newTempId}`)?.focus();
+        isSavingRef.current = false;
       });
 
       // Refresh ticket list in background
@@ -1575,7 +1595,7 @@ export default function TicketingPage() {
 
       {/* Payment Confirmation Modal */}
       <Dialog open={showPaymentModal} onOpenChange={(open) => !open && setShowPaymentModal(false)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Payment Confirmation</DialogTitle>
           </DialogHeader>
@@ -1815,7 +1835,7 @@ export default function TicketingPage() {
       </Dialog>
 
       {/* Create/Edit Modal */}
-      <Dialog open={showModal} onOpenChange={(open) => !open && closeModal()}>
+      <Dialog open={showModal} onOpenChange={(open) => { if (!open && !isSavingRef.current) closeModal(); }}>
         <DialogContent className="max-w-none w-full h-full max-h-full rounded-none border-none p-0 [&>button]:hidden">
           <div
             ref={modalRef}

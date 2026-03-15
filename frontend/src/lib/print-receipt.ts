@@ -26,6 +26,7 @@ export interface ReceiptData {
   netAmount: number;
   createdBy: string;
   paperWidth: PaperWidth;
+  paymentModeName: string; // e.g. "CASH", "UPI", "CASH / UPI"
 }
 
 // ── Paper width persistence (sessionStorage) ──
@@ -129,6 +130,7 @@ function buildReceiptHtml(data: ReceiptData, logoBase64: string | null, qrBase64
     netAmount,
     createdBy,
     paperWidth,
+    paymentModeName,
   } = data;
 
   const widthMm = paperWidth === "58mm" ? 58 : 80;
@@ -204,6 +206,7 @@ ${logoHtml}
 <div class="center bold">${escHtml(fromTo)}</div>
 <div class="header-line"><span>Ph: ${escHtml(branchPhone)}</span><span>TIME: ${time}</span></div>
 <div class="header-line"><span>CASH MEMO NO: ${ticketNo}</span><span>DATE: ${dateStr}</span></div>
+<div>PAYMENT MODE: ${escHtml(paymentModeName)}</div>
 <div class="dash"></div>
 <table>
 <colgroup><col class="desc"/><col class="num"/><col class="num"/><col class="num"/><col class="amt"/></colgroup>
@@ -219,6 +222,7 @@ ${itemRows}
 <div class="dash"></div>
 <div class="header-line"><span>DATE: ${footerDateTime}</span><span>BY: ${escHtml(createdBy)}</span></div>
 <div>CASH MEMO NO: ${ticketNo}</div>
+<div>PAYMENT MODE: ${escHtml(paymentModeName)}</div>
 <div class="header-line"><span>NET TOTAL WITH GOVT.TAX. :</span><span class="bold">${fmtNum(netAmount)}</span></div>
 <div class="dash"></div>
 ${qrHtml}
