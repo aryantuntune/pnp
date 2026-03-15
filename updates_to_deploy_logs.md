@@ -247,7 +247,7 @@ Frontend:
 
 ---
 
-## Deployment Update — 2026-03-14
+## Deployment Update — 2026-03-15
 
 ### Module
 
@@ -306,7 +306,7 @@ sudo systemctl restart ssmspl-frontend
 
 ---
 
-## Deployment Update — 2026-03-14 (hotfix)
+## Deployment Update — 2026-03-15 (hotfix)
 
 ### Module
 
@@ -347,3 +347,100 @@ Frontend:
 
 * One-line backend fix. No frontend or database changes required.
 * The 422 errors seen when submitting weak passwords are expected Pydantic validation responses — the frontend already displays these correctly.
+
+---
+
+## Deployment Update — 2026-03-15
+
+### Module
+
+Authentication
+
+### Commit ID
+
+(pending)
+
+### Changes
+
+* Removed 2-minute session lock (`_has_active_session()`, `SESSION_TIMEOUT_SECONDS = 120`, HTTP 409 rejection) from both web and mobile login flows
+* New login now immediately overwrites the previous session — `_start_session()` generates a fresh UUID and stores it in `active_session_id`, invalidating any older JWT whose `sid` no longer matches
+* Existing request validation unchanged: `get_current_user()` still checks `JWT.sid == DB.active_session_id` and returns 401 `session_expired_elsewhere` on mismatch
+* Session heartbeat unchanged: `session_last_active` still updated every 30s on API requests, but no longer used to block logins
+* Logout unchanged: clears `active_session_id` and `session_last_active` immediately
+
+### Files Modified
+
+* `backend/app/services/auth_service.py`
+* `backend/app/routers/auth.py`
+
+### Database Migrations
+
+* None — no schema changes, uses existing `active_session_id` and `session_last_active` columns.
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+# No frontend changes — skip
+```
+
+### Notes
+
+* Backend-only change. No frontend rebuild or database migration needed.
+* Users will no longer see "already logged in from another session" errors. Instead, logging in from a new browser/device silently invalidates the old session — the old browser gets redirected to `/login?reason=session_conflict` on its next API call.
+* Rapid login/logout cycles, browser crashes, and page refreshes will no longer cause session lock issues.
+
+---
+
+## Deployment Update — 2026-03-15
+
+### Module
+
+Ticketing / Print Receipt
+
+### Commit ID
+
+(pending)
+
+### Changes
+
+* **Ticket modal stays open after creation** — fixed Radix Dialog dismiss race condition where closing the payment confirmation modal would also close the main ticket form modal. Added `isSavingRef` guard on the main dialog's `onOpenChange` and `onCloseAutoFocus` prevention on the payment dialog to stop focus interference.
+* **Payment mode now printed on ticket receipt** — added `PAYMENT MODE: CASH` (or `CASH / UPI`, `UPI`, `CARD`, etc.) line on both header and footer sections of 80mm and 58mm thermal receipts. Supports split-payment labels (e.g. `CASH / UPI` when ticket is paid with multiple modes).
+* Receipt data for reprints derives payment mode label from the ticket's `payments` array (or falls back to `payment_mode_name`).
+
+### Files Modified
+
+* `frontend/src/lib/print-receipt.ts` — added `paymentModeName` to `ReceiptData` interface; added `PAYMENT MODE:` line in receipt header and footer HTML
+* `frontend/src/app/dashboard/ticketing/page.tsx` — added `isSavingRef` to guard modal dismiss during save; added `onCloseAutoFocus` prevention on payment dialog; passes `paymentModeName` in both new-ticket and reprint receipt data
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* Payment mode on receipt is derived from the ticket's payment rows — if a ticket has multiple payment modes (e.g. CASH + UPI), the receipt shows `PAYMENT MODE: CASH / UPI`.
+* The modal-stays-open fix addresses a Radix UI Dialog interaction where sibling dialog dismiss events could cascade. The `isSavingRef` ref prevents the main modal from closing during the save-and-reset flow.
+* Operators can now create consecutive tickets without re-opening the modal — form resets, cursor focuses first item input, and branch/route/date context is preserved.

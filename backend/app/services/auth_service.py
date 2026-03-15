@@ -10,10 +10,6 @@ from app.core.rbac import ROLE_MENU_ITEMS
 from app.models.user import User
 from app.services import token_service
 
-# Sessions with no API activity for this long are considered dead (crash recovery)
-SESSION_TIMEOUT_SECONDS = 120
-
-
 async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
     result = await db.execute(select(User).where(User.username == username, User.is_active == True))
     user = result.scalar_one_or_none()
@@ -22,16 +18,10 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> U
     return user
 
 
-def _has_active_session(user: User) -> bool:
-    """Check if user has a session that was active within the timeout window."""
-    if not user.active_session_id or not user.session_last_active:
-        return False
-    elapsed = (datetime.now(timezone.utc) - user.session_last_active).total_seconds()
-    return elapsed < SESSION_TIMEOUT_SECONDS
-
-
 def _start_session(user: User) -> str:
-    """Generate a new session ID and stamp it on the user. Returns the session_id."""
+    """Generate a new session ID and stamp it on the user. Returns the session_id.
+    Any previous session is implicitly invalidated — the old sid in existing JWTs
+    will no longer match active_session_id, causing 401 on next request."""
     sid = str(uuid.uuid4())
     user.active_session_id = sid
     user.session_last_active = datetime.now(timezone.utc)
@@ -47,14 +37,7 @@ async def login(db: AsyncSession, username: str, password: str) -> dict:
             detail="Incorrect username or password",
         )
 
-    # Single-session enforcement
-    if _has_active_session(user):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This account is already logged in from another session. If the previous session crashed, please wait 2 minutes and try again.",
-        )
-
-    # Start new session
+    # Start new session (overwrites any existing session — old JWTs become invalid)
     sid = _start_session(user)
     user.last_login = datetime.now(timezone.utc)
 

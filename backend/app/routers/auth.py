@@ -82,14 +82,8 @@ async def mobile_login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This app is for ticket checkers only. Please use the web dashboard.",
         )
-    # Single-session enforcement
-    from app.services.auth_service import _has_active_session, _start_session
-    if _has_active_session(user):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This account is already logged in from another session. If the previous session crashed, please wait 2 minutes and try again.",
-        )
-    # Start new session and generate tokens
+    # Start new session (overwrites any existing session — old JWTs become invalid)
+    from app.services.auth_service import _start_session
     sid = _start_session(user)
     user.last_login = datetime.now(timezone.utc)
     extra = {"role": user.role.value, "sid": sid}
