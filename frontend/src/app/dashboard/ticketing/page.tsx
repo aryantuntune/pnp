@@ -777,7 +777,7 @@ export default function TicketingPage() {
             vehicleNo: ti.vehicle_no || null,
           })),
         netAmount: t.net_amount,
-        createdBy: user?.username || "",
+        createdBy: t.created_by_username || user?.username || "",
         paperWidth,
         paymentModeName: reprintPaymentLabel,
       };
@@ -949,12 +949,15 @@ export default function TicketingPage() {
     setSubmitting(true);
     try {
       const activeItems = formItems.filter((fi) => !fi.is_cancelled);
+      // Derive header payment_mode_id from the payment row with the largest amount
+      const primaryPaymentRow = [...paymentRows].sort((a, b) => b.amount - a.amount)[0];
+      const derivedPaymentModeId = primaryPaymentRow?.payment_mode_id || formPaymentModeId;
       const create: TicketCreate = {
         branch_id: formBranchId,
         ticket_date: formTicketDate,
         departure: formDeparture || null,
         route_id: formRouteId,
-        payment_mode_id: formPaymentModeId,
+        payment_mode_id: derivedPaymentModeId,
         discount: formDiscount || 0,
         amount: formAmount,
         net_amount: formNetAmount,
@@ -1019,7 +1022,7 @@ export default function TicketingPage() {
           vehicleNo: fi.vehicle_no || null,
         })),
         netAmount: formNetAmount,
-        createdBy: user?.username || "",
+        createdBy: savedTicket.created_by_username || user?.username || "",
         paperWidth,
         paymentModeName: paymentModeLabel,
       };

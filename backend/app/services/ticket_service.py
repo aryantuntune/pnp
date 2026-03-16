@@ -15,6 +15,7 @@ from app.models.item_rate import ItemRate
 from app.models.payment_mode import PaymentMode
 from app.models.ferry_schedule import FerrySchedule
 from app.models.company import Company
+from app.models.user import User
 from app.schemas.ticket import TicketCreate, TicketUpdate
 
 
@@ -105,10 +106,18 @@ async def _enrich_ticket_payement(db: AsyncSession, tp: TicketPayement) -> dict:
     }
 
 
+async def _get_username(db: AsyncSession, user_id) -> str | None:
+    if user_id is None:
+        return None
+    result = await db.execute(select(User.username).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
 async def _enrich_ticket(db: AsyncSession, ticket: Ticket, include_items: bool = False) -> dict:
     branch_name = await _get_branch_name(db, ticket.branch_id)
     route_name = await _get_route_display_name(db, ticket.route_id)
     pm_name = await _get_payment_mode_name(db, ticket.payment_mode_id)
+    created_by_username = await _get_username(db, ticket.created_by)
 
     data = {
         "id": ticket.id,
@@ -129,6 +138,7 @@ async def _enrich_ticket(db: AsyncSession, ticket: Ticket, include_items: bool =
         "payment_mode_name": pm_name,
         "verification_code": str(ticket.verification_code) if ticket.verification_code else None,
         "created_at": ticket.created_at,
+        "created_by_username": created_by_username,
     }
 
     if include_items:
@@ -413,6 +423,8 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
     # Validate off-hours
     await _validate_off_hours(db, branch_id)
 
+    # All tickets are created within the same DB transaction (get_db session).
+    # create_ticket() uses flush(), not commit(), so if any fails, ALL roll back.
     created_tickets = []
     for ticket_data in data.tickets:
         result = await create_ticket(db, ticket_data, user_id=user.id)
@@ -534,7 +546,15 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: int) -> dict:
 
 
 async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> dict:
-    await _validate_references(db, data.branch_id, data.route_id, data.payment_mode_id)
+    # Derive payment_mode_id from payments if provided (defensive: ensures
+    # header payment_mode_id matches the actual payment, even if the client
+    # sends a stale/default value).
+    effective_payment_mode_id = data.payment_mode_id
+    if data.payments:
+        primary = max(data.payments, key=lambda p: p.amount)
+        effective_payment_mode_id = primary.payment_mode_id
+
+    await _validate_references(db, data.branch_id, data.route_id, effective_payment_mode_id)
     await _validate_items(db, data.items)
 
     computed_amount, computed_net = _compute_amounts(data.items, data.discount)
@@ -546,6 +566,7 @@ async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> d
     branch = result.scalar_one()
     next_ticket_no = (branch.last_ticket_no or 0) + 1
 
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('tickets_id'))"))
     id_result = await db.execute(select(func.coalesce(func.max(Ticket.id), 0)))
     next_ticket_id = id_result.scalar() + 1
 
@@ -560,7 +581,7 @@ async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> d
         route_id=data.route_id,
         amount=computed_amount,
         discount=float(data.discount) if data.discount else 0,
-        payment_mode_id=data.payment_mode_id,
+        payment_mode_id=effective_payment_mode_id,
         is_cancelled=False,
         net_amount=computed_net,
         verification_code=uuid_mod.uuid4(),
@@ -569,6 +590,7 @@ async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> d
     )
     db.add(ticket)
 
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ticket_items_id'))"))
     item_id_result = await db.execute(select(func.coalesce(func.max(TicketItem.id), 0)))
     next_item_id = item_id_result.scalar() + 1
 
@@ -591,6 +613,7 @@ async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> d
 
     # Insert ticket_payement rows
     if data.payments:
+        await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ticket_payement_id'))"))
         pay_id_result = await db.execute(select(func.coalesce(func.max(TicketPayement.id), 0)))
         next_pay_id = pay_id_result.scalar() + 1
 
@@ -665,6 +688,7 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
         )
         existing_items = {ti.id: ti for ti in existing_result.scalars().all()}
 
+        await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ticket_items_id'))"))
         item_id_result = await db.execute(select(func.coalesce(func.max(TicketItem.id), 0)))
         next_item_id = item_id_result.scalar() + 1
 
