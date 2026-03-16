@@ -298,6 +298,7 @@ export interface Ticket {
   payments: TicketPayement[] | null;
   created_at?: string;
   updated_at?: string;
+  created_by_username?: string | null;
 }
 
 export interface TicketCreate {

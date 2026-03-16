@@ -153,6 +153,7 @@ class TicketRead(BaseModel):
     payments: list[TicketPayementRead] | None = Field(None, description="Ticket payments (only in detail view)")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
+    created_by_username: str | None = Field(None, description="Username of the operator who created the ticket")
 
     model_config = {"from_attributes": True}
 

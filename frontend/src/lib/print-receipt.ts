@@ -198,7 +198,7 @@ ${logoHtml}
 <div class="center">MAHARASHTRA MARITIME BOARD APPROVAL</div>
 <div class="center bold">${escHtml(fromTo)}</div>
 <div class="header-line"><span>Ph: ${escHtml(branchPhone)}</span><span>TIME: ${time}</span></div>
-<div class="header-line"><span>CASH MEMO NO: ${ticketNo}</span><span>DATE: ${dateStr}</span></div>
+<div class="header-line"><span>TICKET MEMO NO: ${ticketNo}</span><span>DATE: ${dateStr}</span></div>
 <div class="header-line"><span>PAYMENT MODE: ${escHtml(paymentModeName)}</span><span>BY: ${escHtml(createdBy)}</span></div>
 <div class="dash"></div>
 <table>
