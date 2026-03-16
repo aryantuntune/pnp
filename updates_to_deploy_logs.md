@@ -961,3 +961,80 @@ These items require external services or dependencies and are documented in `ana
 * The email normalization is backward-compatible — existing lowercase emails in the database will match as before. If any existing portal users registered with uppercase emails, they can now log in with any case variation.
 * The 30-minute idle timeout applies to both admin and customer portals. The timer resets on any user interaction (mouse, keyboard, touch, scroll). Browser tab visibility changes do NOT reset the timer.
 * Payment transaction expiry does NOT cancel the associated booking — it only rejects the stale payment link. The booking remains in PENDING status and the user can initiate a new payment.
+
+---
+
+## Deployment Update — 2026-03-16
+
+### Module
+
+Security Hardening — Third Pass (8 fixes)
+
+### Commit ID
+
+5846453
+
+### Changes
+
+* **Access token TTL reduced from 30 to 5 minutes** — After logout, the access JWT is now valid for at most 5 minutes instead of 30. Refresh tokens (7-day) handle session continuity transparently. This minimizes the window where a stolen/leaked access token can be abused.
+* **Role escalation prevention** — Non-SUPER_ADMIN users can no longer create ADMIN or SUPER_ADMIN accounts. The `create_user` service now checks `current_user.role == SUPER_ADMIN` before allowing ADMIN/SUPER_ADMIN role assignment. Returns 403 Forbidden otherwise.
+* **DB connection pool tuning** — Changed from `pool_size=10, max_overflow=20` (30 max per worker) to `pool_size=5, max_overflow=10` (15 max per worker). With 5 Gunicorn workers, this caps at 75 total connections — safely under PostgreSQL's default `max_connections=100`.
+* **Health endpoint simplified** — `/health` now returns only `{"status":"ok"}` instead of exposing app name, database connectivity status, and environment. Docker/nginx healthchecks continue to work since they only check HTTP 200.
+* **Portal user password column widened** — `portal_users.password` changed from `VARCHAR(60)` to `VARCHAR(255)` to future-proof against hash algorithm changes. DDL patch included for existing databases.
+* **6 performance indexes added** — Composite indexes on `tickets(ticket_date, branch_id, route_id)`, `bookings(travel_date, branch_id, route_id)`, `ticket_payement(ticket_id)`, `booking_items(booking_id)`, plus single-column indexes on `tickets(payment_mode_id)` and `bookings(portal_user_id)`. These prevent full table scans in report queries as data grows past 100k rows.
+* **security.txt added** — `/.well-known/security.txt` provides vulnerability disclosure contact information.
+* **Duplicate check-in prevention verified** — Confirmation that `verification_service.verify()` already returns 409 CONFLICT for already-verified bookings/tickets. No code change needed.
+
+### Files Modified
+
+* `backend/app/config.py` — ACCESS_TOKEN_EXPIRE_MINUTES: 30 → 5
+* `backend/app/database.py` — pool_size: 10 → 5, max_overflow: 20 → 10
+* `backend/app/main.py` — simplified health endpoint
+* `backend/app/models/portal_user.py` — password String(60) → String(255)
+* `backend/app/services/user_service.py` — role escalation check in create_user
+* `backend/scripts/ddl.sql` — password column patch + 6 performance indexes
+* `frontend/public/.well-known/security.txt` (new)
+
+### Database Migrations
+
+**Required — run these SQL statements on production:**
+
+```sql
+-- Password column width (safe — existing hashes are 60 chars, column grows to 255)
+ALTER TABLE portal_users ALTER COLUMN password TYPE VARCHAR(255);
+
+-- Performance indexes (idempotent — IF NOT EXISTS)
+CREATE INDEX IF NOT EXISTS idx_tickets_date_branch_route ON tickets (ticket_date, branch_id, route_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_payment_mode ON tickets (payment_mode_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_date_branch_route ON bookings (travel_date, branch_id, route_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_portal_user ON bookings (portal_user_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_payement_ticket_id ON ticket_payement (ticket_id);
+CREATE INDEX IF NOT EXISTS idx_booking_items_booking_id ON booking_items (booking_id);
+```
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+
+# Run DDL patches
+psql -U postgres -d ssmspl_db -f scripts/ddl.sql
+
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* **Access token TTL change**: Users may notice slightly more frequent token refreshes (every 5 min instead of 30 min). This is transparent — the Axios interceptor handles refresh automatically. If users report being logged out unexpectedly, check that the refresh token flow is working correctly.
+* **Connection pool change**: Monitor PostgreSQL connection count after deployment with `SELECT count(*) FROM pg_stat_activity;`. If connections are frequently exhausted under load, increase `pool_size` but ensure `pool_size × workers < max_connections`.
+* **Index creation**: The `CREATE INDEX` statements may take a few seconds on large tables. They use `IF NOT EXISTS` so they're safe to re-run. For very large tables (500k+ rows), consider `CREATE INDEX CONCURRENTLY` instead (requires running outside a transaction).
+* **Role escalation**: Existing ADMIN-created ADMIN accounts are NOT affected. The check only applies to new user creation going forward.
