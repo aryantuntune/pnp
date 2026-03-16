@@ -3,6 +3,7 @@
 import { useState } from "react";
 import api from "@/lib/api";
 import { ChangePasswordRequest } from "@/types";
+import { validatePasswordComplexity } from "@/lib/password-validation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +28,9 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
+    const check = validatePasswordComplexity(newPassword);
+    if (!check.valid) {
+      setError(check.error);
       return;
     }
 
@@ -91,7 +93,7 @@ export default function ChangePasswordPage() {
                 minLength={8}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min 8 characters"
+                placeholder="Min 8 chars, upper, lower, digit, special"
                 className="mt-1.5"
               />
             </div>

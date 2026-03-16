@@ -379,8 +379,10 @@ async def get_payment_mode_report(
     branch_id: int | None = None,
     route_id: int | None = None,
 ) -> dict:
-    # Load payment mode names
-    pm_result = await db.execute(select(PaymentMode))
+    # Load active payment mode names
+    pm_result = await db.execute(
+        select(PaymentMode).where(PaymentMode.is_active == True)
+    )
     pm_names = {pm.id: pm.description for pm in pm_result.scalars().all()}
 
     # Tickets
@@ -407,7 +409,8 @@ async def get_payment_mode_report(
     booking_rows = (await db.execute(bq)).all()
     booking_map = {r.payment_mode_id: {"revenue": float(r.revenue), "count": r.count} for r in booking_rows}
 
-    all_ids = sorted(set(ticket_map.keys()) | set(booking_map.keys()))
+    # Include all active payment modes (even those with zero transactions)
+    all_ids = sorted(pm_names.keys())
     rows = []
     for pid in all_ids:
         t = ticket_map.get(pid, {"revenue": 0, "count": 0})
@@ -595,7 +598,13 @@ async def get_item_wise_summary(
             "net": net,
         })
 
-    # Payment mode breakdown
+    # Payment mode breakdown — include all active modes
+    all_pm = (await db.execute(
+        select(PaymentMode.description)
+        .where(PaymentMode.is_active == True)
+        .order_by(PaymentMode.description)
+    )).scalars().all()
+
     pm_q = (
         select(
             PaymentMode.description.label("payment_mode_name"),
@@ -613,9 +622,10 @@ async def get_item_wise_summary(
         pm_q = pm_q.where(Ticket.payment_mode_id == payment_mode_id)
 
     pm_result = (await db.execute(pm_q)).all()
+    pm_map = {r.payment_mode_name: r.amount for r in pm_result}
     payment_modes = [
-        {"payment_mode_name": r.payment_mode_name, "amount": r.amount}
-        for r in pm_result
+        {"payment_mode_name": name, "amount": pm_map.get(name, 0)}
+        for name in all_pm
     ]
 
     branch_name = None
@@ -807,7 +817,13 @@ async def get_branch_item_summary(
             "net": net,
         })
 
-    # Payment mode breakdown
+    # Payment mode breakdown — include all active modes
+    all_pm = (await db.execute(
+        select(PaymentMode.description)
+        .where(PaymentMode.is_active == True)
+        .order_by(PaymentMode.description)
+    )).scalars().all()
+
     pm_q = (
         select(
             PaymentMode.description.label("payment_mode_name"),
@@ -825,9 +841,10 @@ async def get_branch_item_summary(
         pm_q = pm_q.where(Ticket.payment_mode_id == payment_mode_id)
 
     pm_result = (await db.execute(pm_q)).all()
+    pm_map = {r.payment_mode_name: r.amount for r in pm_result}
     payment_modes = [
-        {"payment_mode_name": r.payment_mode_name, "amount": r.amount}
-        for r in pm_result
+        {"payment_mode_name": name, "amount": pm_map.get(name, 0)}
+        for name in all_pm
     ]
 
     # Resolve branch name

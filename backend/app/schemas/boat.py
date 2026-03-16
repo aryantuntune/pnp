@@ -9,7 +9,6 @@ class BoatBase(BaseModel):
 
 
 class BoatCreate(BoatBase):
-    branch_id: int | None = Field(None, description="Branch this boat belongs to")
 
     model_config = {
         "json_schema_extra": {
@@ -17,7 +16,6 @@ class BoatCreate(BoatBase):
                 {
                     "name": "DEVYANSHI",
                     "no": "RTN-IV-200",
-                    "branch_id": 1,
                 }
             ]
         }
@@ -27,7 +25,6 @@ class BoatCreate(BoatBase):
 class BoatUpdate(BaseModel):
     name: str | None = Field(None, min_length=5, max_length=30, description="Updated boat name")
     no: str | None = Field(None, min_length=10, max_length=30, description="Updated registration number")
-    branch_id: int | None = Field(None, description="Branch this boat belongs to")
     is_active: bool | None = Field(None, description="Set false to soft-delete (deactivate) the boat")
 
     model_config = {
@@ -41,7 +38,6 @@ class BoatUpdate(BaseModel):
 
 class BoatRead(BoatBase):
     id: int = Field(..., description="Unique boat identifier")
-    branch_id: int | None = Field(None, description="Branch this boat belongs to")
     is_active: bool | None = Field(None, description="Whether the boat is active (soft-delete flag)")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")

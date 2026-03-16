@@ -1,18 +1,6 @@
-import re
-
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
-def _validate_password_complexity(v: str) -> str:
-    if not re.search(r"[A-Z]", v):
-        raise ValueError("Password must contain at least one uppercase letter")
-    if not re.search(r"[a-z]", v):
-        raise ValueError("Password must contain at least one lowercase letter")
-    if not re.search(r"\d", v):
-        raise ValueError("Password must contain at least one digit")
-    if not re.search(r"[^A-Za-z0-9]", v):
-        raise ValueError("Password must contain at least one special character")
-    return v
+from app.core.validators import validate_password_complexity
 
 
 class LoginRequest(BaseModel):
@@ -56,7 +44,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
+        return validate_password_complexity(v)
 
 
 class MobileUserInfo(BaseModel):

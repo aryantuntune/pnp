@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { User, UserCreate, UserUpdate, UserRole, Route } from "@/types";
+import { validatePasswordComplexity } from "@/lib/password-validation";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -213,8 +214,9 @@ export default function UsersPage() {
       setResetPasswordError("Password is required");
       return;
     }
-    if (resetPassword.length < 8) {
-      setResetPasswordError("Password must be at least 8 characters");
+    const check = validatePasswordComplexity(resetPassword);
+    if (!check.valid) {
+      setResetPasswordError(check.error);
       return;
     }
     if (resetPassword !== resetPasswordConfirm) {
@@ -249,6 +251,15 @@ export default function UsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+
+    if (!editingUser) {
+      const check = validatePasswordComplexity(form.password);
+      if (!check.valid) {
+        setFormError(check.error);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -557,7 +568,7 @@ export default function UsersPage() {
                   minLength={8}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Min 8 characters"
+                  placeholder="Min 8 chars, upper, lower, digit, special"
                   className="mt-1.5"
                 />
               </div>
@@ -631,7 +642,7 @@ export default function UsersPage() {
                   minLength={8}
                   value={resetPassword}
                   onChange={(e) => { setResetPassword(e.target.value); setResetPasswordError(""); setResetPasswordSuccess(""); }}
-                  placeholder="Min 8 characters"
+                  placeholder="Min 8 chars, upper, lower, digit, special"
                   className="mt-1.5"
                 />
               </div>

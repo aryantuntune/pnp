@@ -1,23 +1,10 @@
-import re
 import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.rbac import UserRole
-
-
-def _validate_password_complexity(v: str) -> str:
-    """Enforce password complexity: 1 uppercase, 1 lowercase, 1 digit, 1 special character."""
-    if not re.search(r"[A-Z]", v):
-        raise ValueError("Password must contain at least one uppercase letter")
-    if not re.search(r"[a-z]", v):
-        raise ValueError("Password must contain at least one lowercase letter")
-    if not re.search(r"\d", v):
-        raise ValueError("Password must contain at least one digit")
-    if not re.search(r"[^A-Za-z0-9]", v):
-        raise ValueError("Password must contain at least one special character")
-    return v
+from app.core.validators import validate_password_complexity
 
 
 class UserBase(BaseModel):
@@ -42,7 +29,7 @@ class UserCreate(UserBase):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
+        return validate_password_complexity(v)
 
     model_config = {
         "json_schema_extra": {
@@ -100,9 +87,10 @@ class AdminResetPassword(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
+        return validate_password_complexity(v)
 
 
+# SECURITY: Do NOT add hashed_password to this schema — it must never be serialized
 class UserRead(UserBase):
     id: uuid.UUID = Field(..., description="Unique user identifier (UUID v4)")
     is_active: bool = Field(..., description="Whether the user account is active")
@@ -127,7 +115,7 @@ class ChangePassword(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        return _validate_password_complexity(v)
+        return validate_password_complexity(v)
 
 
 class RouteBranch(BaseModel):
