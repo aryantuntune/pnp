@@ -214,6 +214,11 @@ ${itemRows}
 <div class="center note">Ferry Boatit Ticket Dakhvaa.</div>
 <div class="center note">HAPPY JOURNEY - www.carferry.online</div>
 <div class="dash"></div>
+<div class="header-line"><span>DATE: ${dateStr} ${time}</span><span>BY: ${escHtml(createdBy)}</span></div>
+<div>TICKET MEMO NO: ${ticketNo}</div>
+<div>PAYMENT MODE: ${escHtml(paymentModeName)}</div>
+<div class="header-line"><span>NET TOTAL WITH GOVT.TAX. :</span><span class="bold">${fmtNum(netAmount)}</span></div>
+<div class="dash"></div>
 ${qrHtml}
 </body></html>`;
 }
