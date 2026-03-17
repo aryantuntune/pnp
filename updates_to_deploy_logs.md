@@ -1038,3 +1038,96 @@ sudo systemctl restart ssmspl-frontend
 * **Connection pool change**: Monitor PostgreSQL connection count after deployment with `SELECT count(*) FROM pg_stat_activity;`. If connections are frequently exhausted under load, increase `pool_size` but ensure `pool_size × workers < max_connections`.
 * **Index creation**: The `CREATE INDEX` statements may take a few seconds on large tables. They use `IF NOT EXISTS` so they're safe to re-run. For very large tables (500k+ rows), consider `CREATE INDEX CONCURRENTLY` instead (requires running outside a transaction).
 * **Role escalation**: Existing ADMIN-created ADMIN accounts are NOT affected. The check only applies to new user creation going forward.
+
+---
+
+## Deployment Update — 2026-03-16
+
+### Module
+
+Architecture Hardening — Redis Token Blacklist + Automated DB Backups
+
+### Commit ID
+
+51a0a50
+
+### Changes
+
+* **Redis-based access token blacklist** — Tokens are now instantly invalidated on logout. When a user logs out, the access token's JTI (JWT ID) is stored in Redis with TTL = remaining token lifetime (max 5 minutes). Every authenticated request checks the JTI against the blacklist before granting access. If Redis is unavailable, the system falls back to the existing session-ID enforcement (graceful degradation).
+* **JTI claim added to all access tokens** — Every access token now includes a unique `jti` (JWT ID) field generated via `uuid4()`. This is the key used for blacklist lookups.
+* **Automated daily database backups** — New `db-backup` Docker service runs `pg_dump` daily at 2:00 AM. Backups are gzip-compressed and stored in a `db-backups` Docker volume. Old backups are automatically rotated after 7 days.
+* **Backup and restore scripts** — `backend/scripts/backup_db.sh` (pg_dump + gzip + rotation) and `backend/scripts/restore_db.sh` (gunzip + psql with safety prompt).
+* **Redis added to dev Docker compose** — Development environment now includes Redis for local testing of token blacklist and rate limiting.
+* **DB connection pool tuned** — Changed from `pool_size=10, max_overflow=20` to `pool_size=5, max_overflow=10`. Prevents exceeding PostgreSQL's default `max_connections=100` when running multiple Gunicorn workers.
+
+### Files Modified
+
+* `backend/app/services/token_blacklist.py` (new — Redis blacklist service)
+* `backend/scripts/backup_db.sh` (new — daily backup script)
+* `backend/scripts/restore_db.sh` (new — restore script)
+* `backend/app/core/security.py` — added JTI claim to access tokens
+* `backend/app/dependencies.py` — blacklist check in get_current_user + get_current_portal_user
+* `backend/app/services/auth_service.py` — blacklist access token on admin logout
+* `backend/app/services/portal_auth_service.py` — blacklist access token on portal logout
+* `backend/app/routers/auth.py` — pass access token to logout service
+* `backend/app/routers/portal_auth.py` — pass access token to portal logout service
+* `backend/app/main.py` — init/close Redis in app lifespan
+* `backend/app/config.py` — added REDIS_URL setting
+* `backend/app/database.py` — tuned pool_size and max_overflow
+* `backend/.env.example` — documented REDIS_URL
+* `docker-compose.yml` — added Redis service for dev
+* `docker-compose.prod.yml` — added REDIS_URL env var + db-backup service + db-backups volume
+
+### Database Migrations
+
+* None — all changes are application-level. No schema changes.
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+# No frontend changes — skip
+```
+
+Docker (if using Docker deployment):
+```bash
+# Rebuild with new backup service
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+### Post-Deployment Verification
+
+```bash
+# Verify Redis connectivity (from backend container)
+docker exec ssmspl-backend python -c "
+import asyncio, redis.asyncio as r
+async def test():
+    c = r.from_url('redis://:ssmspl_redis_prod@redis:6379/0', decode_responses=True)
+    await c.ping()
+    print('Redis OK')
+asyncio.run(test())
+"
+
+# Verify backup service is running
+docker logs ssmspl-db-backup-1 --tail 5
+
+# Trigger a manual backup to test
+docker exec ssmspl-db-backup-1 /scripts/backup_db.sh
+
+# List backups
+docker exec ssmspl-db-backup-1 ls -lh /backups/
+```
+
+### Notes
+
+* **Token blacklist requires Redis** — In production, Redis is already running for rate limiting. The blacklist uses Redis DB 0 (rate limiting uses DB 1). In development without Docker, set `REDIS_URL=` (empty) to disable the blacklist — session-ID enforcement remains as backup.
+* **Backup volume** — Backups are stored in the `db-backups` Docker volume. To access backups from the host, use `docker cp` or mount the volume to a host directory. For off-site backup, add a cron job to copy from the volume to S3/GCS.
+* **Restore procedure** — To restore from backup: `docker exec -i ssmspl-db-backup-1 /scripts/restore_db.sh /backups/<filename>.sql.gz`. The script has a 5-second safety delay before overwriting.
+* **Connection pool tuning** — With `pool_size=5, max_overflow=10` and 5 Gunicorn workers, max connections = 75 (safely under PG's default 100). If you increase workers or add replicas, adjust accordingly.
