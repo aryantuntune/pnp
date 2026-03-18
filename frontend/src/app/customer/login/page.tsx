@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,6 +16,14 @@ import {
 } from "lucide-react";
 
 export default function CustomerLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <CustomerLoginContent />
+    </Suspense>
+  );
+}
+
+function CustomerLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ email: "", password: "" });

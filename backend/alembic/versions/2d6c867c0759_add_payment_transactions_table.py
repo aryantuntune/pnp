@@ -19,6 +19,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Table may already exist in databases set up before Alembic tracking
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text("SELECT 1 FROM information_schema.tables WHERE table_name = 'payment_transactions'")
+    )
+    if result.fetchone():
+        return  # Table already exists, skip creation
+
     op.create_table('payment_transactions',
     sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
     sa.Column('booking_id', sa.BigInteger(), nullable=False),
