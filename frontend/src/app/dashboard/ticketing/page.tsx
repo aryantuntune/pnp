@@ -10,7 +10,6 @@ import {
   TicketUpdate,
   TicketItemCreate,
   TicketItemUpdate,
-  TicketPayementCreate,
   Branch,
   Route,
   Item,
@@ -285,10 +284,6 @@ export default function TicketingPage() {
 
   // Payment confirmation modal
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentRows, setPaymentRows] = useState<
-    { tempId: string; payment_mode_id: number; amount: number; amountStr: string; reference_id: string }[]
-  >([]);
-  const [paymentError, setPaymentError] = useState("");
 
   // Last ticket info (fetched from API each time payment modal opens)
   const [lastTicketInfo, setLastTicketInfo] = useState<{
@@ -306,6 +301,13 @@ export default function TicketingPage() {
   const [formPaymentModeId, setFormPaymentModeId] = useState(0);
   const [formDiscount, setFormDiscount] = useState(0);
   const [discountStr, setDiscountStr] = useState("0.00");
+
+  // Payment confirmation modal state (single payment mode)
+  const [formConfirmPaymentModeId, setFormConfirmPaymentModeId] = useState(0);
+  const [formReceivedAmount, setFormReceivedAmount] = useState(0);
+  const [formReceivedAmountStr, setFormReceivedAmountStr] = useState("0.00");
+  const [formRefNo, setFormRefNo] = useState("");
+  const [paymentError, setPaymentError] = useState("");
 
   // Detail items
   const [formItems, setFormItems] = useState<FormItem[]>([]);
@@ -684,17 +686,11 @@ export default function TicketingPage() {
         const lastId = listRes.data[0].id;
         const detailRes = await api.get<Ticket>(`/api/tickets/${lastId}`);
         const t = detailRes.data;
-        const totalPaid = (t.payments || []).reduce((s, p) => s + p.amount, 0);
-        const change = Math.round((totalPaid - t.net_amount) * 100) / 100;
-        const modes = [...new Set((t.payments || []).map((p) => p.payment_mode_name || "-"))];
-        const upiPayment = (t.payments || []).find(
-          (p) => p.payment_mode_name?.toUpperCase() === "UPI"
-        );
         setLastTicketInfo({
-          paymentModes: modes.length > 0 ? modes : [t.payment_mode_name || "-"],
+          paymentModes: [t.payment_mode_name || "-"],
           amount: t.net_amount,
-          repayment: change,
-          refNo: upiPayment?.ref_no || null,
+          repayment: 0,
+          refNo: t.ref_no || null,
         });
       }
     } catch {
@@ -751,10 +747,7 @@ export default function TicketingPage() {
       const branchName = branch?.name || "";
       const branchPhone = branch?.contact_nos || "";
 
-      // Derive payment mode label from ticket payments or fallback to payment_mode_name
-      const reprintPaymentLabel = t.payments && t.payments.length > 0
-        ? [...new Set(t.payments.map((p) => p.payment_mode_name || "-"))].join(" / ")
-        : t.payment_mode_name || "-";
+      const reprintPaymentLabel = t.payment_mode_name || "-";
 
       // Build receipt data
       const receiptData: ReceiptData = {
@@ -902,62 +895,49 @@ export default function TicketingPage() {
     } else {
       // Create mode: show payment confirmation modal
       const cashMode = paymentModes.find((pm) => pm.description.toUpperCase() === "CASH");
-      setPaymentRows([
-        {
-          tempId: crypto.randomUUID(),
-          payment_mode_id: cashMode?.id || (paymentModes.length > 0 ? paymentModes[0].id : 0),
-          amount: formNetAmount,
-          amountStr: formNetAmount.toFixed(2),
-          reference_id: "",
-        },
-      ]);
+      setFormConfirmPaymentModeId(cashMode?.id || (paymentModes.length > 0 ? paymentModes[0].id : 0));
+      setFormReceivedAmount(formNetAmount);
+      setFormReceivedAmountStr(formNetAmount.toFixed(2));
+      setFormRefNo("");
       setPaymentError("");
       setShowPaymentModal(true);
     }
   };
 
-  // Computed received amount from payment rows
-  const receivedAmount = paymentRows.reduce((sum, pr) => sum + pr.amount, 0);
-  const receivedAmountRounded = Math.round(receivedAmount * 100) / 100;
+  // Derived values for payment modal
+  const changeAmount = Math.round((formReceivedAmount - formNetAmount) * 100) / 100;
 
   // Save and print handler (called from payment modal)
   const handleSaveAndPrint = async () => {
-    // Validate payment rows
-    if (paymentRows.length === 0) {
-      setPaymentError("At least one payment row is required.");
+    // Validate
+    if (!formConfirmPaymentModeId) {
+      setPaymentError("Please select a payment mode.");
       return;
     }
-    if (paymentRows.some((pr) => !pr.payment_mode_id)) {
-      setPaymentError("All payment rows must have a payment mode selected.");
+    if (formReceivedAmount <= 0) {
+      setPaymentError("Received amount must be greater than zero.");
       return;
     }
-    if (paymentRows.some((pr) => pr.amount <= 0)) {
-      setPaymentError("All payment amounts must be greater than zero.");
+    if (formReceivedAmount < formNetAmount) {
+      setPaymentError("Received amount cannot be less than net amount.");
       return;
     }
-    // Check UPI rows have reference_id
     const upiMode = paymentModes.find((pm) => pm.description.toUpperCase() === "UPI");
-    if (upiMode && paymentRows.some((pr) => pr.payment_mode_id === upiMode.id && !pr.reference_id.trim())) {
+    if (upiMode && formConfirmPaymentModeId === upiMode.id && !formRefNo.trim()) {
       setPaymentError("Reference ID is required for UPI payments.");
-      return;
-    }
-    if (receivedAmountRounded < formNetAmount) {
-      setPaymentError("Total received amount cannot be less than net amount.");
       return;
     }
     setPaymentError("");
     setSubmitting(true);
     try {
       const activeItems = formItems.filter((fi) => !fi.is_cancelled);
-      // Derive header payment_mode_id from the payment row with the largest amount
-      const primaryPaymentRow = [...paymentRows].sort((a, b) => b.amount - a.amount)[0];
-      const derivedPaymentModeId = primaryPaymentRow?.payment_mode_id || formPaymentModeId;
       const create: TicketCreate = {
         branch_id: formBranchId,
         ticket_date: formTicketDate,
         departure: formDeparture || null,
         route_id: formRouteId,
-        payment_mode_id: derivedPaymentModeId,
+        payment_mode_id: formConfirmPaymentModeId,
+        ref_no: formRefNo.trim() || null,
         discount: formDiscount || 0,
         amount: formAmount,
         net_amount: formNetAmount,
@@ -968,11 +948,6 @@ export default function TicketingPage() {
           quantity: fi.quantity,
           vehicle_no: fi.vehicle_no || null,
           vehicle_name: fi.vehicle_name || null,
-        })),
-        payments: paymentRows.map((pr): TicketPayementCreate => ({
-          payment_mode_id: pr.payment_mode_id,
-          amount: pr.amount,
-          ref_no: pr.reference_id.trim() || null,
         })),
       };
       const res = await api.post<Ticket>("/api/tickets", create);
@@ -988,22 +963,13 @@ export default function TicketingPage() {
           : `${route.branch_two_name} To ${route.branch_one_name}`;
       }
 
-      // Get branch info
       const branch = branches.find((b) => b.id === formBranchId);
       const branchName = branch?.name || "";
       const branchPhone = branch?.contact_nos || "";
 
-      // Derive payment mode label from payment rows
-      const paymentModeLabel = [
-        ...new Set(
-          paymentRows.map(
-            (pr) =>
-              paymentModes.find((m) => m.id === pr.payment_mode_id)?.description || "-"
-          )
-        ),
-      ].join(" / ");
+      const paymentModeLabel =
+        paymentModes.find((m) => m.id === formConfirmPaymentModeId)?.description || "-";
 
-      // Build receipt data
       const receiptData: ReceiptData = {
         ticketId: savedTicket.id,
         ticketNo: savedTicket.ticket_no,
@@ -1027,31 +993,14 @@ export default function TicketingPage() {
         paymentModeName: paymentModeLabel,
       };
 
-      // Print receipt (non-blocking - ticket already saved)
-      printReceipt(receiptData).catch(() => {
-        /* print failure is non-fatal */
-      });
+      printReceipt(receiptData).catch(() => { /* non-fatal */ });
 
-      // Update last-ticket info from the ticket we just created
-      const upiPr = paymentRows.find((pr) => {
-        const pm = paymentModes.find((m) => m.id === pr.payment_mode_id);
-        return pm?.description.toUpperCase() === "UPI";
-      });
-      const totalPaid = paymentRows.reduce((s, pr) => s + pr.amount, 0);
-      const change = Math.round((totalPaid - formNetAmount) * 100) / 100;
-      const modeNames = [
-        ...new Set(
-          paymentRows.map(
-            (pr) =>
-              paymentModes.find((m) => m.id === pr.payment_mode_id)?.description || "-"
-          )
-        ),
-      ];
+      // Update last-ticket info
       setLastTicketInfo({
-        paymentModes: modeNames,
+        paymentModes: [paymentModeLabel],
         amount: formNetAmount,
-        repayment: change,
-        refNo: upiPr?.reference_id.trim() || null,
+        repayment: changeAmount,
+        refNo: formRefNo.trim() || null,
       });
 
       // Reset form for next ticket (keep modal open)
@@ -1072,16 +1021,14 @@ export default function TicketingPage() {
       setFormDiscount(0);
       setDiscountStr("0.00");
       setFormError("");
-      setPaymentRows([]);
       setPaymentError("");
+      setFormRefNo("");
 
-      // Focus first item input after DOM updates
       requestAnimationFrame(() => {
         document.getElementById(`item-id-${newTempId}`)?.focus();
         isSavingRef.current = false;
       });
 
-      // Refresh ticket list in background
       fetchTickets();
     } catch (err: unknown) {
       const msg =
@@ -1598,7 +1545,7 @@ export default function TicketingPage() {
 
       {/* Payment Confirmation Modal */}
       <Dialog open={showPaymentModal} onOpenChange={(open) => !open && setShowPaymentModal(false)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-md" onCloseAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Payment Confirmation</DialogTitle>
           </DialogHeader>
@@ -1612,185 +1559,73 @@ export default function TicketingPage() {
               </div>
             </div>
 
-            {/* Payment Table */}
+            {/* Payment Mode */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>Payment Details</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    const cashMode = paymentModes.find((pm) => pm.description.toUpperCase() === "CASH");
-                    setPaymentRows((prev) => [
-                      ...prev,
-                      {
-                        tempId: crypto.randomUUID(),
-                        payment_mode_id: cashMode?.id || (paymentModes.length > 0 ? paymentModes[0].id : 0),
-                        amount: 0,
-                        amountStr: "0.00",
-                        reference_id: "",
-                      },
-                    ]);
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-1" /> Add Row
-                </Button>
-              </div>
-              <div className="rounded-lg border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-[150px]">Payment Mode</TableHead>
-                      <TableHead className="text-right w-[140px]">Amount</TableHead>
-                      <TableHead>Reference ID</TableHead>
-                      <TableHead className="text-center w-[70px]">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paymentRows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                          No payment rows. Click &quot;+ Add Row&quot; to add one.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      paymentRows.map((pr) => {
-                        const selectedMode = paymentModes.find((pm) => pm.id === pr.payment_mode_id);
-                        const isUpi = selectedMode?.description.toUpperCase() === "UPI";
-                        return (
-                          <TableRow key={pr.tempId}>
-                            <TableCell className="px-3 py-2">
-                              <select
-                                value={pr.payment_mode_id}
-                                onChange={(e) => {
-                                  const modeId = Number(e.target.value);
-                                  setPaymentRows((prev) =>
-                                    prev.map((row) =>
-                                      row.tempId === pr.tempId
-                                        ? { ...row, payment_mode_id: modeId, reference_id: "" }
-                                        : row
-                                    )
-                                  );
-                                }}
-                                className="w-full border border-input rounded-md px-2 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                              >
-                                <option value={0}>-- Select --</option>
-                                {paymentModes.map((pm) => (
-                                  <option key={pm.id} value={pm.id}>
-                                    {pm.description}
-                                  </option>
-                                ))}
-                              </select>
-                            </TableCell>
-                            <TableCell className="px-3 py-2">
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                autoFocus={paymentRows.length === 1 && paymentRows[0].tempId === pr.tempId}
-                                value={pr.amountStr}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
-                                    setPaymentRows((prev) =>
-                                      prev.map((row) =>
-                                        row.tempId === pr.tempId
-                                          ? { ...row, amountStr: val, amount: parseFloat(val) || 0 }
-                                          : row
-                                      )
-                                    );
-                                  }
-                                }}
-                                onFocus={(e) => e.target.select()}
-                                onBlur={() =>
-                                  setPaymentRows((prev) =>
-                                    prev.map((row) =>
-                                      row.tempId === pr.tempId
-                                        ? { ...row, amountStr: row.amount.toFixed(2) }
-                                        : row
-                                    )
-                                  )
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleSaveAndPrint();
-                                  }
-                                }}
-                                className="text-right"
-                              />
-                            </TableCell>
-                            <TableCell className="px-3 py-2">
-                              <Input
-                                type="text"
-                                disabled={!isUpi}
-                                placeholder={isUpi ? "Transaction ID" : "-"}
-                                value={pr.reference_id}
-                                onChange={(e) =>
-                                  setPaymentRows((prev) =>
-                                    prev.map((row) =>
-                                      row.tempId === pr.tempId
-                                        ? { ...row, reference_id: e.target.value }
-                                        : row
-                                    )
-                                  )
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleSaveAndPrint();
-                                  }
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-center">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() =>
-                                  setPaymentRows((prev) =>
-                                    prev.filter((row) => row.tempId !== pr.tempId)
-                                  )
-                                }
-                              >
-                                Remove
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <Label htmlFor="confirm-payment-mode">Payment Mode</Label>
+              <select
+                id="confirm-payment-mode"
+                value={formConfirmPaymentModeId}
+                onChange={(e) => {
+                  setFormConfirmPaymentModeId(Number(e.target.value));
+                  setFormRefNo("");
+                }}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring mt-1"
+              >
+                <option value={0}>-- Select --</option>
+                {paymentModes.map((pm) => (
+                  <option key={pm.id} value={pm.id}>{pm.description}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Received Amount (computed from payment rows) */}
-            <div>
-              <Label>Received Amount</Label>
-              <div
-                className={`w-full border border-border rounded-lg px-4 py-2.5 text-right font-semibold text-lg bg-muted ${
-                  receivedAmountRounded >= formNetAmount
-                    ? ""
-                    : "text-destructive"
-                }`}
-              >
-                {receivedAmountRounded.toFixed(2)}
+            {/* Ref No (UPI only) */}
+            {paymentModes.find((pm) => pm.id === formConfirmPaymentModeId)?.description.toUpperCase() === "UPI" && (
+              <div>
+                <Label htmlFor="confirm-ref-no">Reference / Transaction ID</Label>
+                <Input
+                  id="confirm-ref-no"
+                  type="text"
+                  placeholder="UPI Transaction ID"
+                  value={formRefNo}
+                  onChange={(e) => setFormRefNo(e.target.value)}
+                  className="mt-1"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
+                />
               </div>
+            )}
+
+            {/* Amount Received */}
+            <div>
+              <Label htmlFor="confirm-received">Amount Received</Label>
+              <Input
+                id="confirm-received"
+                type="text"
+                inputMode="decimal"
+                value={formReceivedAmountStr}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+                    setFormReceivedAmountStr(val);
+                    setFormReceivedAmount(parseFloat(val) || 0);
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
+                onBlur={() => setFormReceivedAmountStr(formReceivedAmount.toFixed(2))}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
+                className="text-right mt-1"
+                autoFocus
+              />
             </div>
 
-            {/* Re-Payment / Change Amount (display only) */}
+            {/* Change */}
             <div>
-              <Label>Re-Payment Amount (Change)</Label>
+              <Label>Change / Re-Payment</Label>
               <div
                 className={`w-full border border-border rounded-lg px-4 py-2.5 text-right font-semibold text-lg bg-muted ${
-                  receivedAmountRounded >= formNetAmount
-                    ? "text-green-700"
-                    : "text-destructive"
+                  changeAmount >= 0 ? "text-green-700" : "text-destructive"
                 }`}
               >
-                {(Math.round((receivedAmountRounded - formNetAmount) * 100) / 100).toFixed(2)}
+                {changeAmount.toFixed(2)}
               </div>
             </div>
           </div>
@@ -1827,9 +1662,10 @@ export default function TicketingPage() {
               </Button>
               <Button
                 type="button"
+                disabled={submitting}
                 onClick={handleSaveAndPrint}
-                disabled={submitting || receivedAmountRounded < formNetAmount}
               >
+                <Printer className="h-4 w-4 mr-2" />
                 {submitting ? "Saving..." : "Save & Print"}
               </Button>
             </div>

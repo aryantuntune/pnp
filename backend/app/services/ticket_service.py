@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, text
 
 from app.models.ticket import Ticket, TicketItem
-from app.models.ticket_payement import TicketPayement
 from app.models.branch import Branch
 from app.models.route import Route
 from app.models.item import Item
@@ -94,18 +93,6 @@ async def _enrich_ticket_item(db: AsyncSession, ti: TicketItem) -> dict:
     }
 
 
-async def _enrich_ticket_payement(db: AsyncSession, tp: TicketPayement) -> dict:
-    pm_name = await _get_payment_mode_name(db, tp.payment_mode_id)
-    return {
-        "id": tp.id,
-        "ticket_id": tp.ticket_id,
-        "payment_mode_id": tp.payment_mode_id,
-        "amount": float(tp.amount) if tp.amount is not None else 0,
-        "ref_no": tp.ref_no,
-        "payment_mode_name": pm_name,
-    }
-
-
 async def _get_username(db: AsyncSession, user_id) -> str | None:
     if user_id is None:
         return None
@@ -129,6 +116,7 @@ async def _enrich_ticket(db: AsyncSession, ticket: Ticket, include_items: bool =
         "amount": float(ticket.amount) if ticket.amount is not None else 0,
         "discount": float(ticket.discount) if ticket.discount is not None else 0,
         "payment_mode_id": ticket.payment_mode_id,
+        "ref_no": ticket.ref_no,
         "is_cancelled": ticket.is_cancelled,
         "net_amount": float(ticket.net_amount) if ticket.net_amount is not None else 0,
         "status": ticket.status,
@@ -147,15 +135,8 @@ async def _enrich_ticket(db: AsyncSession, ticket: Ticket, include_items: bool =
         )
         items = result.scalars().all()
         data["items"] = [await _enrich_ticket_item(db, ti) for ti in items]
-
-        pay_result = await db.execute(
-            select(TicketPayement).where(TicketPayement.ticket_id == ticket.id)
-        )
-        payments = pay_result.scalars().all()
-        data["payments"] = [await _enrich_ticket_payement(db, tp) for tp in payments]
     else:
         data["items"] = None
-        data["payments"] = None
 
     return data
 
@@ -546,13 +527,18 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: int) -> dict:
 
 
 async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> dict:
-    # Derive payment_mode_id from payments if provided (defensive: ensures
-    # header payment_mode_id matches the actual payment, even if the client
-    # sends a stale/default value).
     effective_payment_mode_id = data.payment_mode_id
-    if data.payments:
-        primary = max(data.payments, key=lambda p: p.amount)
-        effective_payment_mode_id = primary.payment_mode_id
+
+    # Validate UPI payments require a ref_no
+    upi_check = await db.execute(
+        select(PaymentMode.description).where(PaymentMode.id == effective_payment_mode_id)
+    )
+    pm_description = upi_check.scalar_one_or_none() or ""
+    if pm_description.upper() == "UPI" and not (data.ref_no and data.ref_no.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reference ID (ref_no) is required for UPI payments.",
+        )
 
     await _validate_references(db, data.branch_id, data.route_id, effective_payment_mode_id)
     await _validate_items(db, data.items)
@@ -586,6 +572,7 @@ async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> d
         net_amount=computed_net,
         verification_code=uuid_mod.uuid4(),
         boat_id=data.boat_id,
+        ref_no=data.ref_no,
         created_by=user_id,
     )
     db.add(ticket)
@@ -610,30 +597,6 @@ async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> d
         next_item_id += 1
 
     branch.last_ticket_no = next_ticket_no
-
-    # Insert ticket_payement rows
-    if data.payments:
-        await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ticket_payement_id'))"))
-        pay_id_result = await db.execute(select(func.coalesce(func.max(TicketPayement.id), 0)))
-        next_pay_id = pay_id_result.scalar() + 1
-
-        for pay_data in data.payments:
-            # Validate payment_mode_id exists
-            pm_check = await db.execute(select(PaymentMode.id).where(PaymentMode.id == pay_data.payment_mode_id))
-            if not pm_check.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Payment Mode ID {pay_data.payment_mode_id} not found",
-                )
-            tp = TicketPayement(
-                id=next_pay_id,
-                ticket_id=next_ticket_id,
-                payment_mode_id=pay_data.payment_mode_id,
-                amount=pay_data.amount,
-                ref_no=pay_data.ref_no,
-            )
-            db.add(tp)
-            next_pay_id += 1
 
     await db.flush()
     return await _enrich_ticket(db, ticket, include_items=True)

@@ -7,7 +7,6 @@ from app.models.item_rate import ItemRate
 from app.models.ferry_schedule import FerrySchedule
 from app.models.payment_mode import PaymentMode
 from app.models.ticket import Ticket, TicketItem
-from app.models.ticket_payement import TicketPayement
 from app.models.portal_user import PortalUser
 from app.models.email_otp import EmailOtp
 from app.models.company import Company
@@ -30,7 +29,6 @@ __all__ = [
     "PaymentMode",
     "Ticket",
     "TicketItem",
-    "TicketPayement",
     "PortalUser",
     "EmailOtp",
     "Company",

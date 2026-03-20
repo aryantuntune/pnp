@@ -259,22 +259,6 @@ export interface TicketItemUpdate {
   is_cancelled: boolean;
 }
 
-// ── Ticket Payment types ──
-
-export interface TicketPayement {
-  id: number;
-  ticket_id: number;
-  payment_mode_id: number;
-  amount: number;
-  ref_no: string | null;
-  payment_mode_name: string | null;
-}
-
-export interface TicketPayementCreate {
-  payment_mode_id: number;
-  amount: number;
-  ref_no?: string | null;
-}
 
 export interface Ticket {
   id: number;
@@ -295,7 +279,7 @@ export interface Ticket {
   route_name: string | null;
   payment_mode_name: string | null;
   items: TicketItem[] | null;
-  payments: TicketPayement[] | null;
+  ref_no: string | null;
   created_at?: string;
   updated_at?: string;
   created_by_username?: string | null;
@@ -307,11 +291,11 @@ export interface TicketCreate {
   departure?: string | null;
   route_id: number;
   payment_mode_id: number;
+  ref_no?: string | null;
   discount?: number;
   amount: number;
   net_amount: number;
   items: TicketItemCreate[];
-  payments?: TicketPayementCreate[];
 }
 
 export interface TicketUpdate {

@@ -8,7 +8,6 @@ import {
   MultiTicketInitItem,
   TicketCreate,
   TicketItemCreate,
-  TicketPayementCreate,
   Ticket,
   Route,
 } from "@/types";
@@ -455,21 +454,17 @@ export default function MultiTicketingPage() {
           vehicle_no: it.vehicleNo.trim() || null,
         }));
 
-      const payments: TicketPayementCreate[] = [
-        { payment_mode_id: t.paymentModeId, amount: total },
-      ];
-
       return {
         branch_id: initData.branch_id,
         ticket_date: today,
         departure: null,
         route_id: initData.route_id,
         payment_mode_id: t.paymentModeId,
+        ref_no: null,
         discount: 0,
         amount: total,
         net_amount: total,
         items: validItems,
-        payments,
       };
     });
 

@@ -26,6 +26,7 @@ class Ticket(AuditMixin, Base):
     checked_in_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     verification_code: Mapped[uuid_mod.UUID | None] = mapped_column(UUID(as_uuid=True), default=uuid_mod.uuid4, nullable=True, unique=True)
     boat_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("boats.id"), nullable=True)
+    ref_no: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Ticket id={self.id} ticket_no={self.ticket_no} branch_id={self.branch_id}>"

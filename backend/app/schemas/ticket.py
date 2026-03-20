@@ -47,31 +47,6 @@ class TicketItemRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Ticket Payment schemas ──
-
-class TicketPayementCreate(BaseModel):
-    payment_mode_id: int = Field(..., description="Payment mode ID (e.g. CASH, UPI)")
-    amount: float = Field(..., ge=1, description="Payment amount (must be >= 1)")
-    ref_no: str | None = Field(None, max_length=30, description="Reference/transaction ID (for UPI payments)")
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [{"payment_mode_id": 1, "amount": 320.00, "ref_no": None}]
-        }
-    }
-
-
-class TicketPayementRead(BaseModel):
-    id: int = Field(..., description="Unique ticket payment identifier")
-    ticket_id: int = Field(..., description="Parent ticket ID")
-    payment_mode_id: int = Field(..., description="Payment mode ID")
-    amount: float = Field(..., description="Payment amount")
-    ref_no: str | None = Field(None, description="Reference/transaction ID")
-    payment_mode_name: str | None = Field(None, description="Payment mode description for display")
-
-    model_config = {"from_attributes": True}
-
-
 # ── Ticket schemas ──
 
 class TicketCreate(BaseModel):
@@ -80,12 +55,12 @@ class TicketCreate(BaseModel):
     departure: str | None = Field(None, description="Departure time HH:MM")
     route_id: int = Field(..., description="Route ID")
     payment_mode_id: int = Field(..., description="Payment mode ID")
+    ref_no: str | None = Field(None, max_length=30, description="Reference/transaction ID (for UPI payments)")
     discount: float | None = Field(0, ge=0, description="Discount amount")
     amount: float = Field(..., ge=1, description="Total amount (sum of item amounts, must be >= 1)")
     net_amount: float = Field(..., ge=1, description="Net amount (amount - discount, must be >= 1)")
     boat_id: int | None = Field(None, description="Boat ID (optional)")
     items: list[TicketItemCreate] = Field(..., min_length=1, description="Ticket items (at least 1)")
-    payments: list[TicketPayementCreate] | None = Field(None, description="Payment rows (optional, at least 1 if provided)")
 
     model_config = {
         "json_schema_extra": {
@@ -96,14 +71,12 @@ class TicketCreate(BaseModel):
                     "departure": "09:30",
                     "route_id": 1,
                     "payment_mode_id": 1,
+                    "ref_no": "UPI123456",
                     "discount": 0,
                     "amount": 320.00,
                     "net_amount": 320.00,
                     "items": [
                         {"item_id": 1, "rate": 150.00, "levy": 10.00, "quantity": 2, "vehicle_no": None}
-                    ],
-                    "payments": [
-                        {"payment_mode_id": 1, "amount": 320.00, "ref_no": None}
                     ],
                 }
             ]
@@ -140,6 +113,7 @@ class TicketRead(BaseModel):
     amount: float = Field(..., description="Total amount")
     discount: float | None = Field(None, description="Discount")
     payment_mode_id: int = Field(..., description="Payment mode ID")
+    ref_no: str | None = Field(None, description="UPI/online reference/transaction ID")
     is_cancelled: bool = Field(..., description="Whether ticket is cancelled")
     net_amount: float = Field(..., description="Net amount")
     status: str = Field("CONFIRMED", description="Ticket status (CONFIRMED, VERIFIED, CANCELLED)")
@@ -150,7 +124,6 @@ class TicketRead(BaseModel):
     route_name: str | None = Field(None, description="Route display name")
     payment_mode_name: str | None = Field(None, description="Payment mode description")
     items: list[TicketItemRead] | None = Field(None, description="Ticket items (only in detail view)")
-    payments: list[TicketPayementRead] | None = Field(None, description="Ticket payments (only in detail view)")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
     created_by_username: str | None = Field(None, description="Username of the operator who created the ticket")
