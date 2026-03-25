@@ -273,16 +273,7 @@ export function formatItemWiseForPrint(
     push(SEPARATOR);
   }
 
-  const result = raw.join("\n");
-
-  // Debug: verbose per-line output (remove before production)
-  console.log("==== FORMATTED OUTPUT START ====");
-  result.split("\n").forEach((line, i) => {
-    console.log(i, line, "| length:", line.length);
-  });
-  console.log("==== FORMATTED OUTPUT END ====");
-
-  return result;
+  return raw.join("\n");
 }
 
 // ── Iframe-based Thermal Printer ──
