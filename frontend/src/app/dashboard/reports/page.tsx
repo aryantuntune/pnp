@@ -573,6 +573,55 @@ export default function ReportsPage() {
     }
   };
 
+  // Print thermal 80mm for item wise summary (itemwise-levy)
+  const handlePrintItemwiseThermal = async () => {
+    setPrinting(true);
+    try {
+      const { printItemWiseSummary } = await import("@/lib/print-itemwise-summary");
+
+      const resolvedRoute = routeId
+        ? routes.find((r) => String(r.id) === routeId)
+        : undefined;
+      const resolvedRouteName = resolvedRoute
+        ? formatRouteLabel(resolvedRoute)
+        : undefined;
+
+      const resolvedPaymentMode = paymentModeId
+        ? paymentModes.find((pm) => String(pm.id) === paymentModeId)?.description
+        : undefined;
+
+      const resolvedBranchName = branchId
+        ? branches.find((b) => String(b.id) === branchId)?.name || "ALL BRANCHES"
+        : "ALL BRANCHES";
+
+      await printItemWiseSummary(
+        rows.map((r) => ({
+          item_name: String(r.item_name || ""),
+          rate: Number(r.rate || 0),
+          quantity: Number(r.quantity || 0),
+          net: Number(r.net || 0),
+        })),
+        {
+          companyName: "SUVARNADURGA SHIPPING & MARINE SERVICES PVT.LTD",
+          branchName: resolvedBranchName,
+          dateFrom,
+          dateTo,
+          routeName: resolvedRouteName,
+          paymentMode: resolvedPaymentMode,
+          totals: typeof grandTotal === "number" ? grandTotal : 0,
+          paymentBreakdown: paymentModesData.map((pm) => ({
+            payment_mode_name: pm.payment_mode_name,
+            amount: Number(pm.amount),
+          })),
+        }
+      );
+    } catch {
+      setError("Failed to print report.");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   // Render cell value
   const renderCell = (
     row: Record<string, unknown>,
@@ -604,6 +653,20 @@ export default function ReportsPage() {
             {activeReport.key === "branch-item-summary" && (
               <Button
                 onClick={handlePrintThermal}
+                disabled={printing}
+                variant="outline"
+              >
+                {printing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Printer className="h-4 w-4 mr-2" />
+                )}
+                {printing ? "Printing..." : "Print 80mm"}
+              </Button>
+            )}
+            {activeReport.key === "itemwise-levy" && (
+              <Button
+                onClick={handlePrintItemwiseThermal}
                 disabled={printing}
                 variant="outline"
               >
