@@ -285,45 +285,120 @@ function escHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function buildPrintHtml(text: string): string {
+/**
+ * Builds the print HTML using an HTML <table> layout.
+ * CSS column widths let the browser handle alignment natively —
+ * this is the same architecture as print-branch-summary.ts (confirmed working).
+ * The <pre>/monospace-character-counting approach is NOT used here because
+ * browser print contexts cannot guarantee equal glyph widths, causing drift.
+ */
+function buildPrintHtml(
+  reportData: ItemWiseSummaryRow[],
+  metaData: ItemWiseSummaryMetaData
+): string {
+  const {
+    companyName,
+    branchName,
+    dateFrom,
+    dateTo,
+    routeName,
+    paymentMode,
+    totals,
+    paymentBreakdown,
+  } = metaData;
+
+  const dateLabel =
+    dateFrom === dateTo
+      ? `DATE: ${fmtDate(dateFrom)}`
+      : `DATE: ${fmtDate(dateFrom)} - ${fmtDate(dateTo)}`;
+
+  const itemRows = reportData
+    .map(
+      (row) =>
+        `<tr>` +
+        `<td class="item-name">${escHtml(String(row.item_name || "").toUpperCase())}</td>` +
+        `<td class="r">${escHtml(fmtNum(row.rate))}</td>` +
+        `<td class="r">${escHtml(fmtQty(row.quantity))}</td>` +
+        `<td class="r">${escHtml(fmtNum(row.net))}</td>` +
+        `</tr>`
+    )
+    .join("");
+
+  const grandTotalStr = fmtNum(totals ?? 0);
+
+  const paymentRows =
+    paymentBreakdown && paymentBreakdown.length > 0
+      ? paymentBreakdown
+          .map(
+            (pm) =>
+              `<tr>` +
+              `<td colspan="3" class="r pm-label">${escHtml(normalizePaymentLabel(String(pm.payment_mode_name || "")))}</td>` +
+              `<td class="r">${escHtml(fmtNum(pm.amount))}</td>` +
+              `</tr>`
+          )
+          .join("")
+      : "";
+
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Item Wise Summary</title>
 <style>
   @page { size: 80mm auto; margin: 0; }
-  * { box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    margin: 0;
-    padding: 0;
-    font-family: monospace;
-    font-size: 10px;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 12px;
     font-weight: 700;
+    width: 80mm;
+    padding: 2mm 2mm;
+    line-height: 1.3;
     color: #000;
     -webkit-print-color-adjust: exact;
   }
-  pre {
-    margin: 0;
-    padding: 0 2px;
-    font-family: monospace;
-    font-size: 10px;
-    line-height: 1.2;
-    width: 80mm;
-    white-space: pre;
-    font-weight: 700;
-  }
+  .center { text-align: center; }
+  .bold   { font-weight: 900; }
+  .dash   { border-top: 2px dashed #000; margin: 3px 0; }
+  table   { width: 100%; border-collapse: collapse; }
+  td      { padding: 1px 2px; vertical-align: top; }
+  td.r    { text-align: right; white-space: nowrap; }
+  td.item-name  { word-break: break-word; }
+  td.pm-label   { padding-right: 6px; }
+  col.name { width: auto; }
+  col.num  { width: 48px; }
   @media print {
-    body { margin: 0; padding: 0; }
-    pre  { margin: 0; padding: 0 2px; }
+    body { margin: 0; padding: 2mm 2mm; transform: scale(0.92); transform-origin: top center; }
   }
 </style></head>
-<body><pre>${escHtml(text)}</pre></body></html>`;
+<body>
+<div class="center bold">${escHtml(companyName.toUpperCase())}</div>
+<div class="center bold">${escHtml(branchName.toUpperCase())}</div>
+<br/>
+<div class="center">${escHtml("ITEM WISE SUMMARY")}</div>
+<div>${escHtml(dateLabel)}</div>
+${routeName ? `<div>ROUTE: ${escHtml(routeName.toUpperCase())}</div>` : ""}
+${paymentMode ? `<div>PAY MODE: ${escHtml(paymentMode.toUpperCase())}</div>` : ""}
+<div class="dash"></div>
+<table>
+<colgroup><col class="name"/><col class="num"/><col class="num"/><col class="num"/></colgroup>
+<tr class="bold">
+  <td>ITEM</td><td class="r">RATE</td><td class="r">QTY</td><td class="r">NET</td>
+</tr>
+<tr><td colspan="4"><div class="dash"></div></td></tr>
+${itemRows || '<tr><td colspan="4" class="center">NO DATA</td></tr>'}
+</table>
+<div class="dash"></div>
+<table>
+<colgroup><col class="name"/><col class="num"/><col class="num"/><col class="num"/></colgroup>
+<tr class="bold"><td colspan="3"></td><td class="r">${escHtml(grandTotalStr)}</td></tr>
+${paymentRows ? `<tr><td colspan="4">&nbsp;</td></tr>${paymentRows}` : ""}
+</table>
+</body></html>`;
 }
 
 export async function printItemWiseSummary(
   reportData: ItemWiseSummaryRow[],
   metaData: ItemWiseSummaryMetaData
 ): Promise<void> {
-  const text = formatItemWiseForPrint(reportData, metaData);
-  const html = buildPrintHtml(text);
+  const html = buildPrintHtml(reportData, metaData);
 
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
