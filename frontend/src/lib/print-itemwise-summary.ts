@@ -3,11 +3,11 @@
 const LINE_WIDTH = 40;
 const SEPARATOR = "----------------------------------------"; // exactly 40
 
-const COL_ITEM = 18;
+const COL_ITEM = 20;
 const COL_RATE = 6;
 const COL_QTY = 5;
 const COL_NET = 9;
-// COL_ITEM + COL_RATE + COL_QTY + COL_NET = 38 (≤ 40, safe for 80mm)
+// COL_ITEM + COL_RATE + COL_QTY + COL_NET = 40 (fills line exactly)
 
 // ── Types ──
 
@@ -82,6 +82,40 @@ function fmtQty(quantity: number | string): string {
   const n = typeof quantity === "string" ? parseFloat(quantity) : quantity;
   if (isNaN(n)) return "0";
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+/**
+ * Normalize payment mode names to their canonical thermal-print labels.
+ *   Cash / CASH   → CASH MEMO
+ *   UPI / GPay    → GPAY
+ *   Online        → ONLINE
+ * Falls back to the raw uppercased name for any unrecognised mode.
+ */
+const PAYMENT_LABEL_MAP: Record<string, string> = {
+  CASH: "CASH MEMO",
+  "CASH MEMO": "CASH MEMO",
+  UPI: "GPAY",
+  GPAY: "GPAY",
+  "UPI/GPAY": "GPAY",
+  "UPI / GPAY": "GPAY",
+  PHONEPE: "GPAY",
+  PAYTM: "GPAY",
+  ONLINE: "ONLINE",
+};
+
+function normalizePaymentLabel(name: string): string {
+  const upper = name.trim().toUpperCase();
+  if (PAYMENT_LABEL_MAP[upper]) return PAYMENT_LABEL_MAP[upper];
+  if (upper.includes("CASH")) return "CASH MEMO";
+  if (
+    upper.includes("UPI") ||
+    upper.includes("GPAY") ||
+    upper.includes("PHONE") ||
+    upper.includes("PAYTM")
+  )
+    return "GPAY";
+  if (upper.includes("ONLINE")) return "ONLINE";
+  return upper;
 }
 
 /**
@@ -217,7 +251,7 @@ export function formatItemWiseForPrint(
   // ── Payment Breakdown ──
   if (paymentBreakdown && paymentBreakdown.length > 0) {
     for (const pm of paymentBreakdown) {
-      const label = String(pm.payment_mode_name || "").toUpperCase();
+      const label = normalizePaymentLabel(String(pm.payment_mode_name || ""));
       const amountStr = fmtNum(pm.amount);
       // Label fills left; amount right-anchored; total = LINE_WIDTH exactly.
       push(padRight(label, LINE_WIDTH - amountStr.length) + amountStr);
@@ -250,8 +284,10 @@ function buildPrintHtml(text: string): string {
 <html><head><meta charset="UTF-8"><title>Item Wise Summary</title>
 <style>
   @page { size: 80mm auto; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { box-sizing: border-box; }
   body {
+    margin: 0;
+    padding: 0;
     font-family: monospace;
     font-size: 10px;
     font-weight: 700;
@@ -259,6 +295,8 @@ function buildPrintHtml(text: string): string {
     -webkit-print-color-adjust: exact;
   }
   pre {
+    margin: 0;
+    padding: 0 2px;
     font-family: monospace;
     font-size: 10px;
     line-height: 1.2;
@@ -268,6 +306,7 @@ function buildPrintHtml(text: string): string {
   }
   @media print {
     body { margin: 0; padding: 0; }
+    pre  { margin: 0; padding: 0 2px; }
   }
 </style></head>
 <body><pre>${escHtml(text)}</pre></body></html>`;
