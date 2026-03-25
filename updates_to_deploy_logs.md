@@ -1403,3 +1403,52 @@ sudo systemctl restart ssmspl-frontend
 ### Notes
 
 * Frontend-only change. No backend restart or database migration needed.
+
+---
+
+## Deployment Update — 2026-03-26
+
+### Module
+
+Reports — Thermal Print item-row wrapping fix (frontend)
+
+### Commit ID
+
+73edd76
+
+### Changes
+
+* Removed `splitItemName()` and replaced item-row rendering with `buildItemLines(name, rateStr, qtyStr, netStr)`:
+  * Greedy first-line fill — adds words to `firstLine` until the next word would exceed `COL_ITEM` (22 chars)
+  * **First line always carries rate / qty / net columns** — structurally guaranteed, not dependent on chunk ordering
+  * Remaining words wrap onto subsequent text-only lines using the same word-boundary logic
+  * Safety guard: if no word fits within `COL_ITEM` (e.g. single oversized token), forces the first word onto line 1 so values always have a label
+* Upgraded debug console output to verbose per-line format: `console.log(i, line, "| length:", line.length)` inside `==== FORMATTED OUTPUT START/END ====` markers
+
+### Files Modified
+
+* `frontend/src/lib/print-itemwise-summary.ts`
+* `frontend/src/app/dashboard/reports/page.tsx` (diagnostic console.log lines)
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* After deploying, open DevTools console and click "Print 80mm". Confirm every row's line 0 ends with rate/qty/net values. Remove all console.log debug statements once confirmed.
