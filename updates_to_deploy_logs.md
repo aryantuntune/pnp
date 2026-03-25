@@ -1249,3 +1249,63 @@ Frontend:
 * The reporting layer is consumed by existing report router endpoints — no new routes added in this commit. Report routers wire `ReportFilters` from request query params and call the appropriate `get_*` function.
 * `audit_reporting.py` is a local-only validation script that runs against `ssmspl_db_test`. It is not deployed to production.
 * Test files live under `backend/tests/` which is in `.gitignore` — unit tests (45 tests across `tests/unit/test_item_wise_summary.py` and `tests/unit/test_ferry_wise_item_summary.py`) and integration tests (40 tests across `tests/test_item_wise_summary.py` and `tests/test_ferry_wise_item_summary.py`) are present locally but not committed.
+
+---
+
+## Deployment Update — 2026-03-25
+
+### Module
+
+Reports — Thermal Print (frontend)
+
+### Commit ID
+
+e55312d
+
+### Changes
+
+* Added `frontend/src/lib/print-itemwise-summary.ts` — pure-text thermal formatter for the Item Wise Summary report:
+  * `formatItemWiseForPrint(reportData, metaData): string` — returns a strict ≤ 40-char-per-line monospace string ready for `<pre>` or direct ESC/POS output
+  * `enforceWidth(line)` safety guard applied to every output line — no line can exceed 40 chars
+  * Item-wrap rule: **first chunk carries Rate / Qty / Net columns**; overflow chunks appear on subsequent lines with no numeric columns (matches legacy thermal behavior)
+  * TOTAL row and payment breakdown lines dynamically right-anchored to column 40 regardless of amount magnitude
+  * `printItemWiseSummary()` — iframe-based printer using `<pre>` with `font-family: monospace; font-size: 10px; line-height: 1.2; @page { size: 80mm auto; margin: 0 }`
+  * Debug helper: `console.log` of per-line lengths emitted on every format call (remove before go-live)
+* Added `frontend/src/components/reports/ItemWisePrintView.tsx` — standalone React component wrapping the formatter in a `<pre>` preview with a `window.print()` Print button; `@media print` hides all other page elements
+* Updated `frontend/src/app/dashboard/reports/page.tsx`:
+  * Added `handlePrintItemwiseThermal()` — resolves branch name, route label, and payment mode label from current filter state then calls `printItemWiseSummary()`
+  * Added **Print 80mm** button in the report header action bar, visible when the **Item Wise Summary** tab is active and has data (mirrors existing Branch Summary button)
+
+### Files Added
+
+* `frontend/src/lib/print-itemwise-summary.ts`
+* `frontend/src/components/reports/ItemWisePrintView.tsx`
+
+### Files Modified
+
+* `frontend/src/app/dashboard/reports/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* The `console.log("[ItemWisePrint] line lengths:", ...)` debug statement in `formatItemWiseForPrint` should be removed once printing is validated on a real thermal printer.
+* `ItemWisePrintView` component is available for embedding in dialogs or standalone pages — it is not yet wired into any route, only the reports page uses the iframe path (`printItemWiseSummary`) via the Print 80mm button.
+* Column layout: Item 18 chars (left) + Rate 6 (right) + Qty 5 (right) + Net 9 (right) = 38 chars total, leaving 2-char margin on 40-char paper.
