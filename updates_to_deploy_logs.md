@@ -1452,3 +1452,50 @@ sudo systemctl restart ssmspl-frontend
 
 * Frontend-only change. No backend restart or database migration needed.
 * After deploying, open DevTools console and click "Print 80mm". Confirm every row's line 0 ends with rate/qty/net values. Remove all console.log debug statements once confirmed.
+
+---
+
+## Deployment Update — 2026-03-26
+
+### Module
+
+Reports — Multiple print buttons fix + stale chunk 404 (frontend)
+
+### Commit ID
+
+b8edf75
+
+### Changes
+
+* Fixed duplicate print buttons on Item Wise Summary and Branch Summary tabs:
+  * Root cause: the A4 "Print" button had no condition — it rendered for every report type
+  * Fix: wrapped A4 "Print" button in `activeReport.key !== "itemwise-levy" && activeReport.key !== "branch-item-summary"` guard
+  * Button matrix is now: thermal reports → `Print 80mm` + `Download PDF` only; all other reports → `Print` (A4) + `Download PDF`
+
+### Files Modified
+
+* `frontend/src/app/dashboard/reports/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+rm -rf .next        # REQUIRED — clears stale chunk hashes causing 404 errors
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* The `rm -rf .next` step is critical. Without it, browsers with a cached old HTML page will request old chunk filenames that no longer exist after rebuild, producing 404 errors and "Refused to execute script" MIME type errors. This is not a code bug — it is a stale build artifact issue.
+* Users who see 404 chunk errors after deployment must hard-refresh their browser: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac).
