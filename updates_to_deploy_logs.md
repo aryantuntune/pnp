@@ -1131,3 +1131,121 @@ docker exec ssmspl-db-backup-1 ls -lh /backups/
 * **Backup volume** — Backups are stored in the `db-backups` Docker volume. To access backups from the host, use `docker cp` or mount the volume to a host directory. For off-site backup, add a cron job to copy from the volume to S3/GCS.
 * **Restore procedure** — To restore from backup: `docker exec -i ssmspl-db-backup-1 /scripts/restore_db.sh /backups/<filename>.sql.gz`. The script has a 5-second safety delay before overwriting.
 * **Connection pool tuning** — With `pool_size=5, max_overflow=10` and 5 Gunicorn workers, max connections = 75 (safely under PG's default 100). If you increase workers or add replicas, adjust accordingly.
+
+---
+
+## Deployment Update — 2026-03-17
+
+### Module
+
+Ticketing / Print Receipt — Restore Footer Summary
+
+### Commit ID
+
+7c12f83
+
+### Changes
+
+* **Restored footer summary rows on thermal receipt** — The bottom summary block (DATE, BY, TICKET MEMO NO, PAYMENT MODE, NET TOTAL) was previously removed in commit 045bd22. This block provides a quick reference below the tear-off line and has been brought back by user request.
+* The footer `BY:` field uses the same audit-safe `created_by_username` as the header — it always shows the original ticket creator, not the currently logged-in user.
+
+### Files Modified
+
+* `frontend/src/lib/print-receipt.ts` — added 5 lines restoring footer summary block after the NOTE/HAPPY JOURNEY section
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* The footer repeats key info (date, time, operator, memo no, payment mode, net total) below the note section, before the QR code. Both header and footer BY fields are audit-safe.
+
+---
+
+## Deployment Update — 2026-03-25
+
+### Module
+
+Reporting Layer (backend)
+
+### Commit ID
+
+86a7f5f
+
+### Changes
+
+* Added complete async reporting layer (`backend/app/reporting/`) with 4 report types:
+  * **Date-wise Amount** — daily revenue totals split by POS and Portal with grand total
+  * **Payment Mode Report** — per-mode revenue breakdown across POS and Portal with grand total
+  * **Item-wise Summary** — per-item quantities and net amounts with POS/Portal split, payment-mode breakdown, and internal integrity check (`grand_total == sum(payment_breakdown)`)
+  * **Ferry-wise Item Summary** — per-departure-slot item quantities with POS/Portal columns; NULL departure (walk-in / open-schedule) kept as `None` internally and sorted last
+* Added shared reporting infrastructure:
+  * `filters.py` — `ReportFilters` dataclass, `DataSource` enum (`POS` / `PORTAL` / `ALL`), `get_source_flags()` helper
+  * `query_helpers.py` — `apply_pos_filters` (uses `ticket_date`) and `apply_portal_filters` (uses `travel_date`, filters by `status == CONFIRMED`) with shared WHERE-clause logic
+  * `merge.py` — `merge_by_key(skip_sum=...)` generic POS+Portal row merger; `skip_sum` prevents non-numeric key fields (rate, levy, departure) from being doubled on merge
+  * `sorting.py` — `sort_by_departure_then_item` (NULL departure sorts last) and `sort_by_item_name` helpers
+* Added `audit_reporting.py` — standalone async validation script (86 checks across 13 sections, all PASS):
+  * Financial consistency: `date_wise == payment_mode == item_wise == 2035`
+  * Source isolation: `ALL == POS + PORTAL` for all 3 report types
+  * Payment mode filters: no cross-source leakage
+  * Cancellation handling: cancelled tickets, cancelled items, and PENDING bookings all excluded
+  * Date alignment: Portal correctly uses `travel_date` not `booking_date`
+  * Item-wise row detail and integrity check
+  * Ferry-wise row detail and sort order
+  * Edge cases: empty date range, POS-only mode, Portal-only mode
+  * Merge correctness: no duplicate rows, totals additive
+  * Performance: 4 reports on ~1000 rows completed in 72ms
+
+### Files Added
+
+* `backend/app/reporting/__init__.py`
+* `backend/app/reporting/filters.py`
+* `backend/app/reporting/merge.py`
+* `backend/app/reporting/query_helpers.py`
+* `backend/app/reporting/sorting.py`
+* `backend/app/reporting/reports/__init__.py`
+* `backend/app/reporting/reports/date_wise_amount.py`
+* `backend/app/reporting/reports/payment_mode_report.py`
+* `backend/app/reporting/reports/item_wise_summary.py`
+* `backend/app/reporting/reports/ferry_wise_item_summary.py`
+* `backend/audit_reporting.py` (dev/validation script — not deployed)
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+# No frontend changes — skip
+```
+
+### Notes
+
+* Backend-only change. No database migration needed.
+* The reporting layer is consumed by existing report router endpoints — no new routes added in this commit. Report routers wire `ReportFilters` from request query params and call the appropriate `get_*` function.
+* `audit_reporting.py` is a local-only validation script that runs against `ssmspl_db_test`. It is not deployed to production.
+* Test files live under `backend/tests/` which is in `.gitignore` — unit tests (45 tests across `tests/unit/test_item_wise_summary.py` and `tests/unit/test_ferry_wise_item_summary.py`) and integration tests (40 tests across `tests/test_item_wise_summary.py` and `tests/test_ferry_wise_item_summary.py`) are present locally but not committed.
