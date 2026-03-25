@@ -20,6 +20,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    result = conn.execute(sa.text("SELECT 1 FROM information_schema.tables WHERE table_name = 'rate_change_logs'"))
+    if result.fetchone():
+        return
     op.create_table(
         "rate_change_logs",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),

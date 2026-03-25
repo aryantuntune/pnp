@@ -19,12 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('users', sa.Column('active_branch_id', sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        'fk_users_active_branch_id',
-        'users', 'branches',
-        ['active_branch_id'], ['id'],
-    )
+    conn = op.get_bind()
+    conn.execute(sa.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_branch_id INTEGER REFERENCES branches(id)"))
 
 
 def downgrade() -> None:

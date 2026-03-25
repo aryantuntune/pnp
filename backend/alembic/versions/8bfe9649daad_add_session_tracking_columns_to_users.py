@@ -18,8 +18,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('users', sa.Column('active_session_id', sa.String(length=36), nullable=True))
-    op.add_column('users', sa.Column('session_last_active', sa.DateTime(timezone=True), nullable=True))
+    conn = op.get_bind()
+    conn.execute(sa.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_session_id VARCHAR(36)"))
+    conn.execute(sa.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS session_last_active TIMESTAMPTZ"))
 
 
 def downgrade() -> None:
