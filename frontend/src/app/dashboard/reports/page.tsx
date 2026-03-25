@@ -680,18 +680,22 @@ export default function ReportsPage() {
                 {printing ? "Printing..." : "Print 80mm"}
               </Button>
             )}
-            <Button
-              onClick={handlePrintA4}
-              disabled={printing}
-              variant="outline"
-            >
-              {printing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Printer className="h-4 w-4 mr-2" />
+            {/* A4 print — hidden for reports that have a dedicated thermal button */}
+            {activeReport.key !== "itemwise-levy" &&
+              activeReport.key !== "branch-item-summary" && (
+                <Button
+                  onClick={handlePrintA4}
+                  disabled={printing}
+                  variant="outline"
+                >
+                  {printing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4 mr-2" />
+                  )}
+                  Print
+                </Button>
               )}
-              Print
-            </Button>
             <Button
               onClick={downloadPdf}
               disabled={downloading}
