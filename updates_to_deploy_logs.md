@@ -1309,3 +1309,53 @@ sudo systemctl restart ssmspl-frontend
 * The `console.log("[ItemWisePrint] line lengths:", ...)` debug statement in `formatItemWiseForPrint` should be removed once printing is validated on a real thermal printer.
 * `ItemWisePrintView` component is available for embedding in dialogs or standalone pages — it is not yet wired into any route, only the reports page uses the iframe path (`printItemWiseSummary`) via the Print 80mm button.
 * Column layout: Item 18 chars (left) + Rate 6 (right) + Qty 5 (right) + Net 9 (right) = 38 chars total, leaving 2-char margin on 40-char paper.
+
+---
+
+## Deployment Update — 2026-03-25
+
+### Module
+
+Reports — Thermal Print refinement (frontend)
+
+### Commit ID
+
+818b9ba
+
+### Changes
+
+* `COL_ITEM` increased from 18 → 20; data rows now fill exactly 40 chars (`20+6+5+9 = 40`) with no trailing gap
+* Added `normalizePaymentLabel()` with `PAYMENT_LABEL_MAP` lookup table and partial-match fallbacks:
+  * `CASH` / any name containing "CASH" → `CASH MEMO`
+  * `UPI`, `GPAY`, `UPI/GPAY`, `PHONEPE`, `PAYTM`, or any name containing those terms → `GPAY`
+  * `ONLINE` / any name containing "ONLINE" → `ONLINE`
+  * Unrecognised modes fall back to raw uppercased name
+* iframe CSS fixed: explicit `margin: 0; padding: 0` on `body`; `margin: 0; padding: 0 2px` on `pre`; removed overreaching `* { margin:0; padding:0 }` reset that was suppressing pre padding; `@media print` block mirrors same rules
+* Header blank line between BRANCH NAME and ITEM WISE SUMMARY confirmed in place (no change needed)
+
+### Files Modified
+
+* `frontend/src/lib/print-itemwise-summary.ts`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* If the client's payment modes in the database use different names (e.g. "Cash Payment", "Google Pay"), add them to `PAYMENT_LABEL_MAP` in `print-itemwise-summary.ts` before go-live.
