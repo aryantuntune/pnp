@@ -575,6 +575,8 @@ export default function ReportsPage() {
 
   // Print thermal 80mm for item wise summary (itemwise-levy)
   const handlePrintItemwiseThermal = async () => {
+    console.log("PRINT FUNCTION HIT: handlePrintItemwiseThermal");
+    console.log("FORMATTER USED: printItemWiseSummary → formatItemWiseForPrint");
     setPrinting(true);
     try {
       const { printItemWiseSummary } = await import("@/lib/print-itemwise-summary");

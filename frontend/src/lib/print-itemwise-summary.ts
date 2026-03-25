@@ -119,30 +119,67 @@ function normalizePaymentLabel(name: string): string {
 }
 
 /**
- * Split a long item name into chunks at word boundaries only.
- * Never cuts mid-word — a single word longer than maxWidth goes on its own
- * line and enforceWidth() will cap the final printed line at 40 chars.
+ * Build all print lines for one item row.
+ *
+ * Strategy — greedy first-line fill:
+ *   • Add words to firstLine as long as the result fits in COL_ITEM.
+ *   • FIRST line always carries rate / qty / net columns.
+ *   • Any remaining words wrap onto subsequent lines (text only, no columns).
+ *   • Never cuts a word mid-way.
  */
-function splitItemName(name: string, maxWidth: number): string[] {
-  if (name.length <= maxWidth) return [name];
-
-  const words = name.split(" ");
-  const chunks: string[] = [];
-  let current = "";
+function buildItemLines(
+  name: string,
+  rateStr: string,
+  qtyStr: string,
+  netStr: string
+): string[] {
+  const words = name.split(" ").filter(Boolean);
+  let firstLine = "";
 
   for (const word of words) {
-    if (current === "") {
-      current = word;
-    } else if ((current + " " + word).length <= maxWidth) {
-      current += " " + word;
+    const test = (firstLine + " " + word).trim();
+    if (test.length <= COL_ITEM) {
+      firstLine = test;
     } else {
-      chunks.push(current);
-      current = word;
+      break;
     }
   }
 
-  if (current) chunks.push(current);
-  return chunks.length === 0 ? [name] : chunks;
+  // Safety: always put at least the first word on line 1
+  if (firstLine === "" && words.length > 0) {
+    firstLine = words[0];
+  }
+
+  const lines: string[] = [];
+
+  // FIRST line → filled item text + numeric columns
+  lines.push(
+    padRight(firstLine, COL_ITEM) +
+      padLeft(rateStr, COL_RATE) +
+      padLeft(qtyStr, COL_QTY) +
+      padLeft(netStr, COL_NET)
+  );
+
+  // Overflow → word-wrapped, text only
+  const remaining = name.slice(firstLine.length).trim();
+  if (remaining) {
+    const restWords = remaining.split(" ").filter(Boolean);
+    let current = "";
+
+    for (const word of restWords) {
+      const test = (current + " " + word).trim();
+      if (test.length <= COL_ITEM) {
+        current = test;
+      } else {
+        if (current) lines.push(current);
+        current = word;
+      }
+    }
+
+    if (current) lines.push(current);
+  }
+
+  return lines;
 }
 
 // ── Main Formatter ──
@@ -209,19 +246,9 @@ export function formatItemWiseForPrint(
       const qtyStr = fmtQty(row.quantity);
       const netStr = fmtNum(row.net);
 
-      const chunks = splitItemName(itemName, COL_ITEM);
-
-      // FIRST chunk → carries the numeric columns
-      push(
-        padRight(chunks[0], COL_ITEM) +
-          padLeft(rateStr, COL_RATE) +
-          padLeft(qtyStr, COL_QTY) +
-          padLeft(netStr, COL_NET)
-      );
-
-      // Overflow chunks → item text only, no columns
-      for (let i = 1; i < chunks.length; i++) {
-        push(chunks[i]);
+      const itemLines = buildItemLines(itemName, rateStr, qtyStr, netStr);
+      for (const line of itemLines) {
+        push(line);
       }
     }
   }
@@ -248,11 +275,12 @@ export function formatItemWiseForPrint(
 
   const result = raw.join("\n");
 
-  // Debug: verify all lines ≤ 40 chars (remove before production)
-  console.log(
-    "[ItemWisePrint] line lengths:",
-    result.split("\n").map((l) => l.length)
-  );
+  // Debug: verbose per-line output (remove before production)
+  console.log("==== FORMATTED OUTPUT START ====");
+  result.split("\n").forEach((line, i) => {
+    console.log(i, line, "| length:", line.length);
+  });
+  console.log("==== FORMATTED OUTPUT END ====");
 
   return result;
 }
