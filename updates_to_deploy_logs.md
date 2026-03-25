@@ -1499,3 +1499,50 @@ sudo systemctl restart ssmspl-frontend
 
 * The `rm -rf .next` step is critical. Without it, browsers with a cached old HTML page will request old chunk filenames that no longer exist after rebuild, producing 404 errors and "Refused to execute script" MIME type errors. This is not a code bug — it is a stale build artifact issue.
 * Users who see 404 chunk errors after deployment must hard-refresh their browser: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac).
+
+---
+
+## Deployment Update — 2026-03-26
+
+### Module
+
+Reports — Debug cleanup + dead code removal (frontend)
+
+### Commit ID
+
+b2df6f9
+
+### Changes
+
+* Removed all diagnostic `console.log` statements that were added during tracing:
+  * `reports/page.tsx`: `PRINT FUNCTION HIT` and `FORMATTER USED` lines removed from `handlePrintItemwiseThermal`
+  * `print-itemwise-summary.ts`: `==== FORMATTED OUTPUT START/END ====` block removed from `formatItemWiseForPrint`
+* Deleted `frontend/src/components/reports/ItemWisePrintView.tsx` — component was never imported or used anywhere in the app; the reports page exclusively uses the iframe-based `printItemWiseSummary` path
+
+### Files Modified
+
+* `frontend/src/app/dashboard/reports/page.tsx`
+* `frontend/src/lib/print-itemwise-summary.ts`
+
+### Files Deleted
+
+* `frontend/src/components/reports/ItemWisePrintView.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Frontend:
+```bash
+cd frontend
+rm -rf .next
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* `rm -rf .next` before build is mandatory to clear stale chunk hashes that cause 404 errors in the browser.
