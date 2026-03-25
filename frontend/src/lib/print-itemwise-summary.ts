@@ -3,10 +3,10 @@
 const LINE_WIDTH = 40;
 const SEPARATOR = "----------------------------------------"; // exactly 40
 
-const COL_ITEM = 20;
+const COL_ITEM = 22;
 const COL_RATE = 6;
-const COL_QTY = 5;
-const COL_NET = 9;
+const COL_QTY = 4;
+const COL_NET = 8;
 // COL_ITEM + COL_RATE + COL_QTY + COL_NET = 40 (fills line exactly)
 
 // ── Types ──
@@ -119,8 +119,9 @@ function normalizePaymentLabel(name: string): string {
 }
 
 /**
- * Split a long item name into chunks of ≤ maxWidth chars at word boundaries.
- * Single tokens wider than maxWidth are hard-broken mid-word.
+ * Split a long item name into chunks at word boundaries only.
+ * Never cuts mid-word — a single word longer than maxWidth goes on its own
+ * line and enforceWidth() will cap the final printed line at 40 chars.
  */
 function splitItemName(name: string, maxWidth: number): string[] {
   if (name.length <= maxWidth) return [name];
@@ -130,20 +131,6 @@ function splitItemName(name: string, maxWidth: number): string[] {
   let current = "";
 
   for (const word of words) {
-    if (word.length > maxWidth) {
-      if (current) {
-        chunks.push(current);
-        current = "";
-      }
-      let remaining = word;
-      while (remaining.length > maxWidth) {
-        chunks.push(remaining.substring(0, maxWidth));
-        remaining = remaining.substring(maxWidth);
-      }
-      current = remaining;
-      continue;
-    }
-
     if (current === "") {
       current = word;
     } else if ((current + " " + word).length <= maxWidth) {
@@ -155,7 +142,7 @@ function splitItemName(name: string, maxWidth: number): string[] {
   }
 
   if (current) chunks.push(current);
-  return chunks.length === 0 ? [name.substring(0, maxWidth)] : chunks;
+  return chunks.length === 0 ? [name] : chunks;
 }
 
 // ── Main Formatter ──
