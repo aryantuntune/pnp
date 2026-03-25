@@ -1359,3 +1359,47 @@ sudo systemctl restart ssmspl-frontend
 
 * Frontend-only change. No backend restart or database migration needed.
 * If the client's payment modes in the database use different names (e.g. "Cash Payment", "Google Pay"), add them to `PAYMENT_LABEL_MAP` in `print-itemwise-summary.ts` before go-live.
+
+---
+
+## Deployment Update — 2026-03-25
+
+### Module
+
+Reports — Thermal Print column/wrap fix (frontend)
+
+### Commit ID
+
+e445fc3
+
+### Changes
+
+* Column widths updated: `COL_ITEM` 20 → 22, `COL_QTY` 5 → 4, `COL_NET` 9 → 8 (total remains 40)
+* `splitItemName()` rewritten — no longer hard-breaks mid-word; only splits at spaces; a single word longer than 22 chars is placed on its own line intact and `enforceWidth()` caps the final printed line at 40 chars
+* First-line-carries-values rule (rate/qty/net on first item line, overflow lines text-only) confirmed correct and unchanged
+
+### Files Modified
+
+* `frontend/src/lib/print-itemwise-summary.ts`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
