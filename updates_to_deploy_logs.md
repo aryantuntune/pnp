@@ -1546,3 +1546,98 @@ sudo systemctl restart ssmspl-frontend
 
 * Frontend-only change. No backend restart or database migration needed.
 * `rm -rf .next` before build is mandatory to clear stale chunk hashes that cause 404 errors in the browser.
+
+---
+
+## Deployment Update — 2026-03-26
+
+### Module
+
+Reports — Item Wise Summary Thermal Print
+
+### Commit ID
+
+cc71408
+
+### Changes
+
+* Rewrote `buildPrintHtml` in `print-itemwise-summary.ts` to use HTML `<table>` layout instead of `<pre>` plain-text approach
+* Root cause of column misalignment: `<pre>` with manually padded strings relies on equal glyph widths, which browser print contexts cannot guarantee (especially with bold text). CSS `col` widths + browser-native table layout is always pixel-accurate
+* New implementation matches the confirmed-working architecture of `print-branch-summary.ts`
+* Key CSS: `"Courier New"` 12px explicit font, `col.num { width: 48px }`, `td.r { text-align: right; white-space: nowrap }`, `transform: scale(0.92)` at print time
+* `printItemWiseSummary` now calls `buildPrintHtml(reportData, metaData)` directly (no intermediate plain-text formatter)
+* `formatItemWiseForPrint` (plain-text ESC/POS formatter) remains unchanged for future ESC/POS use
+
+### Files Modified
+
+* `frontend/src/lib/print-itemwise-summary.ts`
+
+### Deployment Steps
+
+```bash
+# On VPS frontend
+rm -rf .next
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+> Note: `rm -rf .next` is required before every build to prevent stale chunk 404 errors in browser.
+
+---
+
+## Deployment Update — 2026-03-26
+
+### Module
+
+Frontend — Ticketing / Multi-ticketing (single-payment enforcement)
+
+### Commit ID
+
+8223dd0
+
+### Changes
+
+**Ticketing page** (`/dashboard/ticketing`):
+* UPI mode: hides "Amount Received" and "Change" fields — these are Cash-only
+* UPI mode: received-amount validation (`> 0`, `>= net_amount`) no longer fires for UPI
+* UPI mode: `autoFocus` now lands on the UPI Reference ID input, not the hidden Amount Received field
+* Extracted `isUpiMode` derived variable — replaces duplicate inline `paymentModes.find(...)` calls
+
+**Multi-ticketing page** (`/dashboard/multiticketing`):
+* Added `refNo: string` field to `TicketGrid` interface
+* Switching payment mode on a ticket now clears its `refNo` (prevents stale UPI refs)
+* UPI ref_no input field shown inline per ticket card when UPI payment mode is selected
+* Validation: UPI ticket without a `ref_no` blocks Save & Print (alert message)
+* Save & Print button disabled when any UPI ticket is missing its ref_no
+* Fixed payload: `ref_no` now sent from `t.refNo.trim() || null` instead of hardcoded `null`
+
+### Files Modified
+
+* `frontend/src/app/dashboard/ticketing/page.tsx`
+* `frontend/src/app/dashboard/multiticketing/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+# No backend changes — skip
+```
+
+Frontend:
+```bash
+cd frontend
+rm -rf .next
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Frontend-only change. No backend restart or database migration needed.
+* Split payment (multiple payment rows per ticket) is now fully impossible from the frontend. Single payment mode per ticket is enforced at UI, validation, and payload level.
+* The `received_amount` / Change display is Cash-only. UPI tickets only require a Reference ID.
+* Multi-ticketing previously hardcoded `ref_no: null` for all tickets — UPI batch tickets now correctly carry their reference IDs to the backend.
