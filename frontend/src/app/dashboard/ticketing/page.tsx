@@ -905,6 +905,7 @@ export default function TicketingPage() {
   };
 
   // Derived values for payment modal
+  const isUpiMode = paymentModes.find((pm) => pm.id === formConfirmPaymentModeId)?.description.toUpperCase() === "UPI";
   const changeAmount = Math.round((formReceivedAmount - formNetAmount) * 100) / 100;
 
   // Save and print handler (called from payment modal)
@@ -914,18 +915,20 @@ export default function TicketingPage() {
       setPaymentError("Please select a payment mode.");
       return;
     }
-    if (formReceivedAmount <= 0) {
-      setPaymentError("Received amount must be greater than zero.");
-      return;
-    }
-    if (formReceivedAmount < formNetAmount) {
-      setPaymentError("Received amount cannot be less than net amount.");
-      return;
-    }
-    const upiMode = paymentModes.find((pm) => pm.description.toUpperCase() === "UPI");
-    if (upiMode && formConfirmPaymentModeId === upiMode.id && !formRefNo.trim()) {
-      setPaymentError("Reference ID is required for UPI payments.");
-      return;
+    if (isUpiMode) {
+      if (!formRefNo.trim()) {
+        setPaymentError("Reference ID is required for UPI payments.");
+        return;
+      }
+    } else {
+      if (formReceivedAmount <= 0) {
+        setPaymentError("Received amount must be greater than zero.");
+        return;
+      }
+      if (formReceivedAmount < formNetAmount) {
+        setPaymentError("Received amount cannot be less than net amount.");
+        return;
+      }
     }
     setPaymentError("");
     setSubmitting(true);
@@ -1579,7 +1582,7 @@ export default function TicketingPage() {
             </div>
 
             {/* Ref No (UPI only) */}
-            {paymentModes.find((pm) => pm.id === formConfirmPaymentModeId)?.description.toUpperCase() === "UPI" && (
+            {isUpiMode && (
               <div>
                 <Label htmlFor="confirm-ref-no">Reference / Transaction ID</Label>
                 <Input
@@ -1589,45 +1592,49 @@ export default function TicketingPage() {
                   value={formRefNo}
                   onChange={(e) => setFormRefNo(e.target.value)}
                   className="mt-1"
+                  autoFocus
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
                 />
               </div>
             )}
 
-            {/* Amount Received */}
-            <div>
-              <Label htmlFor="confirm-received">Amount Received</Label>
-              <Input
-                id="confirm-received"
-                type="text"
-                inputMode="decimal"
-                value={formReceivedAmountStr}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
-                    setFormReceivedAmountStr(val);
-                    setFormReceivedAmount(parseFloat(val) || 0);
-                  }
-                }}
-                onFocus={(e) => e.target.select()}
-                onBlur={() => setFormReceivedAmountStr(formReceivedAmount.toFixed(2))}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
-                className="text-right mt-1"
-                autoFocus
-              />
-            </div>
+            {/* Amount Received + Change (Cash only) */}
+            {!isUpiMode && (
+              <>
+                <div>
+                  <Label htmlFor="confirm-received">Amount Received</Label>
+                  <Input
+                    id="confirm-received"
+                    type="text"
+                    inputMode="decimal"
+                    value={formReceivedAmountStr}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+                        setFormReceivedAmountStr(val);
+                        setFormReceivedAmount(parseFloat(val) || 0);
+                      }
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={() => setFormReceivedAmountStr(formReceivedAmount.toFixed(2))}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
+                    className="text-right mt-1"
+                    autoFocus
+                  />
+                </div>
 
-            {/* Change */}
-            <div>
-              <Label>Change / Re-Payment</Label>
-              <div
-                className={`w-full border border-border rounded-lg px-4 py-2.5 text-right font-semibold text-lg bg-muted ${
-                  changeAmount >= 0 ? "text-green-700" : "text-destructive"
-                }`}
-              >
-                {changeAmount.toFixed(2)}
-              </div>
-            </div>
+                <div>
+                  <Label>Change / Re-Payment</Label>
+                  <div
+                    className={`w-full border border-border rounded-lg px-4 py-2.5 text-right font-semibold text-lg bg-muted ${
+                      changeAmount >= 0 ? "text-green-700" : "text-destructive"
+                    }`}
+                  >
+                    {changeAmount.toFixed(2)}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {paymentError && (

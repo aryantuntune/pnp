@@ -39,6 +39,7 @@ interface TicketGridItem {
 interface TicketGrid {
   tempId: string;
   paymentModeId: number;
+  refNo: string;
   items: TicketGridItem[];
 }
 
@@ -58,11 +59,11 @@ function sfItem(itemId: number, rate: number, levy: number): TicketGridItem {
 }
 
 function emptyTicket(): TicketGrid {
-  return { tempId: uid(), paymentModeId: 0, items: [emptyItem()] };
+  return { tempId: uid(), paymentModeId: 0, refNo: "", items: [emptyItem()] };
 }
 
 function emptyTicketWithSf(sfItemId: number, sfRate: number, sfLevy: number): TicketGrid {
-  return { tempId: uid(), paymentModeId: 0, items: [sfItem(sfItemId, sfRate, sfLevy), emptyItem()] };
+  return { tempId: uid(), paymentModeId: 0, refNo: "", items: [sfItem(sfItemId, sfRate, sfLevy), emptyItem()] };
 }
 
 /**
@@ -270,7 +271,13 @@ export default function MultiTicketingPage() {
 
   const updateTicketPaymentMode = (ticketTempId: string, paymentModeId: number) => {
     setTickets((prev) =>
-      prev.map((t) => (t.tempId === ticketTempId ? { ...t, paymentModeId } : t))
+      prev.map((t) => (t.tempId === ticketTempId ? { ...t, paymentModeId, refNo: "" } : t))
+    );
+  };
+
+  const updateTicketRefNo = (ticketTempId: string, refNo: string) => {
+    setTickets((prev) =>
+      prev.map((t) => (t.tempId === ticketTempId ? { ...t, refNo } : t))
     );
   };
 
@@ -409,6 +416,10 @@ export default function MultiTicketingPage() {
       if (!t.paymentModeId || t.paymentModeId <= 0)
         return `${label}: Please select a payment mode.`;
 
+      const selectedMode = initData.payment_modes.find((pm) => pm.id === t.paymentModeId);
+      if (selectedMode?.description.toUpperCase() === "UPI" && !t.refNo.trim())
+        return `${label}: Reference ID is required for UPI payments.`;
+
       const activeItems = t.items.filter((it) => it.qty > 0);
       if (activeItems.length === 0)
         return `${label}: At least one item with quantity > 0 is required.`;
@@ -460,7 +471,7 @@ export default function MultiTicketingPage() {
         departure: null,
         route_id: initData.route_id,
         payment_mode_id: t.paymentModeId,
-        ref_no: null,
+        ref_no: t.refNo.trim() || null,
         discount: 0,
         amount: total,
         net_amount: total,
@@ -620,6 +631,20 @@ export default function MultiTicketingPage() {
                             </Button>
                           )}
                         </div>
+
+                        {/* UPI Ref No (shown inline below the header row when UPI selected) */}
+                        {initData.payment_modes.find((pm) => pm.id === ticket.paymentModeId)?.description.toUpperCase() === "UPI" && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <label className="text-sm text-foreground whitespace-nowrap">UPI Ref No:</label>
+                            <input
+                              type="text"
+                              placeholder="Transaction / Reference ID (required)"
+                              value={ticket.refNo}
+                              onChange={(e) => updateTicketRefNo(ticket.tempId, e.target.value)}
+                              className="border border-input rounded px-2 py-1 text-sm bg-background text-foreground flex-1"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Items table */}
@@ -824,7 +849,12 @@ export default function MultiTicketingPage() {
                 <Button
                   ref={saveRef}
                   onClick={handleSaveAndPrint}
-                  disabled={submitting || tickets.some((t) => !t.paymentModeId || t.items.some((it) => isRowInvalid(it, findItem)))}
+                  disabled={submitting || tickets.some((t) => {
+                    if (!t.paymentModeId) return true;
+                    const isUpi = initData?.payment_modes.find((pm) => pm.id === t.paymentModeId)?.description.toUpperCase() === "UPI";
+                    if (isUpi && !t.refNo.trim()) return true;
+                    return t.items.some((it) => isRowInvalid(it, findItem));
+                  })}
                 >
                   {submitting ? "Saving..." : "Save & Print"}
                 </Button>
