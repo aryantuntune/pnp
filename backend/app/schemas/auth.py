@@ -50,7 +50,7 @@ class ResetPasswordRequest(BaseModel):
 class MobileUserInfo(BaseModel):
     id: str = Field(..., description="User UUID")
     full_name: str
-    email: str
+    email: str | None = None
     role: str
     route_id: int | None = None
     route_name: str | None = None

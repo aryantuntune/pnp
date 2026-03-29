@@ -2,6 +2,74 @@
 
 ---
 
+## Deployment Update — 2026-03-30
+
+### Module
+
+User Management
+
+### Commit ID
+
+_(run `git log --oneline -1` after committing)_
+
+### Changes
+
+* Made `email` optional when creating a new user — the "Add New User" form no longer requires an email address
+* Email label changed from "Email *" to "Email" with placeholder text "(optional)"
+* Backend `UserBase` schema updated: `email` is now `EmailStr | None` (defaults to `None`)
+* Database `users.email` column changed from `NOT NULL` to nullable
+* `MobileUserInfo` schema (checker app login response) updated: `email` is now `str | None`
+* TypeScript types updated: `User.email: string | null`, `UserCreate.email?: string`
+* User list table and User Details popup now display "—" when no email is on record
+* Added amber warning banner to the "Forgot Password" page informing users without a registered email to contact their manager or admin
+
+### Files Modified
+
+* `backend/app/schemas/user.py`
+* `backend/app/schemas/auth.py`
+* `backend/app/models/user.py`
+* `backend/app/services/user_service.py`
+* `backend/alembic/versions/f3b7c1e92a05_make_user_email_nullable.py` _(new migration)_
+* `frontend/src/types/index.ts`
+* `frontend/src/app/dashboard/users/page.tsx`
+* `frontend/src/app/forgot-password/page.tsx`
+* `apps/checker/src/types/models.ts`
+
+### Database Migrations
+
+* `f3b7c1e92a05_make_user_email_nullable.py` — Removes the `NOT NULL` constraint from `users.email`. Multiple users with `NULL` email are allowed (PostgreSQL permits multiple NULLs in a UNIQUE column).
+
+### Deployment Steps (VPS)
+
+Pull latest code:
+```bash
+cd /var/www/ssmspl
+git pull origin main
+```
+
+Backend — run migration and restart:
+```bash
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+sudo systemctl restart ssmspl
+```
+
+Frontend — rebuild and restart:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Notes
+
+* Existing users with emails are unaffected — the migration only relaxes the constraint.
+* Users without email cannot use the "Forgot Password" self-service flow. They must ask an admin/manager to reset their password via the User Management page, or have their email added via the Edit User form.
+* The uniqueness constraint on `email` remains in place; only one user per email address is allowed (NULL values are exempt from the unique check).
+
+---
+
 ## Deployment Update — 2026-03-12
 
 ### Module

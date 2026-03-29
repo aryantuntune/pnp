@@ -184,7 +184,7 @@ export default function UsersPage() {
   const openEditModal = (u: User) => {
     setEditingUser(u);
     setForm({
-      email: u.email,
+      email: u.email || "",
       username: u.username,
       full_name: u.full_name,
       password: "",
@@ -267,7 +267,7 @@ export default function UsersPage() {
         const update: UserUpdate = {};
         if (form.full_name !== editingUser.full_name) update.full_name = form.full_name;
         if (form.username !== editingUser.username) update.username = form.username;
-        if (form.email !== editingUser.email) update.email = form.email;
+        if (form.email && form.email !== (editingUser.email || "")) update.email = form.email;
         const formRole = form.role as UserRole;
         if (formRole !== editingUser.role) update.role = formRole;
         const formRouteId = form.route_id ? Number(form.route_id) : null;
@@ -276,7 +276,7 @@ export default function UsersPage() {
         await api.patch(`/api/users/${editingUser.id}`, update);
       } else {
         const create: UserCreate = {
-          email: form.email,
+          ...(form.email ? { email: form.email } : {}),
           username: form.username,
           full_name: form.full_name,
           password: form.password,
@@ -494,7 +494,7 @@ export default function UsersPage() {
                 ["ID", <span key="id" className="font-mono text-xs">{viewUser.id}</span>],
                 ["Username", viewUser.username],
                 ["Full Name", viewUser.full_name],
-                ["Email", viewUser.email],
+                ["Email", viewUser.email || "\u2014"],
                 ["Role", <Badge key="role" variant="secondary">{formatRole(viewUser.role)}</Badge>],
                 ["Route", viewUser.route_name || "\u2014"],
                 ["Status", <Badge key="status" variant={viewUser.is_active ? "default" : "destructive"}>{viewUser.is_active ? "Active" : "Inactive"}</Badge>],
@@ -548,14 +548,13 @@ export default function UsersPage() {
               />
             </div>
             <div>
-              <Label>Email *</Label>
+              <Label>Email</Label>
               <Input
                 type="email"
-                required
                 maxLength={255}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="e.g. john@ssmspl.com"
+                placeholder="e.g. john@ssmspl.com (optional)"
                 className="mt-1.5"
               />
             </div>

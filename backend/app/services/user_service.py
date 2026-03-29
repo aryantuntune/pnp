@@ -220,12 +220,19 @@ async def create_user(db: AsyncSession, user_in: UserCreate, current_user: User 
             detail="Only Super Admin can create Admin or Super Admin accounts.",
         )
 
-    # Check uniqueness
-    existing = await db.execute(
-        select(User).where((User.email == user_in.email) | (User.username == user_in.username))
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email or username already registered")
+    # Check uniqueness (only check email if provided, since NULL is not unique-constrained)
+    if user_in.email:
+        existing = await db.execute(
+            select(User).where((User.email == user_in.email) | (User.username == user_in.username))
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email or username already registered")
+    else:
+        existing = await db.execute(
+            select(User).where(User.username == user_in.username)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already registered")
 
     user = User(
         email=user_in.email,

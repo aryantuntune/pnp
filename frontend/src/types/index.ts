@@ -12,7 +12,7 @@ export interface RouteBranch {
 
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
   username: string;
   full_name: string;
   role: UserRole;
@@ -34,7 +34,7 @@ export interface LoginRequest {
 }
 
 export interface UserCreate {
-  email: string;
+  email?: string;
   username: string;
   full_name: string;
   password: string;

@@ -1,7 +1,7 @@
 export interface CheckerUser {
   id: string;
   full_name: string;
-  email: string;
+  email: string | null;
   role: string;
   route_id: number | null;
   route_name: string | null;

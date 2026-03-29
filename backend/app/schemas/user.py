@@ -8,7 +8,7 @@ from app.core.validators import validate_password_complexity
 
 
 class UserBase(BaseModel):
-    email: EmailStr = Field(..., description="User's email address", examples=["admin@ssmspl.com"])
+    email: EmailStr | None = Field(None, description="User's email address (optional)", examples=["admin@ssmspl.com"])
     username: str = Field(..., description="Unique login username", examples=["admin"])
     full_name: str = Field(..., description="User's full display name", examples=["System Administrator"])
     role: UserRole = Field(
