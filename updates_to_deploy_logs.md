@@ -2,6 +2,121 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (Item Rate V1→V2 Migration)
+
+### Module
+
+Item Rates / Seed Data / Audit Infrastructure
+
+### Commit ID
+
+_(run `git log --oneline -1` after committing)_
+
+### Changes
+
+**Audit & transition infrastructure (new, permanent):**
+* Added `item_rate_history` table — append-only audit log for every rate CREATE / UPDATE / DEACTIVATE; never deleted
+* Added `item_migration_map` table — permanent record of every item restructuring event across versions
+* Added `item_name_snapshot` + `item_short_name_snapshot` columns to `ticket_items` — stores item name at time of ticket creation so history display is never corrupted by future item renames
+* Added same snapshot columns to `booking_items`
+* Dropped `DEFAULT uuid_generate_v4()` from `item_rates.updated_by` — random UUID default was silently producing misleading audit attribution
+* Added `record_item_rate_change()` trigger on `item_rates` (INSERT/UPDATE) — auto-writes to `item_rate_history`, reads `updated_by` for attribution, reads `app.migration_notes` session variable for tagging
+
+**V1 → V2 item consolidation (49 items → 21 items):**
+* Items restructured to match official PDF rate sheet ("NEW ITEM ID & RATE")
+* V1-only items deactivated (`is_active = FALSE`) — rows kept for FK integrity with old tickets
+* Old item_rates deactivated (not deleted) — trigger records each as `DEACTIVATED`
+* New 21-item V2 rates inserted for routes 1–5 and 7 (126 rows total)
+* Route 6 (AMBET ↔ MHAPRAL) untouched — not in PDF
+
+**Seed / script updates:**
+* `seed_data.sql` items block replaced with V2 21-item structure; item_rates block rewritten for all 7 routes using `ON CONFLICT DO UPDATE` (idempotent)
+* `seed_route_item_rates.py` rewritten — hardcoded from PDF, no Excel dependency, sets `app.migration_notes` session tag
+* `migrate_v1_to_v2_items.py` — new 7-step idempotent migration script
+* Old Excel-based `seed_route_item_rates.py` archived to `misc/old_seed_files/`
+
+### Files Modified / Created
+
+* `backend/scripts/ddl.sql` _(patch appended)_
+* `backend/scripts/seed_data.sql` _(items + item_rates blocks replaced)_
+* `backend/scripts/seed_route_item_rates.py` _(rewritten from PDF data)_
+* `backend/scripts/migrate_v1_to_v2_items.py` _(new)_
+* `misc/old_seed_files/seed_route_item_rates.py` _(archived V1 Excel-based script)_
+* `data/item_rates/NEW ITEM ID & RATE.pdf` _(source PDF, already present)_
+
+### Deployment Steps (VPS)
+
+Pull latest code:
+```bash
+cd /var/www/ssmspl
+git pull origin main
+```
+
+**Step 1 — Apply DDL patch** (adds tables + trigger; zero downtime, safe on live DB):
+```bash
+cd backend
+source .venv/bin/activate
+psql "$DATABASE_URL" -f scripts/ddl.sql
+```
+Verify new tables exist:
+```sql
+\dt item_rate_history
+\dt item_migration_map
+\d ticket_items    -- confirm item_name_snapshot column present
+\d booking_items   -- confirm item_name_snapshot column present
+```
+
+**Step 2 — Dry-run the migration** (no writes, preview only):
+```bash
+python scripts/migrate_v1_to_v2_items.py --dry-run
+```
+Review output carefully. Confirm row counts look correct before proceeding.
+
+**Step 3 — Run migration one step at a time**:
+```bash
+python scripts/migrate_v1_to_v2_items.py --step 1   # backfill ticket_items snapshots
+python scripts/migrate_v1_to_v2_items.py --step 2   # backfill booking_items snapshots
+python scripts/migrate_v1_to_v2_items.py --step 3   # seed item_rate_history baseline
+python scripts/migrate_v1_to_v2_items.py --step 4   # insert item_migration_map
+python scripts/migrate_v1_to_v2_items.py --step 5   # update items table to V2
+python scripts/migrate_v1_to_v2_items.py --step 6   # deactivate old V1 item_rates
+python scripts/migrate_v1_to_v2_items.py --step 7   # insert new V2 item_rates
+```
+
+Verify after all steps:
+```sql
+SELECT COUNT(*) FROM items WHERE is_active = TRUE;
+-- expected: 21
+
+SELECT COUNT(*) FROM item_rates WHERE is_active = TRUE;
+-- expected: 126  (21 items × 6 routes)
+
+SELECT COUNT(*) FROM item_rate_history;
+-- expected: > 0
+
+SELECT COUNT(*) FROM ticket_items WHERE item_name_snapshot IS NULL;
+-- expected: 0
+
+SELECT COUNT(*) FROM booking_items WHERE item_name_snapshot IS NULL;
+-- expected: 0
+```
+
+Restart backend to clear any cached item lists:
+```bash
+sudo systemctl restart ssmspl
+```
+
+### Notes
+
+* **No data loss** — old ticket amounts (rate/levy) are stored directly in `ticket_items`. Item names are preserved via `item_name_snapshot`.
+* **No downtime** — all steps are non-destructive (deactivation, not deletion). The app continues serving existing rates until step 7 completes.
+* **Idempotent** — safe to re-run any step; already-complete work is detected and skipped.
+* **Ongoing audit** — every rate change from this point forward is auto-recorded in `item_rate_history` via DB trigger. No app code change needed.
+* **Future rate changes** — use `seed_route_item_rates.py` for bulk updates or edit via admin UI; both are captured by the trigger.
+* Route 6 (AMBET ↔ MHAPRAL) rates were not in the PDF and remain unchanged.
+
+---
+
 ## Deployment Update — 2026-03-30
 
 ### Module

@@ -1,184 +1,258 @@
 #!/usr/bin/env python3
 """
-Seed Route Item Rates from Excel Dataset
-=========================================
+Seed Route Item Rates  (PDF: "NEW ITEM ID & RATE")
+===================================================
+Hardcoded from the official rate sheet PDF:
+    data/item_rates/NEW ITEM ID & RATE.pdf
 
-Reads item rates per route from the Excel file and upserts into the
-item_rates table.  Idempotent — safe to run multiple times.
+Upserts item_rates for routes 1–5 and 7.
+Route 6 (AMBET ↔ MHAPRAL) is NOT in the PDF — left untouched.
 
 Usage:
     python scripts/seed_route_item_rates.py                # execute changes
     python scripts/seed_route_item_rates.py --dry-run       # preview only
-    python scripts/seed_route_item_rates.py --env .env.production  # custom env
-
-Excel path: data/item_rates/item_rates_list_final_all_routes.xlsx
+    python scripts/seed_route_item_rates.py --env .env.production
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import io
-import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 
-# Force UTF-8 stdout on Windows (Devanagari text in item names)
-if sys.stdout.encoding != "utf-8":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-
-import openpyxl
-
 # ---------------------------------------------------------------------------
-# Resolve project paths
-# ---------------------------------------------------------------------------
-SCRIPT_DIR = Path(__file__).resolve().parent          # backend/scripts/
-BACKEND_DIR = SCRIPT_DIR.parent                       # backend/
-PROJECT_DIR = BACKEND_DIR.parent                      # project root
-
-# In Docker, BACKEND_DIR is /app and PROJECT_DIR becomes /.
-# The data folder may be at /app/data (copied in) or at PROJECT_DIR/data (local).
-_EXCEL_NAME = Path("data") / "item_rates" / "item_rates_list_final_all_routes.xlsx"
-_EXCEL_CANDIDATES = [
-    PROJECT_DIR / _EXCEL_NAME,   # local dev:  d:\workspace\ssmspl\data\...
-    BACKEND_DIR / _EXCEL_NAME,   # Docker:     /app/data/...
-]
-DEFAULT_EXCEL = next((p for p in _EXCEL_CANDIDATES if p.exists()), _EXCEL_CANDIDATES[0])
-
-_ENV_CANDIDATES = [
-    BACKEND_DIR / ".env.production",    # production first
-    BACKEND_DIR / ".env.development",   # fallback to dev
-]
-DEFAULT_ENV = next((p for p in _ENV_CANDIDATES if p.exists()), BACKEND_DIR / ".env.development")
-
-# ---------------------------------------------------------------------------
-# Excel sheet name  →  DB route_id
-# ---------------------------------------------------------------------------
-ROUTE_SHEET_MAP: dict[str, int] = {
-    "DABHOL DHOPAVE":    1,   # DABHOL (101) <-> DHOPAVE (102)
-    "VESAVI BAGMANDALE": 2,   # VESHVI (103) <-> BAGMANDALE (104)
-    "JAIGAD TAVSAL":     3,   # JAIGAD (105) <-> TAVSAL (106)
-    "DIGHI AGARDANDA":   4,   # AGARDANDA (107) <-> DIGHI (108)
-    "VASAI BHAYANDER":   5,   # BHAYANDER (110) <-> VASAI (109)
-    "VIRAR SAPHALE":     7,   # VIRAR (113) <-> SAFALE (114)
-}
-
-# Route 6 (AMBET <-> MHAPRAL) is NOT in the Excel — left untouched.
-
-# ---------------------------------------------------------------------------
-# Master item number  →  DB item_id
+# PDF item number  →  DB item_id
 #
-# The "master item number" is the canonical serial from Sheet1 in the Excel.
+# The PDF defines 21 canonical items (numbered 1–21).
+# This map translates each PDF item number to its matching row in the `items`
+# table.  Where the PDF merges multiple old items into one row the closest
+# DB item is used (noted below).
 # ---------------------------------------------------------------------------
-MASTER_ITEM_MAP: dict[int, int] = {
-    1:  11,   # Passenger Adult Above 12 Yr  (प्रवासी प्रौढ)
-    2:  12,   # Passenger Child 3-12 Yr      (प्रवासी लहान)
-    3:   2,   # Motorcycle With Driver        (मोटारसायकल)
-    4:   7,   # Empty Car 5-Str Hatchback     (रिकामी कार hatch back)
-    5:   8,   # Empty Luxury Car 5-Str Sedan  (रिकामी लक्झरी कार sedan)
-    6:   4,   # Empty 3-Wheeler Rickshaw      (तीन चाकी रिक्षा)
-    7:  15,   # 407 Tempo                     (टाटा ४०७)
-    8:  18,   # Med Goods 6-Wheeler 709       (टाटा ७०९ / आयशर १०९५)
-    9:  23,   # Goods Per Half Ton            (माल प्रति अर्धा टन)
-    10: 21,   # Passenger Bus / Truck / Tanker (पॅसेंजर बस / ट्रक / ट्रॅक्टर)
-    11: 32,   # 10-Wheeler Truck / JCB        (दहाचाकी मालवाहू ट्रक / जे.सी.बी.)
-    12: 33,   # Tractor With Trolley          (ट्रॅक्टर ट्रॉली)
-    13:  1,   # Cycle                         (सायकल)
-    14: 31,   # Fish / Chicken / Birds / Fruits (मासे / पक्षी / फळे)
-    15: 26,   # Cow / Buffalo                 (गाय / बैल / म्हैस)
-    16: 27,   # Student Month Pass Up To 7th  (विद्यार्थी मासिक पास पर्यंत)
-    17: 28,   # Student Month Pass Above 7th  (विद्यार्थी मासिक पास नंतर)
-    18: 30,   # Monthly Pass Passenger        (प्रवासी मासिक पास)
+PDF_TO_DB_ITEM: dict[int, int] = {
+    1:  1,   # CYCLE
+    2:  2,   # MOTOR CYCLE WITH DRIVER
+    3:  3,   # EMPTY 3 WHLR RICKSHAW
+    4:  7,   # MAGIC / IRIS / CAR  →  EMPTY CAR 5 ST (item 7)
+    5:  8,   # LUX CAR / SUMO / SCORPIO / TAVERA 7 ST  →  EMPTY LUX. CAR 5 ST (item 8)
+    6:  13,  # AMBULANCE
+    7:  18,  # T.T / 407 / 709 / 18 & 21 ST BUS  →  MED. GOODS 6 WHLR 709 (item 18)
+    8:  21,  # BUS / TRUCK / TANKER  →  TANKER/TRUCK (item 21)
+    9:  22,  # TRUCK 10 WHLR / JCB  →  TRUCK 10 WHLR (item 22)
+    10: 33,  # TRACTOR WITH TROLLY
+    11: 11,  # PASSENGER ADULT ABOVE 12 YR
+    12: 12,  # PASSENGER CHILD 3-12 YR
+    13: 23,  # GOODS PER HALF TON
+    14: 24,  # PASS LUG ABV 20 KG PER KG
+    15: 31,  # DOG/GOATS/SHEEP & FISH/CHICKEN/BIRDS/FRUITS  →  FISH/CHICKEN/BIRDS/FRUITS (item 31)
+    16: 26,  # COWS / BUFFELLOW (PER NO)
+    17: 29,  # TOURIST (FOR 1 HOUR)
+    18: 27,  # MONTH PASS STUDENT UPTO 7TH  →  MONTH PASS STDNT UPTO 10TH (item 27)
+    19: 28,  # MONTH PASS STUDENT ABOVE XTH
+    20: 30,  # MONTH PASS PASSENGER
+    21: 34,  # SPECIAL FERRY
 }
 
-# English labels for display
-ENGLISH_NAMES: dict[int, str] = {
-    1:  "Passenger Adult (प्रवासी प्रौढ)",
-    2:  "Passenger Child (प्रवासी लहान)",
-    3:  "Motorcycle (मोटारसायकल)",
-    4:  "Car Hatchback (रिकामी कार)",
-    5:  "Luxury Car Sedan (रिकामी लक्झरी कार)",
-    6:  "3-Wheeler Rickshaw (तीन चाकी रिक्षा)",
-    7:  "407 Tempo (टाटा ४०७)",
-    8:  "6-Wheeler 709 (टाटा ७०९)",
-    9:  "Goods Per Half Ton (माल प्रति अर्धा टन)",
-    10: "Bus / Truck / Tanker (पॅसेंजर बस)",
-    11: "10-Wheeler Truck / JCB (दहाचाकी)",
-    12: "Tractor With Trolley (ट्रॅक्टर ट्रॉली)",
-    13: "Cycle (सायकल)",
-    14: "Fish / Birds / Fruits (मासे / पक्षी / फळे)",
-    15: "Cow / Buffalo (गाय / बैल / म्हैस)",
-    16: "Student Pass Up To 7th Std",
-    17: "Student Pass Above 7th Std",
-    18: "Monthly Pass Passenger (प्रवासी मासिक पास)",
+# Display labels (English)
+ITEM_NAMES: dict[int, str] = {
+    1:  "Cycle",
+    2:  "Motor Cycle With Driver",
+    3:  "Empty 3-Wheeler Rickshaw",
+    4:  "Magic / Iris / Car",
+    5:  "Lux Car / Sumo / Scorpio / Tavera 7 St",
+    6:  "Ambulance",
+    7:  "T.T / 407 / 709 / 18 & 21 St Bus",
+    8:  "Bus / Truck / Tanker",
+    9:  "Truck 10 Whlr / JCB",
+    10: "Tractor With Trolly",
+    11: "Passenger Adult Above 12 Yr",
+    12: "Passenger Child 3-12 Yr",
+    13: "Goods Per Half Ton",
+    14: "Pass Lug Abv 20 Kg Per Kg",
+    15: "Dog/Goats/Sheep & Fish/Chicken/Birds/Fruits",
+    16: "Cows / Buffellow (Per No)",
+    17: "Tourist (For 1 Hour)",
+    18: "Month Pass Student Upto 7th",
+    19: "Month Pass Student Above Xth",
+    20: "Month Pass Passenger",
+    21: "Special Ferry",
 }
 
+# Route name  →  DB route_id
+ROUTE_MAP: dict[str, int] = {
+    "DABHOL-DHOPAVE":    1,
+    "VESHVI-BAGMANDALE": 2,
+    "JAIGAD-TAVSAL":     3,
+    "DIGHI-AGARDANDA":   4,
+    "VASAI-BHAYANDAR":   5,
+    "VIRAR-SAFALE":      7,
+}
 
 # ---------------------------------------------------------------------------
-# Marathi name → master item number identification
+# Rate data
+# Source: PDF "NEW ITEM ID & RATE"
+# Format: {route_name: {pdf_item_no: (rate, levy)}}
 # ---------------------------------------------------------------------------
-def identify_master_item(marathi_name: str) -> list[int]:
-    """Return master item number(s) detected from the Marathi column B text.
-
-    For the VASAI combined car+luxury row, returns [4, 5].
-    """
-    name = marathi_name.strip()
-
-    # Combined hatchback + luxury (VASAI special case)
-    if "hatch" in name.lower() and "लक्झरी" in name:
-        return [4, 5]
-
-    # Monthly passes — check BEFORE generic "प्रवासी" match
-    if "प्रवासी मासिक" in name:
-        return [18]
-    if "विद्यार्थी" in name and "पर्यंत" in name:
-        return [16]
-    if "विद्यार्थी" in name and "नंतर" in name:
-        return [17]
-
-    # Passengers
-    if "प्रौढ" in name:
-        return [1]
-    if "लहान" in name:
-        return [2]
-
-    # Vehicles
-    if "मोटारसायकल" in name:
-        return [3]
-    if "hatch" in name.lower():
-        return [4]
-    if "लक्झरी" in name or "sedan" in name.lower():
-        return [5]
-    if "तीन चाकी" in name or "रिक्षा" in name:
-        return [6]
-    if "४०७" in name:
-        return [7]
-    if "७०९" in name:
-        return [8]
-
-    # Goods
-    if "माल" in name and "अर्धा" in name:
-        return [9]
-
-    # Heavy vehicles
-    if "पॅसेंजर बस" in name:
-        return [10]
-    if "दहाचाकी" in name:
-        return [11]
-    if "ट्रॅkली" in name or "ट्रॉली" in name:
-        return [12]
-
-    # Other
-    if "सायकल" in name:
-        return [13]
-    if "मासे" in name or "पक्षी" in name:
-        return [14]
-    if "गाय" in name:
-        return [15]
-
-    return []
+RATE_DATA: dict[str, dict[int, tuple[int, int]]] = {
+    # --------------------------------------------------------
+    # ROUTE 1 — DABHOL ↔ DHOPAVE
+    # --------------------------------------------------------
+    "DABHOL-DHOPAVE": {
+        1:  (13,   2),   # Cycle
+        2:  (58,   7),   # Motor Cycle With Driver
+        3:  (81,   9),   # Empty 3-Wheeler Rickshaw
+        4:  (163, 17),   # Magic/Iris/Car
+        5:  (181, 19),   # Lux Car/Sumo/Scorpio/Tavera 7 St
+        6:  (180,  0),   # Ambulance
+        7:  (225, 25),   # T.T/407/709/18 & 21 St Bus
+        8:  (360, 40),   # Bus/Truck/Tanker
+        9:  (500, 50),   # Truck 10 Whlr/JCB
+        10: (319, 31),   # Tractor With Trolly
+        11: (18,   2),   # Passenger Adult Above 12 Yr
+        12: (9,    1),   # Passenger Child 3-12 Yr
+        13: (36,   4),   # Goods Per Half Ton
+        14: (1,    0),   # Pass Lug Abv 20 Kg Per Kg
+        15: (18,   2),   # Dog/Goats/Sheep & Fish/Chicken/Birds/Fruits
+        16: (45,   5),   # Cows/Buffellow (Per No)
+        17: (27,   3),   # Tourist (For 1 Hour)
+        18: (270, 30),   # Month Pass Student Upto 7th
+        19: (360, 40),   # Month Pass Student Above Xth
+        20: (640, 60),   # Month Pass Passenger
+        21: (500,  0),   # Special Ferry
+    },
+    # --------------------------------------------------------
+    # ROUTE 2 — VESHVI ↔ BAGMANDALE
+    # --------------------------------------------------------
+    "VESHVI-BAGMANDALE": {
+        1:  (13,   2),
+        2:  (58,   7),
+        3:  (81,   9),
+        4:  (163, 17),
+        5:  (181, 19),
+        6:  (180,  0),
+        7:  (225, 25),
+        8:  (360, 40),
+        9:  (500, 50),
+        10: (319, 31),
+        11: (18,   2),
+        12: (9,    1),
+        13: (36,   4),
+        14: (1,    0),
+        15: (18,   2),
+        16: (45,   5),
+        17: (27,   3),
+        18: (270, 30),
+        19: (360, 40),
+        20: (640, 60),
+        21: (500,  0),
+    },
+    # --------------------------------------------------------
+    # ROUTE 3 — JAIGAD ↔ TAVSAL
+    # --------------------------------------------------------
+    "JAIGAD-TAVSAL": {
+        1:  (18,   2),
+        2:  (73,   7),
+        3:  (95,  10),
+        4:  (182, 18),
+        5:  (205, 20),
+        6:  (200,  0),
+        7:  (238, 22),
+        8:  (410, 40),
+        9:  (550, 50),
+        10: (273, 27),
+        11: (27,   3),
+        12: (13,   2),
+        13: (45,   5),
+        14: (1,    0),
+        15: (23,   2),
+        16: (64,   6),
+        17: (45,   5),
+        18: (450, 50),
+        19: (550, 50),
+        20: (1180, 120),
+        21: (600,  0),
+    },
+    # --------------------------------------------------------
+    # ROUTE 4 — DIGHI ↔ AGARDANDA
+    # --------------------------------------------------------
+    "DIGHI-AGARDANDA": {
+        1:  (10,   1),
+        2:  (50,   5),
+        3:  (68,   7),
+        4:  (140, 14),
+        5:  (160, 16),
+        6:  (200,  0),
+        7:  (200, 20),
+        8:  (300, 30),
+        9:  (400, 50),
+        10: (200, 20),
+        11: (27,   3),
+        12: (13,   2),
+        13: (30,   3),
+        14: (1,    0),
+        15: (9,    1),
+        16: (50,   5),
+        17: (45,   5),
+        18: (450, 50),
+        19: (550, 50),
+        20: (1180, 120),
+        21: (700,  0),
+    },
+    # --------------------------------------------------------
+    # ROUTE 5 — VASAI ↔ BHAYANDAR
+    # --------------------------------------------------------
+    "VASAI-BHAYANDAR": {
+        1:  (9,    1),
+        2:  (60,   6),
+        3:  (100, 10),
+        4:  (180, 20),
+        5:  (180, 20),
+        6:  (200,  0),
+        7:  (200, 20),
+        8:  (300, 30),
+        9:  (500, 50),
+        10: (200, 20),
+        11: (27,   3),
+        12: (13,   2),
+        13: (27,   3),
+        14: (1,    0),
+        15: (36,   4),
+        16: (50,   5),
+        17: (55,   5),
+        18: (450, 50),
+        19: (550, 50),
+        20: (1000, 100),
+        21: (500,  0),
+    },
+    # --------------------------------------------------------
+    # ROUTE 7 — VIRAR ↔ SAFALE
+    # --------------------------------------------------------
+    "VIRAR-SAFALE": {
+        1:  (9,    1),
+        2:  (60,   6),
+        3:  (100, 10),
+        4:  (180, 20),
+        5:  (180, 20),
+        6:  (200,  0),
+        7:  (200, 20),
+        8:  (300, 30),
+        9:  (500, 50),
+        10: (200, 20),
+        11: (27,   3),
+        12: (13,   2),
+        13: (27,   3),
+        14: (1,    0),
+        15: (10,   1),
+        16: (50,   5),
+        17: (55,   5),
+        18: (550, 50),
+        19: (600, 50),
+        20: (1000, 100),
+        21: (500,  0),
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -186,89 +260,66 @@ def identify_master_item(marathi_name: str) -> list[int]:
 # ---------------------------------------------------------------------------
 @dataclass
 class RateEntry:
-    """One item-rate row to upsert."""
+    route_name: str
     route_id: int
+    pdf_item_no: int
     item_id: int
     rate: Decimal
     levy: Decimal
-    master_num: int      # for display
-    english_name: str    # for display
+
+    @property
+    def label(self) -> str:
+        return ITEM_NAMES.get(self.pdf_item_no, f"Item #{self.pdf_item_no}")
 
 
 @dataclass
 class RouteResult:
-    """Summary for one route."""
     route_name: str
     added: int = 0
     updated: int = 0
     skipped: int = 0
-    deleted: int = 0
-    errors: list[str] | None = None
-
-    def __post_init__(self) -> None:
-        if self.errors is None:
-            self.errors = []
+    errors: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Excel reader
+# Build flat list of RateEntry from RATE_DATA
 # ---------------------------------------------------------------------------
-def read_excel(excel_path: Path) -> list[RateEntry]:
-    """Parse the Excel workbook and return a flat list of RateEntry items."""
-    wb = openpyxl.load_workbook(str(excel_path), data_only=True)
+def build_entries() -> list[RateEntry]:
     entries: list[RateEntry] = []
-
-    for sheet_name, route_id in ROUTE_SHEET_MAP.items():
-        if sheet_name not in wb.sheetnames:
-            print(f"  WARNING: Sheet '{sheet_name}' not found in workbook — skipped")
-            continue
-
-        ws = wb[sheet_name]
-        # Data rows start at row 6 (rows 1-5 are headers)
-        for row in ws.iter_rows(min_row=6, max_row=ws.max_row, max_col=5, values_only=True):
-            serial, marathi_name, rate_val, levy_val, _total = (
-                row[0], row[1], row[2], row[3], row[4] if len(row) > 4 else None
-            )
-
-            # Skip empty / footer rows
-            if serial is None or marathi_name is None or rate_val is None:
+    for route_name, items in RATE_DATA.items():
+        route_id = ROUTE_MAP[route_name]
+        for pdf_no, (rate_val, levy_val) in items.items():
+            item_id = PDF_TO_DB_ITEM.get(pdf_no)
+            if item_id is None:
+                print(f"  WARNING: No DB item_id mapping for PDF item #{pdf_no} — skipped")
                 continue
-
-            master_nums = identify_master_item(str(marathi_name))
-            if not master_nums:
-                print(f"  WARNING: Could not identify item in '{sheet_name}' "
-                      f"row serial={serial}: {marathi_name!r}")
-                continue
-
-            rate = Decimal(str(rate_val))
-            levy = Decimal(str(levy_val)) if levy_val is not None else Decimal("0")
-
-            for mnum in master_nums:
-                item_id = MASTER_ITEM_MAP.get(mnum)
-                if item_id is None:
-                    print(f"  WARNING: Master item #{mnum} has no DB item_id mapping")
-                    continue
-                entries.append(RateEntry(
-                    route_id=route_id,
-                    item_id=item_id,
-                    rate=rate,
-                    levy=levy,
-                    master_num=mnum,
-                    english_name=ENGLISH_NAMES.get(mnum, f"Item #{mnum}"),
-                ))
-
-    wb.close()
+            entries.append(RateEntry(
+                route_name=route_name,
+                route_id=route_id,
+                pdf_item_no=pdf_no,
+                item_id=item_id,
+                rate=Decimal(str(rate_val)),
+                levy=Decimal(str(levy_val)),
+            ))
     return entries
 
 
 # ---------------------------------------------------------------------------
-# Database operations (asyncpg)
+# Database helpers
 # ---------------------------------------------------------------------------
+SCRIPT_DIR  = Path(__file__).resolve().parent
+BACKEND_DIR = SCRIPT_DIR.parent
+
+_ENV_CANDIDATES = [
+    BACKEND_DIR / ".env.production",
+    BACKEND_DIR / ".env.development",
+]
+DEFAULT_ENV = next((p for p in _ENV_CANDIDATES if p.exists()), BACKEND_DIR / ".env.development")
+
+
 def load_database_url(env_path: Path) -> str:
-    """Read DATABASE_URL from the env file, convert to asyncpg-compatible URL."""
     if not env_path.exists():
         sys.exit(f"ERROR: Env file not found: {env_path}")
-
     with open(env_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -277,10 +328,7 @@ def load_database_url(env_path: Path) -> str:
             key, _, val = line.partition("=")
             if key.strip() == "DATABASE_URL":
                 url = val.strip().strip("'\"")
-                # Convert SQLAlchemy asyncpg URL to plain PostgreSQL URL
-                url = url.replace("postgresql+asyncpg://", "postgresql://")
-                return url
-
+                return url.replace("postgresql+asyncpg://", "postgresql://")
     sys.exit(f"ERROR: DATABASE_URL not found in {env_path}")
 
 
@@ -288,39 +336,29 @@ async def upsert_rates(
     entries: list[RateEntry],
     db_url: str,
     dry_run: bool,
-    cleanup: bool = False,
 ) -> list[RouteResult]:
-    """Connect to database and upsert item rates. Returns per-route results."""
-    import asyncpg  # import here so --help works without asyncpg
+    import asyncpg
 
     conn = await asyncpg.connect(db_url)
+    results: dict[str, RouteResult] = {}
+
     try:
-        # Group entries by route_id for per-route reporting
-        routes_seen: dict[int, RouteResult] = {}
-        route_name_map = {v: k for k, v in ROUTE_SHEET_MAP.items()}
-
-        # Build lookup of valid (item_id, route_id) pairs from Excel
-        valid_pairs: dict[int, set[int]] = {}  # route_id -> set of item_ids
-        for entry in entries:
-            valid_pairs.setdefault(entry.route_id, set()).add(entry.item_id)
+        # Tag all writes so the audit trigger records the source
+        if not dry_run:
+            await conn.execute("SET LOCAL app.migration_notes = 'RATE_SEED_UPDATE'")
 
         for entry in entries:
-            route_id = entry.route_id
-            if route_id not in routes_seen:
-                routes_seen[route_id] = RouteResult(
-                    route_name=route_name_map.get(route_id, f"Route {route_id}")
-                )
-            result = routes_seen[route_id]
+            if entry.route_name not in results:
+                results[entry.route_name] = RouteResult(route_name=entry.route_name)
+            result = results[entry.route_name]
 
-            # Check if item_rate already exists for this (item_id, route_id)
             existing = await conn.fetchrow(
-                "SELECT id, rate, levy, is_active FROM item_rates "
+                "SELECT id, rate, levy FROM item_rates "
                 "WHERE item_id = $1 AND route_id = $2",
                 entry.item_id, entry.route_id,
             )
 
             if existing is None:
-                # INSERT new item_rate
                 if not dry_run:
                     await conn.execute(
                         "INSERT INTO item_rates (levy, rate, item_id, route_id, is_active, created_at) "
@@ -329,171 +367,92 @@ async def upsert_rates(
                         entry.item_id, entry.route_id,
                     )
                 result.added += 1
-                print(f"  [ADD]  {result.route_name} | {entry.english_name} | "
+                print(f"  [ADD]  {entry.route_name} | {entry.label} | "
                       f"rate={entry.rate} levy={entry.levy}"
                       f"{' (DRY RUN)' if dry_run else ''}")
 
             else:
                 existing_rate = Decimal(str(existing["rate"])) if existing["rate"] is not None else None
                 existing_levy = Decimal(str(existing["levy"])) if existing["levy"] is not None else None
-                needs_activate = not existing["is_active"]
 
-                rate_changed = existing_rate != entry.rate
-                levy_changed = existing_levy != entry.levy
-
-                if rate_changed or levy_changed or needs_activate:
+                if existing_rate != entry.rate or existing_levy != entry.levy:
                     if not dry_run:
                         await conn.execute(
                             "UPDATE item_rates SET rate = $1, levy = $2, is_active = TRUE, "
                             "updated_at = NOW() WHERE id = $3",
                             float(entry.rate), float(entry.levy), existing["id"],
                         )
-                    result.updated += 1
                     changes = []
-                    if rate_changed:
+                    if existing_rate != entry.rate:
                         changes.append(f"rate: {existing_rate}→{entry.rate}")
-                    if levy_changed:
+                    if existing_levy != entry.levy:
                         changes.append(f"levy: {existing_levy}→{entry.levy}")
-                    if needs_activate:
-                        changes.append("reactivated")
-                    print(f"  [UPD]  {result.route_name} | {entry.english_name} | "
+                    result.updated += 1
+                    print(f"  [UPD]  {entry.route_name} | {entry.label} | "
                           f"{', '.join(changes)}"
                           f"{' (DRY RUN)' if dry_run else ''}")
                 else:
                     result.skipped += 1
 
-        # --- Cleanup: delete rates NOT in the Excel for affected routes ---
-        if cleanup:
-            print(f"\n  --- Cleanup: removing rates not in Excel ---")
-            for route_id, valid_item_ids in valid_pairs.items():
-                rname = route_name_map.get(route_id, f"Route {route_id}")
-                if route_id not in routes_seen:
-                    routes_seen[route_id] = RouteResult(route_name=rname)
-                result = routes_seen[route_id]
-
-                # Find item_rates on this route that are NOT in the Excel
-                bogus_rows = await conn.fetch(
-                    "SELECT ir.id, ir.item_id, i.short_name, ir.rate, ir.levy "
-                    "FROM item_rates ir "
-                    "JOIN items i ON i.id = ir.item_id "
-                    "WHERE ir.route_id = $1 AND ir.item_id != ALL($2::int[])",
-                    route_id, list(valid_item_ids),
-                )
-
-                for row in bogus_rows:
-                    if not dry_run:
-                        await conn.execute(
-                            "DELETE FROM item_rates WHERE id = $1", row["id"]
-                        )
-                    result.deleted += 1
-                    print(f"  [DEL]  {rname} | {row['short_name']} (item_id={row['item_id']}) | "
-                          f"rate={row['rate']} levy={row['levy']}"
-                          f"{' (DRY RUN)' if dry_run else ''}")
-
-        return list(routes_seen.values())
     finally:
         await conn.close()
+
+    return list(results.values())
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 async def async_main(args: argparse.Namespace) -> None:
-    excel_path = Path(args.excel)
-    env_path = Path(args.env)
-
-    if not excel_path.exists():
-        sys.exit(f"ERROR: Excel file not found: {excel_path}")
-
     mode = "DRY RUN" if args.dry_run else "LIVE"
     print(f"\n{'='*60}")
     print(f"  Seed Route Item Rates  [{mode}]")
+    print(f"  Source: PDF — NEW ITEM ID & RATE")
     print(f"{'='*60}")
-    print(f"  Excel : {excel_path}")
-    print(f"  Env   : {env_path}")
-    print()
+    print(f"  Env : {args.env}\n")
 
-    # Step 1: Read Excel
-    print("Reading Excel file...")
-    entries = read_excel(excel_path)
-    print(f"  Parsed {len(entries)} item-rate entries from {len(ROUTE_SHEET_MAP)} route sheets\n")
+    entries = build_entries()
+    print(f"Prepared {len(entries)} item-rate entries across {len(RATE_DATA)} routes.\n")
 
-    if not entries:
-        print("No entries to process. Exiting.")
-        return
-
-    # Step 2: Validate — check no duplicate (item_id, route_id) pairs
-    seen_pairs: set[tuple[int, int]] = set()
-    for e in entries:
-        pair = (e.item_id, e.route_id)
-        if pair in seen_pairs:
-            print(f"  WARNING: Duplicate entry for item_id={e.item_id} route_id={e.route_id}")
-        seen_pairs.add(pair)
-
-    # Step 3: Database upsert (+ optional cleanup)
-    db_url = load_database_url(env_path)
+    db_url = load_database_url(Path(args.env))
     print("Connecting to database...")
-    results = await upsert_rates(entries, db_url, args.dry_run, cleanup=args.cleanup)
+    route_results = await upsert_rates(entries, db_url, args.dry_run)
 
-    # Step 4: Per-route summary
     print(f"\n{'='*60}")
     print("  Per-Route Summary")
     print(f"{'='*60}")
-    total_added = total_updated = total_skipped = total_deleted = 0
-    for r in results:
-        print(f"  Route: {r.route_name}")
+    total_added = total_updated = total_skipped = 0
+    for r in route_results:
+        print(f"  {r.route_name}")
         print(f"    Added:   {r.added}")
         print(f"    Updated: {r.updated}")
         print(f"    Skipped: {r.skipped}")
-        if r.deleted:
-            print(f"    Deleted: {r.deleted}")
-        total_added += r.added
+        total_added   += r.added
         total_updated += r.updated
         total_skipped += r.skipped
-        total_deleted += r.deleted
-        if r.errors:
-            for err in r.errors:
-                print(f"    ERROR: {err}")
+        for err in r.errors:
+            print(f"    ERROR: {err}")
 
-    # Step 5: Grand summary
     print(f"\n{'='*60}")
     print("  Grand Summary")
     print(f"{'='*60}")
-    print(f"  Routes processed : {len(results)}")
-    print(f"  Total items added: {total_added}")
+    print(f"  Routes processed : {len(route_results)}")
+    print(f"  Total added      : {total_added}")
     print(f"  Total updated    : {total_updated}")
     print(f"  Total skipped    : {total_skipped}")
-    if total_deleted:
-        print(f"  Total deleted    : {total_deleted}")
     if args.dry_run:
-        print(f"\n  ** DRY RUN — no changes were written to the database **")
+        print(f"\n  ** DRY RUN — no changes written to the database **")
     print()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Seed route-wise item rates from Excel dataset into the database."
+        description="Seed route-wise item rates from the new PDF rate sheet."
     )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Preview changes without writing to the database.",
-    )
-    parser.add_argument(
-        "--cleanup",
-        action="store_true",
-        help="Delete item_rates not in the Excel for affected routes.",
-    )
-    parser.add_argument(
-        "--excel",
-        default=str(DEFAULT_EXCEL),
-        help=f"Path to the Excel file (default: {DEFAULT_EXCEL})",
-    )
-    parser.add_argument(
-        "--env",
-        default=str(DEFAULT_ENV),
-        help=f"Path to the .env file with DATABASE_URL (default: {DEFAULT_ENV})",
-    )
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview changes without writing to the database.")
+    parser.add_argument("--env", default=str(DEFAULT_ENV),
+                        help=f"Path to .env file with DATABASE_URL (default: {DEFAULT_ENV})")
     args = parser.parse_args()
     asyncio.run(async_main(args))
 

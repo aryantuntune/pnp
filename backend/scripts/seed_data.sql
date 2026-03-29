@@ -90,70 +90,44 @@ VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
--- 5. ITEMS (49)
+-- 5. ITEMS — V2 (21 items, per PDF "NEW ITEM ID & RATE")
+--    Migrated from V1 (49 items) on 2026-03-29.
+--    Historical V1 item names are preserved in ticket_items.item_name_snapshot.
 -- ============================================================
 INSERT INTO items (id, name, short_name, online_visiblity, is_vehicle, is_active)
 VALUES
-    -- Two-wheelers
-    (1,   'CYCLE',                             'CYCLE',                     TRUE,  TRUE,  TRUE),
-    (2,   'MOTOTR CYCLE WITH DRIVER.',         'MOTOTR CYCLE WITH DRIVER',  TRUE,  TRUE,  TRUE),
-    (153, 'MOTERCYCLE BELO 100 CC',            'MOTERCYCLE BELO 100 CC',    TRUE,  TRUE,  TRUE),
-    -- Three-wheelers
-    (3,   'EMPTY 3 WHLR RICKSHAW',            'EMPTY 3 WHLR RICKSHAW',     TRUE,  TRUE,  TRUE),
-    (4,   'EMPTY 3WHLR 5 ST RICKSHAW',        'EMPTY 3WHLR 5 TEMPO',       TRUE,  TRUE,  TRUE),
-    -- Light vehicles
-    (5,   'TATA MAGIC/MAXIMO 6 ST',           'TATA MAGIC/MAXIMO 6 ST',    TRUE,  TRUE,  TRUE),
-    (6,   'TATA ACE/MAXIMO TEMPO',            'TATA ACE/MAXIMO TEMPO',     TRUE,  TRUE,  TRUE),
-    (7,   'EMPTY CAR 5 ST',                   'EMPTY CAR 5 ST',            TRUE,  TRUE,  TRUE),
-    (8,   'EMPTY LUX. CAR 5 ST',             'EMPTY LUX. CAR 5 ST',       TRUE,  TRUE,  TRUE),
-    (9,   'SUMO/SCAPIO/TAVERA/INOVA 7 ST',   'SUMO/SCAPIO/TAVERA/INOVA',  TRUE,  TRUE,  TRUE),
-    (10,  'TATA MOBILE/MAX PICKUP',           'TATA MOBILE/MAX PICKUP',    TRUE,  TRUE,  TRUE),
-    -- Medium vehicles
-    (13,  'AMBULANCE',                         'AMBULANCE',                 TRUE,  TRUE,  TRUE),
-    (14,  'TEMPO TRAVELER/18 ST BUS',         'TEMPO TRAVELER/18 ST BUS',  TRUE,  TRUE,  TRUE),
-    (15,  '407 TEMPO',                         '407 TEMPO',                 TRUE,  TRUE,  TRUE),
-    (16,  'MINI BUS 21 ST',                   'MINI BUS 21 ST',            TRUE,  TRUE,  TRUE),
-    (17,  'LODED 709',                         'LODED 709',                 TRUE,  TRUE,  TRUE),
-    (18,  'MED.GOODS 6 WHLR  (709)',          'MED.GOODS 6 WHLR  (709',   TRUE,  TRUE,  TRUE),
-    -- Heavy vehicles
-    (19,  'LODED TRUCK',                       'LODED TRUCK',               TRUE,  TRUE,  TRUE),
-    (20,  'PASSENGER BUS',                     'PASSENGER BUS',             TRUE,  TRUE,  TRUE),
-    (21,  'TANKER /TRUCK',                     'TANKER/TRUCK',              TRUE,  TRUE,  TRUE),
-    (22,  'TRUCK 10 WHLR',                    'TRUCK 10 WHLR',             TRUE,  TRUE,  TRUE),
-    (32,  'JCB',                               'JCB',                       TRUE,  TRUE,  TRUE),
-    (33,  'TRACTOR WITH TROLLY',              'TRACTOR WITH TROLLY',       TRUE,  TRUE,  TRUE),
-    (154, 'EMPTY 14 WHEELER GOODS TRUCK',     'EMPTY 14 WHEELER GOODS TRUCK', TRUE, TRUE, TRUE),
-    -- Heavy machinery
-    (35,  'ROAD ROLLER',                       'ROAD ROLLER',               FALSE, TRUE,  TRUE),
-    (36,  'HEAVY MACHINES',                    'HEAVY MACHINES',            FALSE, TRUE,  TRUE),
-    (37,  'HYDRA',                             'HYDRA',                     FALSE, TRUE,  TRUE),
-    (38,  'OIL TANKER',                        'OIL TANKER',                FALSE, TRUE,  TRUE),
+    -- Vehicles
+    (1,  'CYCLE',                                         'CYCLE',                TRUE,  TRUE,  TRUE),
+    (2,  'MOTOR CYCLE WITH DRIVER',                       'MOTORCYCLE W/ DRIVER', TRUE,  TRUE,  TRUE),
+    (3,  'EMPTY 3 WHLR RICKSHAW',                        '3 WHLR RICKSHAW',      TRUE,  TRUE,  TRUE),
+    (4,  'MAGIC/IRIS/CAR',                               'MAGIC/IRIS/CAR',       TRUE,  TRUE,  TRUE),
+    (5,  'LUX CAR 5 ST/SUMO/SCORPIO/TAVERA 7 ST',       'LUX CAR/SUMO',         TRUE,  TRUE,  TRUE),
+    (6,  'AMBULANCE',                                     'AMBULANCE',            TRUE,  TRUE,  TRUE),
+    (7,  'T.T/407/709/18 & 21 ST BUS',                  'TT/407/709/BUS',       TRUE,  TRUE,  TRUE),
+    (8,  'BUS/TRUCK/TANKER',                             'BUS/TRUCK/TANKER',     TRUE,  TRUE,  TRUE),
+    (9,  'TRUCK 10 WHLR/JCB',                           'TRUCK 10 WHLR/JCB',   TRUE,  TRUE,  TRUE),
+    (10, 'TRACTOR WITH TROLLY',                          'TRACTOR W/ TROLLY',    TRUE,  TRUE,  TRUE),
     -- Passengers
-    (11,  'PASSENGER ADULT ABOVE 12 YR',      'PASSENGER ADULT ABV 12 YR', TRUE,  FALSE, TRUE),
-    (12,  'PASSENGER CHILD 3-12 YR',          'PASSENGER CHILD 3-12 YR',   TRUE,  FALSE, TRUE),
-    (29,  'TOURIST (FOR 1 HOUR)',              'TOURIST (FOR 1 HOUR',       TRUE,  FALSE, TRUE),
-    -- Monthly passes
-    (27,  'MONTH PASS STUDNT UPTO 10TH STD.', 'MONTH PASS STDNT UPTO 10',  FALSE, FALSE, TRUE),
-    (28,  'MONTH PASS STUDNT AVOVE XTH STD.', 'MONTH PASS STDNT ABOV 10',  FALSE, FALSE, TRUE),
-    (30,  'MONTH PASS PASSENGER',              'MONTH PASS PASSENGER',      FALSE, FALSE, TRUE),
+    (11, 'PASSENGER ADULT ABOVE 12 YR',                  'PASSENGER ADULT',      TRUE,  FALSE, TRUE),
+    (12, 'PASSENGER CHILD 3-12 YR',                     'PASSENGER CHILD',      TRUE,  FALSE, TRUE),
     -- Goods / livestock / luggage
-    (23,  'GOODS PER HALF TON',               'GOODS PER HALF TON',        TRUE,  FALSE, TRUE),
-    (24,  'PASSENGER LUGGABE ABV 20KG PER KG','PASSNGR LUGGAGE(ABV 20KG',  TRUE,  FALSE, TRUE),
-    (151, 'LUGGAGE',                           'LUGGAGE',                   TRUE,  FALSE, TRUE),
-    (25,  'DOG/GOATS/SHEEP (PER NO)',         'DOG/GOATS/SHEEP (PER NO',   TRUE,  FALSE, TRUE),
-    (26,  'COWS/BUFFELLOW(PER NO)',           'COWS/BUFFELLOW(PER NO',     TRUE,  FALSE, TRUE),
-    (31,  'FISH/CHICKEN/BIRDS/FRUITS',        'FISH/CHICKEN/BIRDS/FRUITS', TRUE,  FALSE, TRUE),
-    -- Special services / charges
-    (34,  'SPECIAL FERRY',                     'SPECIAL FERRY',             FALSE, FALSE, TRUE),
-    (45,  'SPECIAL FERRY DAY',                'SPECIAL FERRY DAY',         FALSE, FALSE, TRUE),
-    (39,  'WAITING CHARGES',                   'WAITING CHARGES',           FALSE, FALSE, TRUE),
-    (40,  'PARTY',                             'PARTY',                     FALSE, FALSE, TRUE),
-    (41,  'SHOOTING',                          'SHOOTING',                  FALSE, FALSE, TRUE),
-    (42,  'PUMPE FILLING CHARGES',            'PUMPE FILLING CHARGES',     FALSE, FALSE, TRUE),
-    (43,  'CAFE COUNTER',                     'CAFE COUNTER',              FALSE, FALSE, TRUE),
-    (44,  'SHIPE TO SHORE',                   'SHIPE TO SHORE',            FALSE, FALSE, TRUE),
-    (152, 'ROUND UP',                          'ROUND UP',                  FALSE, FALSE, TRUE)
-ON CONFLICT (name) DO NOTHING;
+    (13, 'GOODS PER HALF TON',                          'GOODS/HALF TON',       TRUE,  FALSE, TRUE),
+    (14, 'PASS LUG ABV 20KG PER KG',                   'LUGGAGE ABV 20KG/KG',  TRUE,  FALSE, TRUE),
+    (15, 'DOG/GOATS/SHEEP & FISH/CHICKEN/BIRDS/FRUITS', 'ANIMALS & GOODS',      TRUE,  FALSE, TRUE),
+    (16, 'COWS/BUFFELLOW (PER NO)',                     'COWS/BUFFALO',         TRUE,  FALSE, TRUE),
+    -- Tourist / passes / special
+    (17, 'TOURIST (FOR 1 HOUR)',                        'TOURIST 1HR',          TRUE,  FALSE, TRUE),
+    (18, 'MONTH PASS STUDENT UPTO 7TH',                 'STDNT PASS UPTO 7TH',  FALSE, FALSE, TRUE),
+    (19, 'MONTH PASS STUDENT ABOVE XTH',                'STDNT PASS ABOVE XTH', FALSE, FALSE, TRUE),
+    (20, 'MONTH PASS PASSENGER',                        'PASSENGER MONTH PASS',  FALSE, FALSE, TRUE),
+    (21, 'SPECIAL FERRY',                               'SPECIAL FERRY',         FALSE, FALSE, TRUE)
+ON CONFLICT (id) DO UPDATE SET
+    name              = EXCLUDED.name,
+    short_name        = EXCLUDED.short_name,
+    online_visiblity  = EXCLUDED.online_visiblity,
+    is_vehicle        = EXCLUDED.is_vehicle,
+    is_active         = EXCLUDED.is_active,
+    updated_at        = NOW();
 
 -- ============================================================
 -- 6. PAYMENT MODES
@@ -298,167 +272,212 @@ ON CONFLICT (id) DO NOTHING;
 -- 8. ITEM RATES — actual per-route rates from CSV rate files
 --    One rate per item per route (route-only pricing).
 -- ============================================================
--- Column: (id, levy, rate, item_id, route_id, is_active)
+-- Column: (levy, rate, item_id, route_id, is_active)
+-- V2: 21 items × 6 routes = 126 rows (route 6 AMBET-MHAPRAL unchanged below)
+-- Source: PDF "NEW ITEM ID & RATE" — migrated 2026-03-29
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 1: DABHOL (101) <-> DHOPAVE (102) — 17 items
+-- ROUTE 1: DABHOL (101) <-> DHOPAVE (102) — 21 items
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (1,    2.00,   13.00,  1,  1, TRUE),  -- Bicycle
-    (2,    7.00,   58.00,  2,  1, TRUE),  -- Motorcycle
-    (3,    9.00,   81.00,  3,  1, TRUE),  -- Three-Wheeler Rickshaw
-    (4,   17.00,  163.00,  7,  1, TRUE),  -- Empty Car 5 Seater
-    (5,   19.00,  181.00,  9,  1, TRUE),  -- Passenger 8 Seater / Pickup
-    (6,   25.00,  225.00, 18,  1, TRUE),  -- Medium Goods (709/Eicher 1095+)
-    (7,   40.00,  360.00, 21,  1, TRUE),  -- Passenger Bus / Truck / Tanker
-    (8,   50.00,  500.00, 32,  1, TRUE),  -- Large Goods Truck / JCB
-    (9,    4.00,   36.00, 23,  1, TRUE),  -- Goods per Half Ton
-    (10,  31.00,  319.00, 33,  1, TRUE),  -- Trolley-size Tractor
-    (11,   2.00,   18.00, 11,  1, TRUE),  -- Passenger Adult
-    (12,   1.00,    9.00, 12,  1, TRUE),  -- Passenger Child
-    (13,   2.00,   18.00, 31,  1, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (14,   5.00,   45.00, 26,  1, TRUE),  -- Cow / Bull / Buffalo
-    (15,  30.00,  270.00, 27,  1, TRUE),  -- Student Pass (Std 7th and below)
-    (16,  40.00,  360.00, 28,  1, TRUE),  -- Student Pass (Std 7th and above)
-    (17,  60.00,  640.00, 30,  1, TRUE)   -- Passenger Monthly Pass
-ON CONFLICT (id) DO NOTHING;
+    ( 2.00,   13.00,  1, 1, TRUE),  -- Cycle
+    ( 7.00,   58.00,  2, 1, TRUE),  -- Motor Cycle With Driver
+    ( 9.00,   81.00,  3, 1, TRUE),  -- Empty 3-Wheeler Rickshaw
+    (17.00,  163.00,  4, 1, TRUE),  -- Magic/Iris/Car
+    (19.00,  181.00,  5, 1, TRUE),  -- Lux Car/Sumo/Scorpio/Tavera 7 St
+    ( 0.00,  180.00,  6, 1, TRUE),  -- Ambulance
+    (25.00,  225.00,  7, 1, TRUE),  -- T.T/407/709/18 & 21 St Bus
+    (40.00,  360.00,  8, 1, TRUE),  -- Bus/Truck/Tanker
+    (50.00,  500.00,  9, 1, TRUE),  -- Truck 10 Whlr/JCB
+    (31.00,  319.00, 10, 1, TRUE),  -- Tractor With Trolly
+    ( 2.00,   18.00, 11, 1, TRUE),  -- Passenger Adult Above 12 Yr
+    ( 1.00,    9.00, 12, 1, TRUE),  -- Passenger Child 3-12 Yr
+    ( 4.00,   36.00, 13, 1, TRUE),  -- Goods Per Half Ton
+    ( 0.00,    1.00, 14, 1, TRUE),  -- Pass Lug Abv 20Kg Per Kg
+    ( 2.00,   18.00, 15, 1, TRUE),  -- Dog/Goats/Sheep & Fish/Chicken/Birds/Fruits
+    ( 5.00,   45.00, 16, 1, TRUE),  -- Cows/Buffellow (Per No)
+    ( 3.00,   27.00, 17, 1, TRUE),  -- Tourist (For 1 Hour)
+    (30.00,  270.00, 18, 1, TRUE),  -- Month Pass Student Upto 7th
+    (40.00,  360.00, 19, 1, TRUE),  -- Month Pass Student Above Xth
+    (60.00,  640.00, 20, 1, TRUE),  -- Month Pass Passenger
+    ( 0.00,  500.00, 21, 1, TRUE)   -- Special Ferry
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 2: VESHVI (103) <-> BAGMANDALE (104) — 17 items
+-- ROUTE 2: VESHVI (103) <-> BAGMANDALE (104) — 21 items
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (18,   2.00,   13.00,  1,  2, TRUE),  -- Bicycle
-    (19,   7.00,   58.00,  2,  2, TRUE),  -- Motorcycle
-    (20,   9.00,   81.00,  3,  2, TRUE),  -- Three-Wheeler Rickshaw
-    (21,  17.00,  163.00,  7,  2, TRUE),  -- Empty Car 5 Seater
-    (22,  19.00,  181.00,  9,  2, TRUE),  -- Passenger 8 Seater / Pickup
-    (23,  25.00,  225.00, 18,  2, TRUE),  -- Medium Goods (709/Eicher 1095+)
-    (24,  40.00,  360.00, 21,  2, TRUE),  -- Passenger Bus / Truck / Tanker
-    (25,  50.00,  500.00, 32,  2, TRUE),  -- Large Goods Truck / JCB
-    (26,   4.00,   36.00, 23,  2, TRUE),  -- Goods per Half Ton
-    (27,  31.00,  319.00, 33,  2, TRUE),  -- Trolley-size Tractor
-    (28,   2.00,   18.00, 11,  2, TRUE),  -- Passenger Adult
-    (29,   1.00,    9.00, 12,  2, TRUE),  -- Passenger Child
-    (30,   2.00,   18.00, 31,  2, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (31,   5.00,   45.00, 26,  2, TRUE),  -- Cow / Bull / Buffalo
-    (32,  30.00,  270.00, 27,  2, TRUE),  -- Student Pass (Std 10th and below)
-    (33,  40.00,  360.00, 28,  2, TRUE),  -- Student Pass (Std 10th and above)
-    (34,  60.00,  640.00, 30,  2, TRUE)   -- Passenger Monthly Pass
-ON CONFLICT (id) DO NOTHING;
+    ( 2.00,   13.00,  1, 2, TRUE),
+    ( 7.00,   58.00,  2, 2, TRUE),
+    ( 9.00,   81.00,  3, 2, TRUE),
+    (17.00,  163.00,  4, 2, TRUE),
+    (19.00,  181.00,  5, 2, TRUE),
+    ( 0.00,  180.00,  6, 2, TRUE),
+    (25.00,  225.00,  7, 2, TRUE),
+    (40.00,  360.00,  8, 2, TRUE),
+    (50.00,  500.00,  9, 2, TRUE),
+    (31.00,  319.00, 10, 2, TRUE),
+    ( 2.00,   18.00, 11, 2, TRUE),
+    ( 1.00,    9.00, 12, 2, TRUE),
+    ( 4.00,   36.00, 13, 2, TRUE),
+    ( 0.00,    1.00, 14, 2, TRUE),
+    ( 2.00,   18.00, 15, 2, TRUE),
+    ( 5.00,   45.00, 16, 2, TRUE),
+    ( 3.00,   27.00, 17, 2, TRUE),
+    (30.00,  270.00, 18, 2, TRUE),
+    (40.00,  360.00, 19, 2, TRUE),
+    (60.00,  640.00, 20, 2, TRUE),
+    ( 0.00,  500.00, 21, 2, TRUE)
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 3: JAIGAD (105) <-> TAVSAL (106) — 15 items
+-- ROUTE 3: JAIGAD (105) <-> TAVSAL (106) — 21 items
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (35,   2.00,   18.00,  1,  3, TRUE),  -- Bicycle
-    (36,   7.00,   73.00,  2,  3, TRUE),  -- Motorcycle
-    (37,  10.00,   95.00,  3,  3, TRUE),  -- Three-Wheeler Rickshaw
-    (38,  18.00,  182.00,  7,  3, TRUE),  -- Empty Car 5 Seater + Tata Magic
-    (39,  20.00,  205.00,  8,  3, TRUE),  -- Luxury Car / 8 Seater / Pickup
-    (40,  22.00,  228.00, 15,  3, TRUE),  -- Medium Goods (Tata 407)
-    (41,  25.00,  250.00, 18,  3, TRUE),  -- Medium Goods (709/Eicher 1095)
-    (42,  40.00,  410.00, 21,  3, TRUE),  -- Passenger Bus / Truck / Tanker
-    (43,  50.00,  550.00, 32,  3, TRUE),  -- Large Goods Truck / JCB
-    (44,   5.00,   45.00, 23,  3, TRUE),  -- Goods per Half Ton
-    (45,  27.00,  273.00, 33,  3, TRUE),  -- Trolley-size Tractor
-    (46,   3.00,   27.00, 11,  3, TRUE),  -- Passenger Adult
-    (47,   2.00,   13.00, 12,  3, TRUE),  -- Passenger Child
-    (48,   2.00,   23.00, 31,  3, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (49,   6.00,   64.00, 26,  3, TRUE)   -- Cow / Bull / Buffalo
-ON CONFLICT (id) DO NOTHING;
+    ( 2.00,   18.00,  1, 3, TRUE),
+    ( 7.00,   73.00,  2, 3, TRUE),
+    (10.00,   95.00,  3, 3, TRUE),
+    (18.00,  182.00,  4, 3, TRUE),
+    (20.00,  205.00,  5, 3, TRUE),
+    ( 0.00,  200.00,  6, 3, TRUE),
+    (22.00,  238.00,  7, 3, TRUE),
+    (40.00,  410.00,  8, 3, TRUE),
+    (50.00,  550.00,  9, 3, TRUE),
+    (27.00,  273.00, 10, 3, TRUE),
+    ( 3.00,   27.00, 11, 3, TRUE),
+    ( 2.00,   13.00, 12, 3, TRUE),
+    ( 5.00,   45.00, 13, 3, TRUE),
+    ( 0.00,    1.00, 14, 3, TRUE),
+    ( 2.00,   23.00, 15, 3, TRUE),
+    ( 6.00,   64.00, 16, 3, TRUE),
+    ( 5.00,   45.00, 17, 3, TRUE),
+    (50.00,  450.00, 18, 3, TRUE),
+    (50.00,  550.00, 19, 3, TRUE),
+    (120.00, 1180.00, 20, 3, TRUE),
+    ( 0.00,  600.00, 21, 3, TRUE)
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 4: AGARDANDA (107) <-> DIGHI (108) — 15 items
+-- ROUTE 4: DIGHI (108) <-> AGARDANDA (107) — 21 items
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (50,   2.00,   18.00,  1,  4, TRUE),  -- Bicycle
-    (51,   7.00,   73.00,  2,  4, TRUE),  -- Motorcycle
-    (52,  10.00,   95.00,  3,  4, TRUE),  -- Three-Wheeler Rickshaw
-    (53,  18.00,  182.00,  7,  4, TRUE),  -- Empty Car 5 Seater + Tata Magic
-    (54,  20.00,  205.00,  8,  4, TRUE),  -- Luxury Car / 8 Seater / Pickup
-    (55,  22.00,  228.00, 15,  4, TRUE),  -- Medium Goods (Tata 407)
-    (56,  25.00,  250.00, 18,  4, TRUE),  -- Medium Goods (709/Eicher 1095)
-    (57,  40.00,  410.00, 21,  4, TRUE),  -- Passenger Bus / Truck / Tanker
-    (58,  50.00,  550.00, 32,  4, TRUE),  -- Large Goods Truck / JCB
-    (59,   5.00,   45.00, 23,  4, TRUE),  -- Goods per Half Ton
-    (60,  27.00,  273.00, 33,  4, TRUE),  -- Trolley-size Tractor
-    (61,   3.00,   27.00, 11,  4, TRUE),  -- Passenger Adult
-    (62,   2.00,   13.00, 12,  4, TRUE),  -- Passenger Child
-    (63,   2.00,   23.00, 31,  4, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (64,   6.00,   64.00, 26,  4, TRUE)   -- Cow / Bull / Buffalo
-ON CONFLICT (id) DO NOTHING;
+    ( 1.00,   10.00,  1, 4, TRUE),
+    ( 5.00,   50.00,  2, 4, TRUE),
+    ( 7.00,   68.00,  3, 4, TRUE),
+    (14.00,  140.00,  4, 4, TRUE),
+    (16.00,  160.00,  5, 4, TRUE),
+    ( 0.00,  200.00,  6, 4, TRUE),
+    (20.00,  200.00,  7, 4, TRUE),
+    (30.00,  300.00,  8, 4, TRUE),
+    (50.00,  400.00,  9, 4, TRUE),
+    (20.00,  200.00, 10, 4, TRUE),
+    ( 3.00,   27.00, 11, 4, TRUE),
+    ( 2.00,   13.00, 12, 4, TRUE),
+    ( 3.00,   30.00, 13, 4, TRUE),
+    ( 0.00,    1.00, 14, 4, TRUE),
+    ( 1.00,    9.00, 15, 4, TRUE),
+    ( 5.00,   50.00, 16, 4, TRUE),
+    ( 5.00,   45.00, 17, 4, TRUE),
+    (50.00,  450.00, 18, 4, TRUE),
+    (50.00,  550.00, 19, 4, TRUE),
+    (120.00, 1180.00, 20, 4, TRUE),
+    ( 0.00,  700.00, 21, 4, TRUE)
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 5: BHAYANDER (110) <-> VASAI (109) — 14 items
+-- ROUTE 5: VASAI (109) <-> BHAYANDAR (110) — 21 items
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (65,   1.00,    9.00,  1,  5, TRUE),  -- Bicycle
-    (66,   6.00,   60.00,  2,  5, TRUE),  -- Motorcycle
-    (67,  10.00,  100.00,  3,  5, TRUE),  -- Three-Wheeler Rickshaw
-    (68,  20.00,  180.00,  8,  5, TRUE),  -- Luxury Car / 8 Seater / Pickup
-    (69,  20.00,  200.00, 15,  5, TRUE),  -- Medium Goods (Tata 407)
-    (70,  25.00,  250.00, 18,  5, TRUE),  -- Medium Goods (709/Eicher 1095)
-    (71,  30.00,  300.00, 21,  5, TRUE),  -- Passenger Bus / Truck / Tractor
-    (72,  40.00,  400.00, 32,  5, TRUE),  -- Large Goods Truck / JCB
-    (73,   3.00,   26.00, 23,  5, TRUE),  -- Goods per Half Ton
-    (74,  20.00,  200.00, 33,  5, TRUE),  -- Trolley-size Tractor
-    (75,   3.00,   26.00, 11,  5, TRUE),  -- Passenger Adult
-    (76,   2.00,   13.00, 12,  5, TRUE),  -- Passenger Child
-    (77,   4.00,   36.00, 31,  5, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (78,   5.00,   50.00, 26,  5, TRUE)   -- Cow / Bull / Buffalo
-ON CONFLICT (id) DO NOTHING;
+    ( 1.00,    9.00,  1, 5, TRUE),
+    ( 6.00,   60.00,  2, 5, TRUE),
+    (10.00,  100.00,  3, 5, TRUE),
+    (20.00,  180.00,  4, 5, TRUE),
+    (20.00,  180.00,  5, 5, TRUE),
+    ( 0.00,  200.00,  6, 5, TRUE),
+    (20.00,  200.00,  7, 5, TRUE),
+    (30.00,  300.00,  8, 5, TRUE),
+    (50.00,  500.00,  9, 5, TRUE),
+    (20.00,  200.00, 10, 5, TRUE),
+    ( 3.00,   27.00, 11, 5, TRUE),
+    ( 2.00,   13.00, 12, 5, TRUE),
+    ( 3.00,   27.00, 13, 5, TRUE),
+    ( 0.00,    1.00, 14, 5, TRUE),
+    ( 4.00,   36.00, 15, 5, TRUE),
+    ( 5.00,   50.00, 16, 5, TRUE),
+    ( 5.00,   55.00, 17, 5, TRUE),
+    (50.00,  450.00, 18, 5, TRUE),
+    (50.00,  550.00, 19, 5, TRUE),
+    (100.00, 1000.00, 20, 5, TRUE),
+    ( 0.00,  500.00, 21, 5, TRUE)
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 6: AMBET (111) <-> MHAPRAL (112) — 20 items
+-- ROUTE 6: AMBET (111) <-> MHAPRAL (112) — unchanged (not in PDF)
+--   Rates retained from V1; item_ids reference surviving V1 items.
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (79,   1.00,    9.00,  1,  6, TRUE),  -- Bicycle
-    (80,   5.00,   45.00,  2,  6, TRUE),  -- Motorcycle
-    (81,   7.00,   68.00,  3,  6, TRUE),  -- Three-Wheeler Rickshaw / Goods Tempo
-    (82,  14.00,  106.00,  7,  6, TRUE),  -- Empty Car 5 Seater + Tata Magic
-    (83,  14.00,  116.00,  8,  6, TRUE),  -- Luxury Car / 8 Seater / Pickup
-    (84,  14.00,  136.00, 15,  6, TRUE),  -- Medium Goods (Tata 407)
-    (85,  25.00,  185.00, 18,  6, TRUE),  -- Medium Goods (709/Eicher 1095)
-    (86,  20.00,  155.00, 33,  6, TRUE),  -- Trolley-size Tractor
-    (87,  30.00,  220.00, 21,  6, TRUE),  -- Passenger Bus / Truck / Tanker
-    (88,  50.00,  350.00, 32,  6, TRUE),  -- Large Goods Truck / JCB
-    (89,   3.00,   27.00, 23,  6, TRUE),  -- Goods per Half Ton
-    (90,   2.00,    8.00, 11,  6, TRUE),  -- Passenger Adult
-    (91,   1.00,    4.00, 12,  6, TRUE),  -- Passenger Child
-    (92,   0.00,    1.01, 24,  6, TRUE),  -- Passenger Luggage per kg (min rate > 1)
-    (93,   1.00,    9.00, 31,  6, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (94,   5.00,   45.00, 26,  6, TRUE),  -- Cow / Bull / Buffalo
-    (95,  20.00,  180.00, 27,  6, TRUE),  -- Student Pass (Std 10th and below)
-    (96,  30.00,  270.00, 28,  6, TRUE),  -- Student Pass (Std 10th and above)
-    (97,   2.00,   18.00, 29,  6, TRUE),  -- Tourist (one-way)
-    (98,   0.00,  150.00, 34,  6, TRUE)   -- Extra Ferry (Night 11PM-6AM)
-ON CONFLICT (id) DO NOTHING;
+    ( 1.00,   9.00,  1, 6, TRUE),   -- Cycle
+    ( 5.00,  45.00,  2, 6, TRUE),   -- Motor Cycle With Driver
+    ( 7.00,  68.00,  3, 6, TRUE),   -- Empty 3-Wheeler Rickshaw
+    (14.00, 106.00,  4, 6, TRUE),   -- Magic/Iris/Car (was Empty Car 5 St)
+    (14.00, 116.00,  5, 6, TRUE),   -- Lux Car/Sumo  (was Empty Lux Car)
+    (14.00, 136.00,  7, 6, TRUE),   -- T.T/407/709   (was Tata 407)
+    (25.00, 185.00,  8, 6, TRUE),   -- Bus/Truck/Tanker (was 709)
+    (20.00, 155.00, 10, 6, TRUE),   -- Tractor With Trolly
+    (30.00, 220.00,  8, 6, TRUE),   -- Bus/Truck/Tanker (was Passenger Bus)  [duplicate guard below]
+    (50.00, 350.00,  9, 6, TRUE),   -- Truck 10 Whlr/JCB
+    ( 3.00,  27.00, 13, 6, TRUE),   -- Goods Per Half Ton
+    ( 2.00,   8.00, 11, 6, TRUE),   -- Passenger Adult
+    ( 1.00,   4.00, 12, 6, TRUE),   -- Passenger Child
+    ( 0.00,   1.00, 14, 6, TRUE),   -- Passenger Luggage per kg
+    ( 1.00,   9.00, 15, 6, TRUE),   -- Animals & Goods
+    ( 5.00,  45.00, 16, 6, TRUE),   -- Cows/Buffalo
+    (20.00, 180.00, 18, 6, TRUE),   -- Month Pass Student Upto 7th
+    (30.00, 270.00, 19, 6, TRUE),   -- Month Pass Student Above Xth
+    ( 2.00,  18.00, 17, 6, TRUE),   -- Tourist
+    ( 0.00, 150.00, 21, 6, TRUE)    -- Special Ferry
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- ROUTE 7: VIRAR (113) <-> SAFALE / JALSAR (114) — 13 items
+-- ROUTE 7: VIRAR (113) <-> SAFALE / JALSAR (114) — 21 items
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-INSERT INTO item_rates (id, levy, rate, item_id, route_id, is_active)
+INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    (99,   1.00,    9.00,  1,  7, TRUE),  -- Bicycle
-    (100,  6.00,   60.00,  2,  7, TRUE),  -- Motorcycle
-    (101, 10.00,  100.00,  3,  7, TRUE),  -- Three-Wheeler Rickshaw
-    (102, 20.00,  180.00,  7,  7, TRUE),  -- Empty Car 5 Seater
-    (103, 20.00,  200.00,  9,  7, TRUE),  -- Passenger 8 Seater / Pickup
-    (104, 25.00,  250.00, 18,  7, TRUE),  -- Medium Goods (709/Eicher 1095)
-    (105, 30.00,  300.00, 21,  7, TRUE),  -- Passenger Bus / Truck / Tractor
-    (106, 50.00,  400.00, 32,  7, TRUE),  -- Large Goods Truck / JCB
-    (107,  3.00,   27.00, 23,  7, TRUE),  -- Goods per Half Ton
-    (108,  4.00,   36.00, 31,  7, TRUE),  -- Fish/Poultry/Dog/Goat/Sheep
-    (109,  5.00,   50.00, 26,  7, TRUE),  -- Cow / Bull / Buffalo
-    (110,  3.00,   27.00, 11,  7, TRUE),  -- Passenger Adult
-    (111,  2.00,   13.00, 12,  7, TRUE)   -- Passenger Child
-ON CONFLICT (id) DO NOTHING;
+    ( 1.00,    9.00,  1, 7, TRUE),
+    ( 6.00,   60.00,  2, 7, TRUE),
+    (10.00,  100.00,  3, 7, TRUE),
+    (20.00,  180.00,  4, 7, TRUE),
+    (20.00,  180.00,  5, 7, TRUE),
+    ( 0.00,  200.00,  6, 7, TRUE),
+    (20.00,  200.00,  7, 7, TRUE),
+    (30.00,  300.00,  8, 7, TRUE),
+    (50.00,  500.00,  9, 7, TRUE),
+    (20.00,  200.00, 10, 7, TRUE),
+    ( 3.00,   27.00, 11, 7, TRUE),
+    ( 2.00,   13.00, 12, 7, TRUE),
+    ( 3.00,   27.00, 13, 7, TRUE),
+    ( 0.00,    1.00, 14, 7, TRUE),
+    ( 1.00,   10.00, 15, 7, TRUE),
+    ( 5.00,   50.00, 16, 7, TRUE),
+    ( 5.00,   55.00, 17, 7, TRUE),
+    (50.00,  550.00, 18, 7, TRUE),
+    (50.00,  600.00, 19, 7, TRUE),
+    (100.00, 1000.00, 20, 7, TRUE),
+    ( 0.00,  500.00, 21, 7, TRUE)
+ON CONFLICT (item_id, route_id) DO UPDATE SET
+    rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = TRUE, updated_at = NOW();
 
 -- ============================================================
 -- 9. COMPANY
