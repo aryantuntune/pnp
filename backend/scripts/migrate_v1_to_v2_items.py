@@ -443,125 +443,138 @@ async def step4_insert_migration_map(conn, dry_run: bool) -> int:
 # ---------------------------------------------------------------------------
 # Step 5 — Update items table to V2
 # ---------------------------------------------------------------------------
-async def step5_update_items(conn, dry_run: bool) -> dict:
-    header("Step 5 — Update items table to V2")
+    async def step5_update_items(conn, dry_run: bool) -> dict:
+        header("Step 5 — Update items table to V2")
 
-    v2_ids = {row[0] for row in V2_ITEMS}
-    # Fetch all current items
-    current = {r["id"]: dict(r) for r in await conn.fetch(
-        "SELECT id, name, short_name, is_active FROM items"
-    )}
+        v2_ids = {row[0] for row in V2_ITEMS}
+        # Fetch all current items
+        current = {r["id"]: dict(r) for r in await conn.fetch(
+            "SELECT id, name, short_name, is_active FROM items"
+        )}
 
-    updated = 0
-    deactivated = 0
+        updated = 0
+        deactivated = 0
 
-    # 5a: Apply V2 names (INSERT or UPDATE for each V2 item)
-    for item_id, name, short_name, is_vehicle, online_vis in V2_ITEMS:
-        existing = current.get(item_id)
-        if existing:
-            # Row exists — update to V2 definition
-            if (existing["name"] != name
-                    or existing["short_name"] != short_name
-                    or not existing["is_active"]):
+        # 5a-pre: Clear namespace — temporarily rename ALL items to avoid
+        #         UNIQUE constraint violations during V2 rename.
+        if not dry_run:
+            await conn.execute(
+                "UPDATE items SET name = name || '__V1_MIGRATING', "
+                "short_name = short_name || '__V1' "
+                "WHERE id = ANY($1::int[])",
+                list(current.keys()),
+            )
+        print("  [PREP]   Temporarily renamed all items to clear namespace")
+
+        # 5a: Apply V2 names (INSERT or UPDATE for each V2 item)
+        for item_id, name, short_name, is_vehicle, online_vis in V2_ITEMS:
+            existing = current.get(item_id)
+            if existing:
+                # Row exists — update to V2 definition
+                if (existing["name"] != name
+                        or existing["short_name"] != short_name
+                        or not existing["is_active"]):
+                    if not dry_run:
+                        await conn.execute(
+                            """
+                            UPDATE items
+                            SET name = $1, short_name = $2,
+                                is_vehicle = $3, online_visiblity = $4,
+                                is_active = TRUE, updated_at = NOW()
+                            WHERE id = $5
+                            """,
+                            name, short_name, is_vehicle, online_vis, item_id,
+                        )
+                    print(f"  [UPDATE] item {item_id:3}: '{existing['name']}' → '{name}'")
+                    updated += 1
+                else:
+                    print(f"  [OK]     item {item_id:3}: '{name}' (no change)")
+            else:
+                # ID doesn't exist — insert fresh
                 if not dry_run:
                     await conn.execute(
                         """
-                        UPDATE items
-                        SET name = $1, short_name = $2,
-                            is_vehicle = $3, online_visiblity = $4,
-                            is_active = TRUE, updated_at = NOW()
-                        WHERE id = $5
+                        INSERT INTO items
+                            (id, name, short_name, is_vehicle, online_visiblity, is_active)
+                        VALUES ($1, $2, $3, $4, $5, TRUE)
                         """,
-                        name, short_name, is_vehicle, online_vis, item_id,
+                        item_id, name, short_name, is_vehicle, online_vis,
                     )
-                print(f"  [UPDATE] item {item_id:3}: '{existing['name']}' → '{name}'")
+                print(f"  [INSERT] item {item_id:3}: '{name}'")
                 updated += 1
-            else:
-                print(f"  [OK]     item {item_id:3}: '{name}' (no change)")
-        else:
-            # ID doesn't exist — insert fresh
-            if not dry_run:
-                await conn.execute(
-                    """
-                    INSERT INTO items
-                        (id, name, short_name, is_vehicle, online_visiblity, is_active)
-                    VALUES ($1, $2, $3, $4, $5, TRUE)
-                    """,
-                    item_id, name, short_name, is_vehicle, online_vis,
-                )
-            print(f"  [INSERT] item {item_id:3}: '{name}'")
-            updated += 1
 
-    # 5b: Deactivate V1-only items (not in V2)
-    for item_id, item in sorted(current.items()):
-        if item_id not in v2_ids and item["is_active"]:
-            if not dry_run:
-                await conn.execute(
-                    "UPDATE items SET is_active = FALSE, updated_at = NOW() WHERE id = $1",
-                    item_id,
-                )
-            print(f"  [DEACT]  item {item_id:3}: '{item['name']}' (V1-only, no V2 equivalent)")
-            deactivated += 1
+        # 5b: Deactivate V1-only items (not in V2)
+        for item_id, item in sorted(current.items()):
+            if item_id not in v2_ids and item["is_active"]:
+                if not dry_run:
+                    await conn.execute(
+                        "UPDATE items SET is_active = FALSE, updated_at = NOW() WHERE id = $1",
+                        item_id,
+                    )
+                print(f"  [DEACT]  item {item_id:3}: '{item['name']}' (V1-only, no V2 equivalent)")
+                deactivated += 1
 
-    print(f"\n  Summary — updated: {updated}, deactivated: {deactivated}")
-    return {"updated": updated, "deactivated": deactivated}
+        print(f"\n  Summary — updated: {updated}, deactivated: {deactivated}")
+        return {"updated": updated, "deactivated": deactivated}
 
 
-# ---------------------------------------------------------------------------
-# Step 6 — Deactivate old item_rates
-# ---------------------------------------------------------------------------
-async def step6_deactivate_old_rates(conn, dry_run: bool) -> int:
-    header("Step 6 — Deactivate old V1 item_rates")
+    # ---------------------------------------------------------------------------
+    # Step 6 — Deactivate old item_rates
+    # ---------------------------------------------------------------------------
+    async def step6_deactivate_old_rates(conn, dry_run: bool) -> int:
+        header("Step 6 — Deactivate old V1 item_rates")
 
-    v2_item_ids = [row[0] for row in V2_ITEMS]
-    v2_route_ids = list(ROUTE_MAP.values())  # routes 1,2,3,4,5,7
+        v2_item_ids = [row[0] for row in V2_ITEMS]
+        v2_route_ids = list(ROUTE_MAP.values())  # routes 1,2,3,4,5,7
 
-    # Active rates for routes 1–5, 7 that belong to non-V2 items
-    old_rates = await conn.fetch(
-        """
-        SELECT id, item_id, route_id, rate, levy
-        FROM   item_rates
-        WHERE  is_active = TRUE
-          AND  route_id  = ANY($1::int[])
-          AND  item_id  != ALL($2::int[])
-        """,
-        v2_route_ids, v2_item_ids,
-    )
-
-    # Also fetch V2-item rows that will be REPLACED by fresh inserts in step 7
-    # (these are the old rates for V2 item IDs that carry old rate values)
-    old_v2_rates = await conn.fetch(
-        """
-        SELECT ir.id, ir.item_id, ir.route_id, ir.rate, ir.levy
-        FROM   item_rates ir
-        WHERE  ir.is_active = TRUE
-          AND  ir.route_id  = ANY($1::int[])
-          AND  ir.item_id   = ANY($2::int[])
-        """,
-        v2_route_ids, v2_item_ids,
-    )
-
-    all_to_deactivate = list(old_rates) + list(old_v2_rates)
-    print(f"  Rows to deactivate: {len(all_to_deactivate)}"
-          f"  ({len(old_rates)} V1-only + {len(old_v2_rates)} old V2-id rates)")
-
-    if not dry_run and all_to_deactivate:
-        ids = [r["id"] for r in all_to_deactivate]
-        await conn.execute(
-            f"""
-            SET LOCAL app.migration_notes = '{MIGRATION_NOTES}';
-            UPDATE item_rates
-            SET    is_active   = FALSE,
-                   updated_at  = NOW()
-            WHERE  id = ANY($1::int[])
+        # Active rates for routes 1–5, 7 that belong to non-V2 items
+        old_rates = await conn.fetch(
+            """
+            SELECT id, item_id, route_id, rate, levy
+            FROM   item_rates
+            WHERE  is_active = TRUE
+            AND  route_id  = ANY($1::int[])
+            AND  item_id  != ALL($2::int[])
             """,
-            ids,
+            v2_route_ids, v2_item_ids,
         )
-        print(f"  Deactivated {len(ids)} rows (trigger recorded each as DEACTIVATED)")
-    elif dry_run:
-        print(f"  DRY RUN — would deactivate {len(all_to_deactivate)} rows")
 
-    return len(all_to_deactivate)
+        # Also fetch V2-item rows that will be REPLACED by fresh inserts in step 7
+        # (these are the old rates for V2 item IDs that carry old rate values)
+        old_v2_rates = await conn.fetch(
+            """
+            SELECT ir.id, ir.item_id, ir.route_id, ir.rate, ir.levy
+            FROM   item_rates ir
+            WHERE  ir.is_active = TRUE
+            AND  ir.route_id  = ANY($1::int[])
+            AND  ir.item_id   = ANY($2::int[])
+            """,
+            v2_route_ids, v2_item_ids,
+        )
+
+        all_to_deactivate = list(old_rates) + list(old_v2_rates)
+        print(f"  Rows to deactivate: {len(all_to_deactivate)}"
+            f"  ({len(old_rates)} V1-only + {len(old_v2_rates)} old V2-id rates)")
+
+        if not dry_run and all_to_deactivate:
+            ids = [r["id"] for r in all_to_deactivate]
+            await conn.execute(
+                f"SET LOCAL app.migration_notes = '{MIGRATION_NOTES}'"
+            )
+            await conn.execute(
+                """
+                UPDATE item_rates
+                SET    is_active   = FALSE,
+                       updated_at  = NOW()
+                WHERE  id = ANY($1::int[])
+                """,
+                ids,
+            )
+            print(f"  Deactivated {len(ids)} rows (trigger recorded each as DEACTIVATED)")
+        elif dry_run:
+            print(f"  DRY RUN — would deactivate {len(all_to_deactivate)} rows")
+
+        return len(all_to_deactivate)
 
 
 # ---------------------------------------------------------------------------
