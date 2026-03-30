@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Printer } from "lucide-react";
+import { Plus, Printer, Settings2 } from "lucide-react";
 import {
   printReceipt,
   ReceiptData,
@@ -284,6 +284,9 @@ export default function TicketingPage() {
 
   // Payment confirmation modal
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  // Printer setup dialog
+  const [showPrinterSetup, setShowPrinterSetup] = useState(false);
 
   // Last ticket info (fetched from API each time payment modal opens)
   const [lastTicketInfo, setLastTicketInfo] = useState<{
@@ -1194,9 +1197,14 @@ export default function TicketingPage() {
           <h1 className="text-2xl font-bold">Ticket Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Create and manage ferry tickets</p>
         </div>
-        <Button onClick={openCreateModal}>
-          <Plus className="h-4 w-4 mr-2" /> New Ticket
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowPrinterSetup(true)}>
+            <Settings2 className="h-4 w-4 mr-1.5" /> Printer Setup
+          </Button>
+          <Button onClick={openCreateModal}>
+            <Plus className="h-4 w-4 mr-2" /> New Ticket
+          </Button>
+        </div>
       </div>
 
       {/* Error Banner */}
@@ -2194,6 +2202,44 @@ export default function TicketingPage() {
               </div>
             </form>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Printer Setup Dialog */}
+      <Dialog open={showPrinterSetup} onOpenChange={setShowPrinterSetup}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" /> Direct Printing Setup
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-muted-foreground">
+              By default, every print opens a browser popup asking you to confirm. This setup removes that popup so receipts print instantly to your default printer.
+            </p>
+            <p className="text-muted-foreground">
+              Works on <strong>Chrome</strong> and <strong>Microsoft Edge</strong>. Only needs to be done once per computer.
+            </p>
+            <ol className="space-y-2 list-decimal list-inside text-foreground">
+              <li>Click <strong>Download Setup File</strong> below.</li>
+              <li>Open your <strong>Downloads</strong> folder and double-click <code className="bg-muted px-1 rounded text-xs">setup-direct-printing.bat</code>.</li>
+              <li>If Windows shows a security warning, click <strong>More info → Run anyway</strong>.</li>
+              <li>Close all browser windows and reopen from your desktop shortcut.</li>
+            </ol>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-xs">
+              Make sure the receipt printer is set as your <strong>Windows default printer</strong> before running.
+            </div>
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setShowPrinterSetup(false)}>
+              Close
+            </Button>
+            <a href="/setup-direct-printing.bat" download>
+              <Button>
+                <Printer className="h-4 w-4 mr-2" /> Download Setup File
+              </Button>
+            </a>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
