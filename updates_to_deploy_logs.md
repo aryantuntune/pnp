@@ -2,6 +2,96 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (Route Filter — User Management)
+
+### Module
+
+User Management
+
+### Commit ID
+
+79411ba
+
+### Changes
+
+* Added **Route** filter dropdown to the User Management filters bar (alongside Search, Role, Status)
+* Selecting a route shows only users assigned to that route; "All Routes" shows everyone
+* "Clear filters" button now also resets the route filter
+* Backend: `route_filter` (integer route ID) query param added to `GET /api/users` and `GET /api/users/count`
+* No database migration required — purely a query-layer change
+
+### Files Modified
+
+* `backend/app/routers/users.py`
+* `backend/app/services/user_service.py`
+* `frontend/src/app/dashboard/users/page.tsx`
+
+### Deployment Steps (VPS)
+
+> **Before you start:** No database migration in this update — only backend logic and frontend UI changed. This is a simple pull + restart.
+
+---
+
+#### 0. SSH in and pull latest code
+
+```bash
+ssh <your-vps-user>@<vps-ip>
+cd /var/www/ssmspl
+git pull origin main
+```
+
+Confirm the changed files are present:
+```bash
+git show --stat 79411ba
+# Should list: backend/app/routers/users.py, backend/app/services/user_service.py,
+#              frontend/src/app/dashboard/users/page.tsx
+```
+
+---
+
+#### 1. Restart the backend
+
+No migration needed — just restart to pick up the updated router and service.
+
+```bash
+cd /var/www/ssmspl/backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+sudo systemctl status ssmspl
+# Should show: active (running)
+```
+
+---
+
+#### 2. Rebuild and restart the frontend
+
+```bash
+cd /var/www/ssmspl/frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+sudo systemctl status ssmspl-frontend
+# Should show: active (running)
+```
+
+---
+
+#### 3. Smoke test
+
+1. Log in as Admin or Super Admin
+2. Go to **User Management**
+3. The filters bar should now show a **Route** dropdown after Status
+4. Select any route — the table should immediately show only users assigned to that route and the count should update
+5. Click **Clear filters** — the route filter resets along with all other filters
+6. Verify the route filter works in combination with Role and Status filters
+
+### Notes
+
+* The Route dropdown is populated from the same active routes list already fetched for the Add/Edit User form — no extra API call.
+* The filter applies `WHERE users.route_id = <selected_id>` at the DB level — it is not client-side filtering.
+* Manager-role users already see only their own route's users by RBAC enforcement; the route filter has no additional effect for them but is still visible in the UI.
+
+---
+
 ## Deployment Update — 2026-03-30 (Client Staff User Accounts + mobile_number)
 
 ### Module
