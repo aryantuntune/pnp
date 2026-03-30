@@ -2,6 +2,56 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (Direct Printing Setup for POS)
+
+### Module
+
+Frontend — Ticket Management / POS Printing
+
+### Commit ID
+
+a9d38d3
+
+### Changes
+
+* **No-dialog printing for Chrome and Edge**: Added a `setup-direct-printing.bat` file (served from the app) that automatically configures Chrome and Edge shortcuts with `--kiosk-printing`. Once run, receipts print instantly to the default printer without any browser popup appearing.
+* **Printer Setup button** on the Ticket Management page header — opens a dialog with plain-language instructions and a one-click download of the setup file. Users just download it, double-click, and reopen their browser.
+* The setup script handles Desktop, Taskbar, and Start Menu shortcuts for both Chrome and Edge automatically.
+
+### Files Modified / Added
+
+* `frontend/public/setup-direct-printing.bat` *(new)*
+* `frontend/src/app/dashboard/ticketing/page.tsx`
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migration or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose up --build -d frontend
+```
+
+Or if running Next.js directly:
+
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Per-Machine Setup (one time per POS computer)
+
+After deploying, each POS machine user should:
+1. Open Ticket Management → click **Printer Setup**
+2. Download the setup file and double-click it
+3. If Windows SmartScreen appears → click **More info → Run anyway**
+4. Close and reopen the browser from the desktop shortcut
+
+---
+
 ## Deployment Update — 2026-03-30 (show_at_pos flag for Payment Modes)
 
 ### Module
