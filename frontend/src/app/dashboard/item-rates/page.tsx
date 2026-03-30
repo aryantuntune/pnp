@@ -259,9 +259,12 @@ export default function ItemRatesPage() {
   const columns: Column<ItemRate>[] = [
     {
       key: "id",
-      label: "ID",
-      sortable: true,
-      render: (ir) => <span className="text-muted-foreground">{ir.id}</span>,
+      label: "#",
+      sortable: false,
+      render: (ir) => {
+        const idx = itemRates.indexOf(ir);
+        return <span className="text-muted-foreground">{(page - 1) * pageSize + idx + 1}</span>;
+      },
     },
     {
       key: "item_id",

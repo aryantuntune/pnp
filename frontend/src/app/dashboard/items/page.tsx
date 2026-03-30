@@ -49,7 +49,7 @@ export default function ItemsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [visibilityFilter, setVisibilityFilter] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -244,7 +244,7 @@ export default function ItemsPage() {
     },
   ];
 
-  const hasFilters = searchInput || statusFilter || visibilityFilter || vehicleFilter;
+  const hasFilters = searchInput || statusFilter !== "active" || visibilityFilter || vehicleFilter;
 
   return (
     <div className="space-y-6">
@@ -337,7 +337,7 @@ export default function ItemsPage() {
                 onClick={() => {
                   setSearchInput("");
                   setSearch("");
-                  setStatusFilter("");
+                  setStatusFilter("active");
                   setVisibilityFilter("");
                   setVehicleFilter("");
                   setPage(1);
