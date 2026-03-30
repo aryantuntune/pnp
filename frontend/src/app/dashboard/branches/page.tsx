@@ -5,7 +5,7 @@ import api from "@/lib/api";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { Branch, BranchCreate, BranchUpdate } from "@/types";
+import { Branch, BranchCreate, BranchUpdate, User } from "@/types";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,10 @@ export default function BranchesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [viewBranch, setViewBranch] = useState<Branch | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  const canAdd = currentUser?.role === "SUPER_ADMIN";
+  const canEdit = currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN";
 
   const fetchBranches = useCallback(async () => {
     abortRef.current?.abort();
@@ -111,6 +115,10 @@ export default function BranchesPage() {
   useEffect(() => {
     fetchBranches();
   }, [fetchBranches]);
+
+  useEffect(() => {
+    api.get<User>("/api/auth/me").then((r) => setCurrentUser(r.data)).catch(() => {});
+  }, []);
 
   const openCreateModal = () => {
     setEditingBranch(null);
@@ -323,9 +331,11 @@ export default function BranchesPage() {
           <Button variant="ghost" size="sm" onClick={() => setViewBranch(b)}>
             View
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => openEditModal(b)}>
-            Edit
-          </Button>
+          {canEdit && (
+            <Button variant="ghost" size="sm" onClick={() => openEditModal(b)}>
+              Edit
+            </Button>
+          )}
         </div>
       ),
     },
@@ -351,9 +361,11 @@ export default function BranchesPage() {
           <Button variant="outline" size="sm" onClick={handleExportExcel}>
             <FileSpreadsheet className="h-4 w-4 mr-1.5" /> Excel
           </Button>
-          <Button onClick={openCreateModal}>
-            <Plus className="h-4 w-4 mr-2" /> Add Branch
-          </Button>
+          {canAdd && (
+            <Button onClick={openCreateModal}>
+              <Plus className="h-4 w-4 mr-2" /> Add Branch
+            </Button>
+          )}
         </div>
       </div>
 

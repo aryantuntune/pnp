@@ -54,6 +54,8 @@ export default function RoutesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const isScoped = currentUser?.route_id != null;
+  const canAdd = currentUser?.role === "SUPER_ADMIN";
+  const canEdit = currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN";
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -243,9 +245,11 @@ export default function RoutesPage() {
           <Button variant="ghost" size="sm" onClick={() => setViewRoute(r)}>
             View
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => openEditModal(r)}>
-            Edit
-          </Button>
+          {canEdit && (
+            <Button variant="ghost" size="sm" onClick={() => openEditModal(r)}>
+              Edit
+            </Button>
+          )}
         </div>
       ),
     },
@@ -261,9 +265,11 @@ export default function RoutesPage() {
             Manage ferry routes between branches
           </p>
         </div>
-        <Button onClick={openCreateModal}>
-          <Plus className="h-4 w-4 mr-2" /> Add Route
-        </Button>
+        {canAdd && (
+          <Button onClick={openCreateModal}>
+            <Plus className="h-4 w-4 mr-2" /> Add Route
+          </Button>
+        )}
       </div>
 
       {error && (
