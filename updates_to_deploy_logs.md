@@ -2,6 +2,62 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (QZ Tray silent printing integration)
+
+### Module
+
+Frontend — Ticket Management / POS Printing
+
+### Commit ID
+
+bd17987
+
+### Changes
+
+* **QZ Tray integration for silent receipt printing**: Receipts now print silently (no browser dialog) when QZ Tray is installed and a printer is configured.
+* **Printer Setup dialog redesigned**: Shows live QZ Tray connection status (green/yellow/red dot), lists all printers detected by QZ Tray, allows selecting and saving the receipt printer. When QZ Tray is not found, displays step-by-step install instructions including the "Block Unsigned" setting.
+* **Print path**: `printReceipt()` first attempts QZ Tray (silent); if QZ Tray is unavailable or no printer is saved, it falls back to `window.print()` (the existing path, which also supports `--kiosk-printing`).
+* **New `qz-tray` npm dependency** added.
+
+### Files Modified / Added
+
+* `frontend/src/lib/qz-service.ts` *(new)*
+* `frontend/src/lib/print-receipt.ts`
+* `frontend/src/app/dashboard/ticketing/page.tsx`
+* `frontend/package.json`, `frontend/package-lock.json`
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migration or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose up --build -d frontend
+```
+
+Or if running Next.js directly:
+
+```bash
+cd frontend
+npm install   # installs qz-tray
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Per-Machine Setup (one time per POS computer)
+
+1. Download and install **QZ Tray** from https://qz.io/download
+2. Launch QZ Tray — it appears as a tray icon (bottom-right)
+3. Right-click tray icon → **Site Manager** → uncheck **Block Unsigned**
+4. Open Ticket Management → click **Printer Setup** → click **Refresh**
+5. Select the receipt printer from the dropdown and click **Save**
+
+From that point on, receipts print silently on every ticket without any dialog.
+
+---
+
 ## Deployment Update — 2026-03-30 (Direct Printing Setup for POS)
 
 ### Module
