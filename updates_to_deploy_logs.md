@@ -2,6 +2,189 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (Client Staff User Accounts + mobile_number)
+
+### Module
+
+Users / Staff Onboarding
+
+### Commit ID
+
+82782a6
+
+### Changes
+
+**Schema changes:**
+* `users.email` made nullable — staff accounts can be created without an email; managers add email later via Admin > Users > Edit
+* `users.mobile_number VARCHAR(20)` column added (nullable) — stores staff phone number
+* Alembic migration `a9c4d2e81b37` covers `mobile_number` for app-managed deployments
+
+**New seed file — `seed_users_client_staff.sql`:**
+* 24 accounts across 5 branches: AGARDANDA-DIGHI, VESVI-BAGMANDLE, VIRAR-SAFALE, VASAI-BHAYANDAR, DABHOL-DHOPAVE
+* Roles: MANAGER or BILLING_OPERATOR; each account bound to its route ID
+* Multi-route managers (Rupesh Bhatkar) get one account per route: `rupesh.bhatkar.1` (Route 4), `rupesh.bhatkar.2` (Route 2)
+* Email: personal Gmail used where provided in source data; `NULL` otherwise
+* Phone numbers from source data stored in `mobile_number`
+* Default password for all accounts: `Password@123` — **must be changed by each user on first login**
+* No `ON CONFLICT` — duplicate username raises a hard error (intentional; usernames are system-wide unique)
+
+### Files Modified / Created
+
+* `backend/scripts/ddl.sql` _(two patches appended: email nullable + mobile_number column)_
+* `backend/scripts/seed_users_client_staff.sql` _(new)_
+* `backend/app/models/user.py` _(mobile_number field)_
+* `backend/app/schemas/user.py` _(mobile_number in Create + Update schemas)_
+* `backend/app/services/user_service.py` _(mobile_number passed on create/update)_
+* `frontend/src/app/dashboard/users/page.tsx` _(mobile_number shown in user table)_
+* `frontend/src/types/index.ts` _(User type updated)_
+* `backend/alembic/versions/a9c4d2e81b37_add_mobile_number_to_users.py` _(new migration)_
+
+### VPS Deployment Steps
+
+#### Step 0 — SSH into the server and pull latest code
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+```
+
+Verify the new files are present:
+
+```bash
+ls backend/scripts/seed_users_client_staff.sql   # should exist
+git log --oneline -3                              # should show 82782a6 at top
+```
+
+#### Step 1 — Activate the Python virtual environment
+
+```bash
+source backend/.venv/bin/activate
+# Prompt should show (.venv). If not found: python -m venv backend/.venv && source backend/.venv/bin/activate && pip install -r backend/requirements.txt
+```
+
+#### Step 2 — Extract DATABASE_URL for psql
+
+```bash
+DB_URL=$(grep DATABASE_URL backend/.env.production | cut -d= -f2- | tr -d "'" | sed 's/postgresql+asyncpg/postgresql/')
+echo "$DB_URL"   # verify it looks like: postgresql://user:pass@host:5432/dbname
+```
+
+#### Step 3 — Apply DDL patches (email nullable + mobile_number column)
+
+```bash
+psql "$DB_URL" <<'SQL'
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20);
+SQL
+```
+
+Expected output:
+```
+ALTER TABLE
+ALTER TABLE
+```
+
+Verify:
+
+```bash
+psql "$DB_URL" -c "\d users" | grep -E 'email|mobile_number'
+```
+
+Expected — `email` has no `not null`, `mobile_number` is present:
+```
+ email           | character varying(255)  |           |          |
+ mobile_number   | character varying(20)   |           |          |
+```
+
+#### Step 4 — Run the Alembic migration (marks migration as applied in alembic_version)
+
+```bash
+cd backend
+alembic upgrade head
+cd ..
+```
+
+Expected output ends with:
+```
+INFO  [alembic.runtime.migration] Running upgrade ... -> a9c4d2e81b37, add_mobile_number_to_users
+```
+
+If the column already exists from Step 3, Alembic will still mark the migration as done without error (the migration uses `ADD COLUMN IF NOT EXISTS`).
+
+#### Step 5 — Seed the client staff user accounts
+
+```bash
+psql "$DB_URL" -f backend/scripts/seed_users_client_staff.sql
+```
+
+Expected output (one line per INSERT batch):
+```
+INSERT 0 1
+INSERT 0 4
+INSERT 0 1
+INSERT 0 4
+INSERT 0 1
+INSERT 0 3
+INSERT 0 1
+INSERT 0 4
+INSERT 0 1
+INSERT 0 4
+```
+
+If you see an error like `ERROR: duplicate key value violates unique constraint "users_username_key"`, a user with that username already exists. Either:
+- Skip that user (comment out their INSERT and re-run), or
+- Update the existing record manually: `UPDATE users SET mobile_number='...', route_id=N WHERE username='...';`
+
+#### Step 6 — Verify the accounts were created
+
+```bash
+psql "$DB_URL" <<'SQL'
+SELECT username, full_name, role, route_id, mobile_number,
+       CASE WHEN email IS NULL THEN '(no email yet)' ELSE email END AS email
+FROM users
+WHERE role IN ('MANAGER', 'BILLING_OPERATOR')
+  AND username NOT IN ('manager', 'billing_operator')   -- exclude dev seed accounts
+ORDER BY route_id, role DESC, username;
+SQL
+```
+
+You should see all 24 accounts across routes 1, 2, 4, 5, and 7.
+
+Count check:
+```bash
+psql "$DB_URL" -c "SELECT COUNT(*) FROM users WHERE username LIKE '%.%' AND role IN ('MANAGER','BILLING_OPERATOR');"
+# Expected: 24
+```
+
+#### Step 7 — Restart the backend service
+
+```bash
+sudo systemctl restart ssmspl
+sudo systemctl status ssmspl   # confirm Active: running
+```
+
+#### Rollback (if needed)
+
+The seed inserts can be undone by deleting by username:
+
+```bash
+psql "$DB_URL" <<'SQL'
+DELETE FROM users WHERE username IN (
+  'rupesh.bhatkar.1','rupesh.bhatkar.2',
+  'dinesh.balgude','sada.kharsaikar','machhindra.dharki','khizar.chogale',
+  'rakesh.balpatil','pranay.devkar','aakash.padlekar','saqib.kunbi',
+  'raj.sonawane','tushar.chaudhary','aadesh.naik','mahesh.kadam',
+  'arbaz.shaikh','danish.kunbi','dilip.patil','digambar.bamne','prem.kadam',
+  'sandip.pawar','aditi.natekar','prakash.bhuwad','imad.bamne','arbaz.chougle'
+);
+SQL
+```
+
+The schema changes (nullable email, mobile_number column) are safe to leave in place — they are backward-compatible.
+
+---
+
 ## Deployment Update — 2026-03-30 (Item Rate V1→V2 Migration)
 
 ### Module
