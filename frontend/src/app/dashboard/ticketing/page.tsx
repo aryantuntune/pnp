@@ -430,7 +430,7 @@ export default function TicketingPage() {
             api.get<Branch[]>("/api/branches?limit=200&status=active"),
             api.get<Route[]>("/api/routes?limit=200&status=active"),
             api.get<Item[]>("/api/items?limit=200&status=active"),
-            api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active"),
+            api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active&show_at_pos=true"),
             api.get<FerrySchedule[]>("/api/ferry-schedules?limit=200"),
           ]);
           setBranches(branchRes.data);

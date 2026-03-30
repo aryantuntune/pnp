@@ -8,11 +8,14 @@ class PaymentModeBase(BaseModel):
 
 
 class PaymentModeCreate(PaymentModeBase):
+    show_at_pos: bool = Field(True, description="Whether this payment mode appears in the POS ticket confirmation dropdown")
+
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "description": "Cash",
+                    "show_at_pos": True,
                 }
             ]
         }
@@ -22,11 +25,12 @@ class PaymentModeCreate(PaymentModeBase):
 class PaymentModeUpdate(BaseModel):
     description: str | None = Field(None, description="Updated payment mode description")
     is_active: bool | None = Field(None, description="Set false to soft-delete (deactivate) the payment mode")
+    show_at_pos: bool | None = Field(None, description="Whether this payment mode appears in the POS ticket confirmation dropdown")
 
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"description": "Cash", "is_active": False}
+                {"description": "Cash", "is_active": False, "show_at_pos": True}
             ]
         }
     }
@@ -35,6 +39,7 @@ class PaymentModeUpdate(BaseModel):
 class PaymentModeRead(PaymentModeBase):
     id: int = Field(..., description="Unique payment mode identifier")
     is_active: bool = Field(..., description="Whether the payment mode is active")
+    show_at_pos: bool = Field(..., description="Whether this payment mode appears in the POS ticket confirmation dropdown")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
 

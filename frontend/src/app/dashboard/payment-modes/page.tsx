@@ -29,9 +29,10 @@ import { Plus, Search } from "lucide-react";
 interface PaymentModeFormData {
   description: string;
   is_active: boolean;
+  show_at_pos: boolean;
 }
 
-const emptyForm: PaymentModeFormData = { description: "", is_active: true };
+const emptyForm: PaymentModeFormData = { description: "", is_active: true, show_at_pos: true };
 
 export default function PaymentModesPage() {
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
@@ -115,6 +116,7 @@ export default function PaymentModesPage() {
     setForm({
       description: pm.description,
       is_active: pm.is_active,
+      show_at_pos: pm.show_at_pos,
     });
     setFormError("");
     setShowModal(true);
@@ -136,11 +138,11 @@ export default function PaymentModesPage() {
       if (editingPaymentMode) {
         const update: PaymentModeUpdate = {};
         if (form.description !== editingPaymentMode.description) update.description = form.description;
-        if (form.is_active !== editingPaymentMode.is_active)
-          update.is_active = form.is_active;
+        if (form.is_active !== editingPaymentMode.is_active) update.is_active = form.is_active;
+        if (form.show_at_pos !== editingPaymentMode.show_at_pos) update.show_at_pos = form.show_at_pos;
         await api.patch(`/api/payment-modes/${editingPaymentMode.id}`, update);
       } else {
-        const create: PaymentModeCreate = { description: form.description };
+        const create: PaymentModeCreate = { description: form.description, show_at_pos: form.show_at_pos };
         await api.post("/api/payment-modes", create);
       }
       closeModal();
@@ -177,6 +179,15 @@ export default function PaymentModesPage() {
       label: "Description",
       sortable: true,
       render: (pm) => <span className="font-medium">{pm.description}</span>,
+    },
+    {
+      key: "show_at_pos",
+      label: "Show at POS",
+      render: (pm) => (
+        <Badge variant={pm.show_at_pos ? "default" : "secondary"}>
+          {pm.show_at_pos ? "Yes" : "No"}
+        </Badge>
+      ),
     },
     {
       key: "is_active",
@@ -315,6 +326,12 @@ export default function PaymentModesPage() {
                 </div>
               ))}
               <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Show at POS</span>
+                <Badge variant={viewPaymentMode.show_at_pos ? "default" : "secondary"}>
+                  {viewPaymentMode.show_at_pos ? "Yes" : "No"}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Status</span>
                 <Badge variant={viewPaymentMode.is_active ? "default" : "destructive"}>
                   {viewPaymentMode.is_active ? "Active" : "Inactive"}
@@ -343,6 +360,18 @@ export default function PaymentModesPage() {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="e.g. Cash"
                 className="mt-1.5"
+              />
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <Label>Show at POS</Label>
+                <p className="text-xs text-muted-foreground">
+                  When on, this mode appears in the ticket payment dropdown at the counter. Turn off for portal/online-only modes.
+                </p>
+              </div>
+              <Switch
+                checked={form.show_at_pos}
+                onCheckedChange={(checked) => setForm({ ...form, show_at_pos: checked })}
               />
             </div>
             {editingPaymentMode && (

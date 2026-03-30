@@ -23,6 +23,7 @@ def _apply_filters(
     id_filter: int | None = None,
     id_op: str = "eq",
     id_filter_end: int | None = None,
+    show_at_pos: bool | None = None,
 ):
     if id_filter is not None:
         if id_op == "between" and id_filter_end is not None:
@@ -51,6 +52,8 @@ def _apply_filters(
         query = query.where(PaymentMode.is_active == True)
     elif status == "inactive":
         query = query.where(PaymentMode.is_active == False)
+    if show_at_pos is not None:
+        query = query.where(PaymentMode.show_at_pos == show_at_pos)
     return query
 
 
@@ -58,9 +61,10 @@ async def count_payment_modes(
     db: AsyncSession, search: str | None = None, status: str | None = None,
     search_column: str = "all", match_type: str = "contains",
     id_filter: int | None = None, id_op: str = "eq", id_filter_end: int | None = None,
+    show_at_pos: bool | None = None,
 ) -> int:
     query = select(func.count()).select_from(PaymentMode)
-    query = _apply_filters(query, search, status, search_column, match_type, id_filter, id_op, id_filter_end)
+    query = _apply_filters(query, search, status, search_column, match_type, id_filter, id_op, id_filter_end, show_at_pos)
     result = await db.execute(query)
     return result.scalar()
 
@@ -77,11 +81,12 @@ async def get_all_payment_modes(
     search: str | None = None, status: str | None = None,
     search_column: str = "all", match_type: str = "contains",
     id_filter: int | None = None, id_op: str = "eq", id_filter_end: int | None = None,
+    show_at_pos: bool | None = None,
 ) -> list[PaymentMode]:
     column = SORTABLE_COLUMNS.get(sort_by, PaymentMode.id)
     order = column.desc() if sort_order == "desc" else column.asc()
     query = select(PaymentMode)
-    query = _apply_filters(query, search, status, search_column, match_type, id_filter, id_op, id_filter_end)
+    query = _apply_filters(query, search, status, search_column, match_type, id_filter, id_op, id_filter_end, show_at_pos)
     result = await db.execute(
         query.order_by(order).offset(skip).limit(limit)
     )
@@ -107,6 +112,7 @@ async def create_payment_mode(db: AsyncSession, payment_mode_in: PaymentModeCrea
         id=next_id,
         description=payment_mode_in.description,
         is_active=True,
+        show_at_pos=payment_mode_in.show_at_pos,
     )
     db.add(payment_mode)
     await db.commit()

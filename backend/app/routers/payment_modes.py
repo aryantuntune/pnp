@@ -37,10 +37,11 @@ async def list_payment_modes(
     id_op: str = Query("eq", description="ID comparison operator: eq, lt, gt, or between"),
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
+    show_at_pos: bool | None = Query(None, description="Filter by POS visibility: true=POS only, false=non-POS only, omit for all"),
     db: AsyncSession = Depends(get_db),
     _=Depends(_payment_mode_read_roles),
 ):
-    return await payment_mode_service.get_all_payment_modes(db, skip, limit, sort_by, sort_order, search, status, search_column, match_type, id_filter, id_op, id_filter_end)
+    return await payment_mode_service.get_all_payment_modes(db, skip, limit, sort_by, sort_order, search, status, search_column, match_type, id_filter, id_op, id_filter_end, show_at_pos)
 
 
 @router.get(
@@ -62,10 +63,11 @@ async def count_payment_modes(
     id_op: str = Query("eq", description="ID comparison operator: eq, lt, gt, or between"),
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
+    show_at_pos: bool | None = Query(None, description="Filter by POS visibility: true=POS only, false=non-POS only, omit for all"),
     db: AsyncSession = Depends(get_db),
     _=Depends(_payment_mode_read_roles),
 ):
-    return await payment_mode_service.count_payment_modes(db, search, status, search_column, match_type, id_filter, id_op, id_filter_end)
+    return await payment_mode_service.count_payment_modes(db, search, status, search_column, match_type, id_filter, id_op, id_filter_end, show_at_pos)
 
 
 @router.post(

@@ -214,17 +214,20 @@ export interface PaymentMode {
   id: number;
   description: string;
   is_active: boolean;
+  show_at_pos: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
 export interface PaymentModeCreate {
   description: string;
+  show_at_pos: boolean;
 }
 
 export interface PaymentModeUpdate {
   description?: string;
   is_active?: boolean;
+  show_at_pos?: boolean;
 }
 
 // ── Ticket types ──
