@@ -2215,22 +2215,19 @@ export default function TicketingPage() {
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              By default, every print opens a browser popup asking you to confirm. Follow the steps below to remove that popup so receipts print instantly — works on <strong>Chrome</strong> and <strong>Microsoft Edge</strong>.
+              By default every print opens a browser popup to confirm. The setup file removes that popup so receipts go directly to the printer — works on <strong>Chrome</strong> and <strong>Edge</strong>.
             </p>
             <div className="space-y-2">
               <p className="font-medium text-foreground">Steps (one time per computer):</p>
               <ol className="space-y-2 list-decimal list-inside text-muted-foreground">
-                <li>Right-click your <strong>Chrome</strong> or <strong>Edge</strong> desktop shortcut → <strong>Properties</strong>.</li>
-                <li>In the <strong>Target</strong> field, click at the end and add a space followed by: <code className="bg-muted text-foreground px-1.5 py-0.5 rounded text-xs font-mono">--kiosk-printing</code></li>
-                <li>Click <strong>OK</strong>, then close and reopen the browser.</li>
+                <li>Ask your administrator for the <code className="bg-muted text-foreground px-1 rounded text-xs">setup-direct-printing.bat</code> file and run it.</li>
+                <li>It will create a new shortcut on your Desktop called <strong>Chrome - Direct Print</strong> or <strong>Edge - Direct Print</strong>.</li>
+                <li>Close all browser windows completely.</li>
+                <li>From now on, always open the browser using that new Desktop shortcut.</li>
               </ol>
             </div>
-            <div className="bg-muted rounded-lg px-3 py-2 font-mono text-xs break-all text-muted-foreground">
-              Example Target:<br />
-              <span className="text-foreground">&quot;C:\Program Files\Google\Chrome\Application\chrome.exe&quot; --kiosk-printing</span>
-            </div>
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-xs">
-              Make sure the receipt printer is set as your <strong>Windows default printer</strong> before printing.
+              <strong>Important:</strong> The popup will still appear if you open the browser from the original shortcut or taskbar. Always use the <em>Direct Print</em> shortcut for ticketing.
             </div>
           </div>
           <DialogFooter className="mt-2">
