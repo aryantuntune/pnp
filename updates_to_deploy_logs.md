@@ -2,6 +2,90 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (show_at_pos flag for Payment Modes)
+
+### Module
+
+Backend + Frontend — Payment Modes Master / Ticket Generation
+
+### Commit ID
+
+94761d4
+
+### Changes
+
+* **New `show_at_pos` field on payment modes**: Each payment mode now has a "Show at POS" toggle. When **on**, the mode appears in the payment confirmation dropdown during ticket generation at the counter. When **off**, it is hidden from POS (used only by portal/customer-app/online payments).
+* **"Online" mode automatically set to `show_at_pos = false`** by the migration — it will no longer appear in the ticket confirmation dropdown.
+* **Payment modes master page**: new "Show at POS" column in the table, displayed in the view modal, and a toggle switch in both the create and edit modal.
+* **Ticket generation**: payment confirmation dropdown now only fetches payment modes with `show_at_pos = true`.
+
+### Files Modified
+
+* `backend/app/models/payment_mode.py`
+* `backend/app/schemas/payment_mode.py`
+* `backend/app/services/payment_mode_service.py`
+* `backend/app/routers/payment_modes.py`
+* `backend/scripts/ddl.sql`
+* `backend/alembic/versions/a3c5d8e91f02_add_show_at_pos_to_payment_modes.py` *(new)*
+* `frontend/src/types/index.ts`
+* `frontend/src/app/dashboard/payment-modes/page.tsx`
+* `frontend/src/app/dashboard/ticketing/page.tsx`
+
+### VPS Deployment Steps
+
+Both backend and frontend changed. **Database migration required.**
+
+#### 0. SSH in and pull latest code
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+```
+
+#### 1. Run the Alembic migration (adds show_at_pos column, sets Online → false)
+
+```bash
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+```
+
+Verify:
+```sql
+SELECT id, description, show_at_pos FROM payment_modes ORDER BY id;
+-- "Online" row should show show_at_pos = false
+```
+
+#### 2. Restart the backend
+
+```bash
+sudo systemctl restart ssmspl
+sudo systemctl status ssmspl
+```
+
+#### 3. Rebuild and restart the frontend
+
+```bash
+cd /path/to/ssmspl/frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+#### 4. Smoke test
+
+1. Go to **Payment Mode Management** — confirm a "Show at POS" column is visible. "Online" should show "No".
+2. Open the **Edit** modal for any mode — confirm the "Show at POS" toggle is present.
+3. Open **Ticket Generation** → complete a ticket → open payment confirmation popup → confirm "Online" is **not** in the dropdown list.
+4. Confirm Cash, UPI, and other POS modes are still present.
+
+### Notes
+
+* No changes to existing POS payment modes other than adding the flag (all default to `show_at_pos = true`).
+* The `show_at_pos` filter is also applied to the `/api/payment-modes/count` endpoint for the master page pagination.
+
+---
+
 ## Deployment Update — 2026-03-30 (Role-based access for Branch & Route Master)
 
 ### Module
