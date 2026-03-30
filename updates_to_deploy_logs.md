@@ -10,7 +10,7 @@ Item Rates / Seed Data / Audit Infrastructure
 
 ### Commit ID
 
-_(run `git log --oneline -1` after committing)_
+3204a98
 
 ### Changes
 
@@ -46,74 +46,230 @@ _(run `git log --oneline -1` after committing)_
 
 ### Deployment Steps (VPS)
 
-Pull latest code:
+> **Before you start:** This migration is non-destructive — no rows are ever deleted, only deactivated. Every step is idempotent (safe to re-run). The app keeps working throughout; old rates remain active until Step 7 completes.
+
+---
+
+#### 0. SSH in and pull latest code
+
 ```bash
+ssh <your-vps-user>@<vps-ip>
 cd /var/www/ssmspl
 git pull origin main
 ```
 
-**Step 1 — Apply DDL patch** (adds tables + trigger; zero downtime, safe on live DB):
+Confirm the new files are present:
 ```bash
-cd backend
-source .venv/bin/activate
-psql "$DATABASE_URL" -f scripts/ddl.sql
+ls backend/scripts/migrate_v1_to_v2_items.py   # should exist
+ls backend/scripts/seed_route_item_rates.py     # rewritten
 ```
-Verify new tables exist:
+
+---
+
+#### 1. Activate the Python environment
+
+All Python commands in the steps below must be run from inside the `backend/` folder with the venv active. Do this once and keep the session open.
+
+```bash
+cd /var/www/ssmspl/backend
+source .venv/bin/activate
+```
+
+You should see `(.venv)` in your prompt. If not, the venv path may differ — check with `ls .venv/`.
+
+---
+
+#### 2. Read your DATABASE_URL
+
+The migration script reads it automatically from `.env.production`. Confirm it's there:
+
+```bash
+grep DATABASE_URL .env.production
+# example output:
+# DATABASE_URL=postgresql+asyncpg://ssmspl_user:password@localhost:5432/ssmspl_db
+```
+
+If the file is named differently (`.env` or `.env.prod`), pass it explicitly in the commands below using `--env .env`.
+
+---
+
+#### 3. Apply the DDL patch
+
+This adds the two new audit tables, the snapshot columns, and the DB trigger. It is safe to run on a live database — it only adds things, never removes.
+
+```bash
+# Still inside /var/www/ssmspl/backend with venv active
+# Extract the plain postgres URL (strip the +asyncpg driver prefix)
+DB_URL=$(grep DATABASE_URL .env.production | cut -d= -f2- | tr -d "'" | sed 's/postgresql+asyncpg/postgresql/')
+
+psql "$DB_URL" -f scripts/ddl.sql
+```
+
+You should see output like:
+```
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+...
+CREATE TRIGGER
+```
+
+If you see errors like `already exists` — that's fine, those parts were already applied.
+
+**Verify the patch worked** — open psql and check:
+
+```bash
+psql "$DB_URL"
+```
+
+Once inside psql (`=#` prompt), run:
+
 ```sql
+-- New tables should appear
 \dt item_rate_history
 \dt item_migration_map
-\d ticket_items    -- confirm item_name_snapshot column present
-\d booking_items   -- confirm item_name_snapshot column present
+
+-- Snapshot columns should be listed
+\d ticket_items
+-- look for: item_name_snapshot | character varying(60)
+
+\d booking_items
+-- look for: item_name_snapshot | character varying(60)
+
+-- Trigger should be listed
+\d item_rates
+-- look for: Triggers: item_rate_audit AFTER INSERT OR UPDATE
+
+\q
 ```
 
-**Step 2 — Dry-run the migration** (no writes, preview only):
+If any of the above are missing, re-run step 3 before continuing.
+
+---
+
+#### 4. Dry-run the migration (no writes)
+
+This previews every change without touching the database. Read the output carefully.
+
 ```bash
+# Still inside /var/www/ssmspl/backend with venv active
 python scripts/migrate_v1_to_v2_items.py --dry-run
 ```
-Review output carefully. Confirm row counts look correct before proceeding.
 
-**Step 3 — Run migration one step at a time**:
+What to look for in the output:
+- Step 0 prints counts — note how many `ticket_items` and `booking_items` rows need backfilling
+- Steps 1–2 say how many snapshot rows will be written
+- Step 5 lists every item that will be UPDATED or DEACTIVATED — verify the V2 names look correct
+- Step 6 shows how many old item_rates will be deactivated
+- Step 7 shows 126 INSERT/UPDATE lines (21 items × 6 routes)
+
+If anything looks wrong, **stop here** and investigate before proceeding.
+
+---
+
+#### 5. Run the migration — one step at a time
+
+Each step runs in its own transaction. Wait for each to complete and check the output before running the next.
+
 ```bash
-python scripts/migrate_v1_to_v2_items.py --step 1   # backfill ticket_items snapshots
-python scripts/migrate_v1_to_v2_items.py --step 2   # backfill booking_items snapshots
-python scripts/migrate_v1_to_v2_items.py --step 3   # seed item_rate_history baseline
-python scripts/migrate_v1_to_v2_items.py --step 4   # insert item_migration_map
-python scripts/migrate_v1_to_v2_items.py --step 5   # update items table to V2
-python scripts/migrate_v1_to_v2_items.py --step 6   # deactivate old V1 item_rates
-python scripts/migrate_v1_to_v2_items.py --step 7   # insert new V2 item_rates
+# Step 1 — save item names into ticket_items rows (safe, additive only)
+python scripts/migrate_v1_to_v2_items.py --step 1
+# Expected output: "Backfilled: N rows"
+
+# Step 2 — save item names into booking_items rows
+python scripts/migrate_v1_to_v2_items.py --step 2
+# Expected output: "Backfilled: N rows"
+
+# Step 3 — snapshot current item_rates into audit history as V1 baseline
+python scripts/migrate_v1_to_v2_items.py --step 3
+# Expected output: "Seeded: N baseline rows into item_rate_history"
+
+# Step 4 — record the old→new item mapping permanently
+python scripts/migrate_v1_to_v2_items.py --step 4
+# Expected output: "Inserted N rows into item_migration_map"
+
+# Step 5 — rename items to V2 names, deactivate V1-only items
+python scripts/migrate_v1_to_v2_items.py --step 5
+# Expected output: lines like [UPDATE] item 4: 'EMPTY 3WHLR 5 ST RICKSHAW' → 'MAGIC/IRIS/CAR'
+#                              lines like [DEACT]  item 22: 'TRUCK 10 WHLR'
+
+# Step 6 — deactivate old V1 item_rates (not deleted — trigger records each)
+python scripts/migrate_v1_to_v2_items.py --step 6
+# Expected output: "Deactivated N rows"
+
+# Step 7 — insert the 21 new V2 item_rates across 6 routes
+python scripts/migrate_v1_to_v2_items.py --step 7
+# Expected output: 126 [INSERT] or [UPDATE] lines, then "Inserted/updated: 126"
 ```
 
-Verify after all steps:
+---
+
+#### 6. Verify the final state in psql
+
+```bash
+psql "$DB_URL"
+```
+
 ```sql
+-- Active items should now be exactly 21
 SELECT COUNT(*) FROM items WHERE is_active = TRUE;
 -- expected: 21
 
+-- Active rates: 21 items × 6 routes = 126
+-- (route 6 AMBET-MHAPRAL has its own set, total may be slightly higher)
 SELECT COUNT(*) FROM item_rates WHERE is_active = TRUE;
--- expected: 126  (21 items × 6 routes)
+-- expected: ~126
 
+-- Audit history should have entries
 SELECT COUNT(*) FROM item_rate_history;
 -- expected: > 0
 
+-- No ticket rows should be missing their snapshot
 SELECT COUNT(*) FROM ticket_items WHERE item_name_snapshot IS NULL;
 -- expected: 0
 
 SELECT COUNT(*) FROM booking_items WHERE item_name_snapshot IS NULL;
 -- expected: 0
+
+-- Quick sanity check — see the 21 active items
+SELECT id, name, is_active FROM items WHERE is_active = TRUE ORDER BY id;
+-- should list items 1–21 with V2 names
+
+\q
 ```
 
-Restart backend to clear any cached item lists:
+---
+
+#### 7. Restart the backend
+
 ```bash
 sudo systemctl restart ssmspl
+sudo systemctl status ssmspl   # confirm it's running (Active: active (running))
 ```
+
+No frontend rebuild needed — this is a backend-only + database change.
+
+---
+
+#### If something goes wrong
+
+Every step is idempotent — you can safely re-run any step. The script detects already-completed work and skips it.
+
+If you need to investigate a specific step's output again:
+```bash
+python scripts/migrate_v1_to_v2_items.py --step <N> --dry-run
+```
+
+Nothing is irreversible at the data level — V1 items and old item_rates are deactivated, not deleted. They can be reactivated manually if needed.
 
 ### Notes
 
-* **No data loss** — old ticket amounts (rate/levy) are stored directly in `ticket_items`. Item names are preserved via `item_name_snapshot`.
-* **No downtime** — all steps are non-destructive (deactivation, not deletion). The app continues serving existing rates until step 7 completes.
+* **No data loss** — old ticket amounts (rate/levy) are stored directly in `ticket_items`. Item names preserved via `item_name_snapshot`.
+* **No downtime** — steps 1–6 are purely additive/deactivation. Old rates remain active until step 7 completes.
 * **Idempotent** — safe to re-run any step; already-complete work is detected and skipped.
-* **Ongoing audit** — every rate change from this point forward is auto-recorded in `item_rate_history` via DB trigger. No app code change needed.
-* **Future rate changes** — use `seed_route_item_rates.py` for bulk updates or edit via admin UI; both are captured by the trigger.
-* Route 6 (AMBET ↔ MHAPRAL) rates were not in the PDF and remain unchanged.
+* **Ongoing audit** — every future rate change is auto-recorded in `item_rate_history` via DB trigger. No app changes needed.
+* Route 6 (AMBET ↔ MHAPRAL) rates were not in the PDF and are unchanged.
 
 ---
 
@@ -156,32 +312,113 @@ ca08fc4
 
 ### Deployment Steps (VPS)
 
-Pull latest code:
+> **Before you start:** This is a simple, non-destructive change. The migration only removes a `NOT NULL` constraint — no rows are deleted or altered. The app keeps working throughout deployment.
+
+---
+
+#### 0. SSH in and pull latest code
+
 ```bash
+ssh <your-vps-user>@<vps-ip>
 cd /var/www/ssmspl
 git pull origin main
 ```
 
-Backend — run migration and restart:
+Confirm the new migration file is present:
 ```bash
-cd backend
-source .venv/bin/activate
-alembic upgrade head
-sudo systemctl restart ssmspl
+ls backend/alembic/versions/f3b7c1e92a05_make_user_email_nullable.py
+# should print the file path — if not, the pull may have failed
 ```
 
-Frontend — rebuild and restart:
+---
+
+#### 1. Activate the Python environment
+
 ```bash
-cd frontend
+cd /var/www/ssmspl/backend
+source .venv/bin/activate
+```
+
+You should see `(.venv)` in your prompt.
+
+---
+
+#### 2. Run the Alembic migration
+
+This alters the `users.email` column to allow `NULL`. It is instantaneous on any reasonable table size and fully safe to run on a live database.
+
+```bash
+alembic upgrade head
+```
+
+Expected output:
+```
+INFO  [alembic.runtime.migration] Running upgrade aef052bf16ec -> f3b7c1e92a05, make user email nullable
+```
+
+**Verify the migration worked:**
+
+```bash
+# Get your DB URL from the env file
+DB_URL=$(grep DATABASE_URL .env.production | cut -d= -f2- | tr -d "'" | sed 's/postgresql+asyncpg/postgresql/')
+psql "$DB_URL"
+```
+
+Once inside psql, run:
+
+```sql
+-- The email column should now show "nullable" (i.e. no "not null" in the Modifiers column)
+\d users
+-- Look for the email row — it should NOT have "not null" in the Modifiers column
+-- e.g.:  email  | character varying(255) |
+-- (not:  email  | character varying(255) | not null)
+
+\q
+```
+
+If `not null` is still present, re-run `alembic upgrade head` and check for errors.
+
+---
+
+#### 3. Restart the backend
+
+```bash
+sudo systemctl restart ssmspl
+sudo systemctl status ssmspl
+# Should show: active (running)
+```
+
+---
+
+#### 4. Rebuild and restart the frontend
+
+```bash
+cd /var/www/ssmspl/frontend
 npm run build
 sudo systemctl restart ssmspl-frontend
+sudo systemctl status ssmspl-frontend
+# Should show: active (running)
 ```
+
+The build output will include the updated `users/page.tsx` and `forgot-password/page.tsx`.
+
+---
+
+#### 5. Smoke test
+
+1. Log in as an admin or super admin
+2. Go to **User Management → Add User**
+3. Fill in Full Name, Username, Password, Role — **leave Email blank**
+4. Click **Create User** — it should succeed without any email validation error
+5. The new user should appear in the table with "—" in the Email column
+6. Open the new user's details — Email row should show "—"
+7. Visit `/forgot-password` — the amber "No email on your account?" banner should be visible
 
 ### Notes
 
 * Existing users with emails are unaffected — the migration only relaxes the constraint.
-* Users without email cannot use the "Forgot Password" self-service flow. They must ask an admin/manager to reset their password via the User Management page, or have their email added via the Edit User form.
-* The uniqueness constraint on `email` remains in place; only one user per email address is allowed (NULL values are exempt from the unique check).
+* Users without email cannot use the "Forgot Password" self-service flow. They must ask an admin/manager to either reset their password directly via the **Edit User → Reset Password** panel, or add an email to their account via **Edit User → Email field**.
+* The uniqueness constraint on `email` remains in place — only one user per email address is allowed. Multiple `NULL` values are permitted (PostgreSQL does not treat NULLs as equal in unique indexes).
 
 ---
 
