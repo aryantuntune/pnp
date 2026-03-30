@@ -31,6 +31,7 @@ interface UserFormData {
   email: string;
   username: string;
   full_name: string;
+  mobile_number: string;
   password: string;
   role: string;
   route_id: string;
@@ -41,6 +42,7 @@ const emptyForm: UserFormData = {
   email: "",
   username: "",
   full_name: "",
+  mobile_number: "",
   password: "",
   role: "TICKET_CHECKER",
   route_id: "",
@@ -187,6 +189,7 @@ export default function UsersPage() {
       email: u.email || "",
       username: u.username,
       full_name: u.full_name,
+      mobile_number: u.mobile_number || "",
       password: "",
       role: u.role,
       route_id: u.route_id != null ? String(u.route_id) : "",
@@ -268,6 +271,7 @@ export default function UsersPage() {
         if (form.full_name !== editingUser.full_name) update.full_name = form.full_name;
         if (form.username !== editingUser.username) update.username = form.username;
         if (form.email && form.email !== (editingUser.email || "")) update.email = form.email;
+        if (form.mobile_number !== (editingUser.mobile_number || "")) update.mobile_number = form.mobile_number || undefined;
         const formRole = form.role as UserRole;
         if (formRole !== editingUser.role) update.role = formRole;
         const formRouteId = form.route_id ? Number(form.route_id) : null;
@@ -279,6 +283,7 @@ export default function UsersPage() {
           ...(form.email ? { email: form.email } : {}),
           username: form.username,
           full_name: form.full_name,
+          ...(form.mobile_number ? { mobile_number: form.mobile_number } : {}),
           password: form.password,
           role: form.role as UserRole,
           route_id: form.route_id ? Number(form.route_id) : null,
@@ -334,6 +339,10 @@ export default function UsersPage() {
       key: "email",
       label: "Email",
       sortable: true,
+    },
+    {
+      key: "mobile_number",
+      label: "Mobile",
     },
     {
       key: "role",
@@ -495,6 +504,7 @@ export default function UsersPage() {
                 ["Username", viewUser.username],
                 ["Full Name", viewUser.full_name],
                 ["Email", viewUser.email || "\u2014"],
+                ["Mobile", viewUser.mobile_number || "\u2014"],
                 ["Role", <Badge key="role" variant="secondary">{formatRole(viewUser.role)}</Badge>],
                 ["Route", viewUser.route_name || "\u2014"],
                 ["Status", <Badge key="status" variant={viewUser.is_active ? "default" : "destructive"}>{viewUser.is_active ? "Active" : "Inactive"}</Badge>],
@@ -555,6 +565,17 @@ export default function UsersPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="e.g. john@ssmspl.com (optional)"
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>Mobile Number</Label>
+              <Input
+                type="tel"
+                maxLength={20}
+                value={form.mobile_number}
+                onChange={(e) => setForm({ ...form, mobile_number: e.target.value })}
+                placeholder="e.g. +919876543210 (optional)"
                 className="mt-1.5"
               />
             </div>

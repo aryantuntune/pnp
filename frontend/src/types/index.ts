@@ -15,6 +15,7 @@ export interface User {
   email: string | null;
   username: string;
   full_name: string;
+  mobile_number: string | null;
   role: UserRole;
   route_id: number | null;
   route_name: string | null;
@@ -37,6 +38,7 @@ export interface UserCreate {
   email?: string;
   username: string;
   full_name: string;
+  mobile_number?: string;
   password: string;
   role?: UserRole;
   route_id?: number | null;
@@ -51,6 +53,7 @@ export interface UserUpdate {
   full_name?: string;
   username?: string;
   email?: string;
+  mobile_number?: string;
   role?: UserRole;
   route_id?: number | null;
   is_active?: boolean;

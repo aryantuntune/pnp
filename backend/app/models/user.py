@@ -18,6 +18,7 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mobile_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
         SAEnum(UserRole, name="user_role_enum"), nullable=False, default=UserRole.TICKET_CHECKER

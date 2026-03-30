@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     email: EmailStr | None = Field(None, description="User's email address (optional)", examples=["admin@ssmspl.com"])
     username: str = Field(..., description="Unique login username", examples=["admin"])
     full_name: str = Field(..., description="User's full display name", examples=["System Administrator"])
+    mobile_number: str | None = Field(None, max_length=20, description="User's mobile number (optional)", examples=["+919876543210"])
     role: UserRole = Field(
         default=UserRole.TICKET_CHECKER,
         description="RBAC role — determines menu access and permissions",
@@ -56,6 +57,7 @@ class UserUpdate(BaseModel):
         examples=["johndoe"],
     )
     email: EmailStr | None = Field(None, description="Updated email address")
+    mobile_number: str | None = Field(None, max_length=20, description="Updated mobile number")
     role: UserRole | None = Field(None, description="Updated RBAC role")
     route_id: int | None = Field(None, description="Updated assigned route ID")
     is_active: bool | None = Field(None, description="Set false to deactivate the user")

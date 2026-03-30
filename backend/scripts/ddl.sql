@@ -68,9 +68,10 @@ CREATE TABLE IF NOT EXISTS routes (
 -- Users table (authentication + RBAC)
 CREATE TABLE IF NOT EXISTS users (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email           VARCHAR(255) NOT NULL UNIQUE,
+    email           VARCHAR(255) UNIQUE,
     username        VARCHAR(100) NOT NULL UNIQUE,
     full_name       VARCHAR(255) NOT NULL,
+    mobile_number   VARCHAR(20),
     hashed_password VARCHAR(255) NOT NULL,
     role            user_role_enum NOT NULL DEFAULT 'TICKET_CHECKER',
     route_id        INTEGER REFERENCES routes(id),
@@ -610,6 +611,18 @@ DROP TRIGGER IF EXISTS item_rate_audit ON item_rates;
 CREATE TRIGGER item_rate_audit
     AFTER INSERT OR UPDATE ON item_rates
     FOR EACH ROW EXECUTE FUNCTION record_item_rate_change();
+
+-- ============================================================
+-- PATCH: Make users.email nullable
+-- Staff accounts may be created before email is known.
+-- Managers add/update email via Admin > Users > Edit.
+-- ============================================================
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+
+-- ============================================================
+-- PATCH: Add mobile_number to users table
+-- ============================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20);
 
 -- ============================================================
 -- END OF DDL
