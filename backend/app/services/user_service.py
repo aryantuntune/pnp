@@ -99,6 +99,7 @@ def _apply_filters(
     search_column: str = "all",
     match_type: str = "contains",
     role_filter: str | None = None,
+    route_filter: int | None = None,
 ):
     if search:
         if match_type == "starts_with":
@@ -129,6 +130,9 @@ def _apply_filters(
     if role_filter:
         query = query.where(User.role == role_filter)
 
+    if route_filter is not None:
+        query = query.where(User.route_id == route_filter)
+
     return query
 
 
@@ -139,10 +143,11 @@ async def count_users(
     search_column: str = "all",
     match_type: str = "contains",
     role_filter: str | None = None,
+    route_filter: int | None = None,
     current_user: User | None = None,
 ) -> int:
     query = select(func.count()).select_from(User)
-    query = _apply_filters(query, search, status, search_column, match_type, role_filter)
+    query = _apply_filters(query, search, status, search_column, match_type, role_filter, route_filter)
     # Non-SUPER_ADMIN users never see SUPER_ADMIN accounts
     if current_user and current_user.role != UserRole.SUPER_ADMIN:
         query = query.where(User.role != UserRole.SUPER_ADMIN)
@@ -176,6 +181,7 @@ async def get_all_users(
     search_column: str = "all",
     match_type: str = "contains",
     role_filter: str | None = None,
+    route_filter: int | None = None,
     current_user: User | None = None,
 ) -> list[dict]:
     column = SORTABLE_COLUMNS.get(sort_by, User.created_at)
@@ -194,7 +200,7 @@ async def get_all_users(
         .outerjoin(BranchOne, BranchOne.c.id == Route.branch_id_one)
         .outerjoin(BranchTwo, BranchTwo.c.id == Route.branch_id_two)
     )
-    query = _apply_filters(query, search, status, search_column, match_type, role_filter)
+    query = _apply_filters(query, search, status, search_column, match_type, role_filter, route_filter)
     # Non-SUPER_ADMIN users never see SUPER_ADMIN accounts
     if current_user and current_user.role != UserRole.SUPER_ADMIN:
         query = query.where(User.role != UserRole.SUPER_ADMIN)

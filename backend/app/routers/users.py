@@ -64,11 +64,12 @@ async def list_users(
     match_type: str = Query("contains", description="Match type: contains, starts_with, or ends_with"),
     role_filter: str | None = Query(None, description="Filter by role (ADMIN, MANAGER, BILLING_OPERATOR, TICKET_CHECKER)"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
+    route_filter: int | None = Query(None, description="Filter by route ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_user_read_roles),
 ):
     return await user_service.get_all_users(
-        db, skip, limit, sort_by, sort_order, search, status, search_column, match_type, role_filter,
+        db, skip, limit, sort_by, sort_order, search, status, search_column, match_type, role_filter, route_filter,
         current_user=current_user,
     )
 
@@ -92,10 +93,11 @@ async def count_users(
     match_type: str = Query("contains", description="Match type: contains, starts_with, or ends_with"),
     role_filter: str | None = Query(None, description="Filter by role"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
+    route_filter: int | None = Query(None, description="Filter by route ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_user_read_roles),
 ):
-    return await user_service.count_users(db, search, status, search_column, match_type, role_filter,
+    return await user_service.count_users(db, search, status, search_column, match_type, role_filter, route_filter,
         current_user=current_user,
     )
 

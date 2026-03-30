@@ -86,6 +86,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [routeFilter, setRouteFilter] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -144,8 +145,9 @@ export default function UsersPage() {
       }
       if (roleFilter) params.set("role_filter", roleFilter);
       if (statusFilter) params.set("status", statusFilter);
+      if (routeFilter) params.set("route_filter", routeFilter);
 
-      const filterKeys = ["search", "search_column", "match_type", "role_filter", "status"];
+      const filterKeys = ["search", "search_column", "match_type", "role_filter", "status", "route_filter"];
       const countParams = new URLSearchParams(
         Object.fromEntries([...params].filter(([k]) => filterKeys.includes(k)))
       );
@@ -163,7 +165,7 @@ export default function UsersPage() {
     } finally {
       if (!controller.signal.aborted) setTableLoading(false);
     }
-  }, [page, pageSize, sortBy, sortOrder, search, roleFilter, statusFilter]);
+  }, [page, pageSize, sortBy, sortOrder, search, roleFilter, statusFilter, routeFilter]);
 
   // Compute role options based on current user
   const ROLE_OPTIONS = currentUser?.role === "SUPER_ADMIN"
@@ -456,7 +458,23 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(searchInput || statusFilter || roleFilter) && (
+            <div>
+              <Label className="mb-1.5 block">Route</Label>
+              <Select value={routeFilter} onValueChange={(v) => { setRouteFilter(v === "all" ? "" : v); setPage(1); }}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="All Routes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Routes</SelectItem>
+                  {routes.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.branch_one_name} - {r.branch_two_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {(searchInput || statusFilter || roleFilter || routeFilter) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -465,6 +483,7 @@ export default function UsersPage() {
                   setSearch("");
                   setRoleFilter("");
                   setStatusFilter("");
+                  setRouteFilter("");
                   setPage(1);
                 }}
               >
