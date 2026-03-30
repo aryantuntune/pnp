@@ -77,14 +77,20 @@ function getToday(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+function getDateDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function RateChangeLogsPage() {
   const [logs, setLogs] = useState<RateChangeLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [totalCount, setTotalCount] = useState(0);
 
-  // Filters
-  const [dateFrom, setDateFrom] = useState(getToday);
+  // Filters — default: last 30 days
+  const [dateFrom, setDateFrom] = useState(() => getDateDaysAgo(30));
   const [dateTo, setDateTo] = useState(getToday);
   const [routeId, setRouteId] = useState("");
   const [itemId, setItemId] = useState("");
