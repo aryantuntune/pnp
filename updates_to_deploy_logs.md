@@ -2,6 +2,85 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (User Management filter layout fix)
+
+### Module
+
+User Management
+
+### Commit ID
+
+21d76ef
+
+### Changes
+
+* Fixed Route filter rendering outside the card boundary — caused by the `flex-1` search input consuming all horizontal space and pushing the Route dropdown out of the card's visible bounds
+* Restructured filters bar into two explicit rows:
+  - **Row 1**: Full-width search input
+  - **Row 2**: Role, Status, Route dropdowns + Clear filters button
+* Removed `sm:` responsive width variants on dropdowns — fixed widths keep the layout stable across all viewport sizes
+
+### Files Modified
+
+* `frontend/src/app/dashboard/users/page.tsx`
+
+### Deployment Steps (VPS)
+
+> **Important:** The route filter was not working because the backend service was not restarted after the previous deploy (`79411ba`). This update also serves as a reminder to restart the backend. No new backend code changes in this commit.
+
+---
+
+#### 0. SSH in and pull latest code
+
+```bash
+ssh <your-vps-user>@<vps-ip>
+cd /var/www/ssmspl
+git pull origin main
+```
+
+---
+
+#### 1. Restart the backend (required for route filtering to work)
+
+The backend must be running the code from commit `79411ba` for `route_filter` to take effect. If it hasn't been restarted since that deploy, do it now:
+
+```bash
+cd /var/www/ssmspl/backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+sudo systemctl status ssmspl
+# Should show: active (running)
+```
+
+---
+
+#### 2. Rebuild and restart the frontend
+
+```bash
+cd /var/www/ssmspl/frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+sudo systemctl status ssmspl-frontend
+# Should show: active (running)
+```
+
+---
+
+#### 3. Smoke test
+
+1. Go to **User Management**
+2. The filters bar should show two rows: Search on top, Role / Status / Route on the bottom row — all inside the card border
+3. Select a route from the Route dropdown — table should show only users on that route
+4. Combine with Role or Status filter — both should apply together
+5. Click **Clear filters** — all three dropdowns reset
+
+### Notes
+
+* No database migration in this commit.
+* If route filtering still does not work after the backend restart, verify the backend is running from commit `79411ba` or later: `git -C /var/www/ssmspl log --oneline -5`
+
+---
+
 ## Deployment Update — 2026-03-30 (Items Master & Item Rate Management UI fixes)
 
 ### Module
