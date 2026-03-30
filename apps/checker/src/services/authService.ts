@@ -2,9 +2,9 @@ import api from './api';
 import { MobileLoginResponse } from '../types';
 import { setTokens, setCheckerData, clearAll, getRefreshToken } from './storageService';
 
-export async function login(email: string, password: string): Promise<MobileLoginResponse> {
+export async function login(username: string, password: string): Promise<MobileLoginResponse> {
   const { data } = await api.post<MobileLoginResponse>('/api/auth/mobile-login', {
-    email,
+    username,
     password,
   });
   await setTokens(data.access_token, data.refresh_token);

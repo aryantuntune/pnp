@@ -52,6 +52,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [manualModalVisible, setManualModalVisible] = useState(false);
   const [manualType, setManualType] = useState<'booking' | 'ticket'>('booking');
   const [manualNumber, setManualNumber] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
@@ -105,8 +106,13 @@ export default function HomeScreen({ navigation }: Props) {
       Alert.alert('Invalid', 'Number is too large. Please enter a valid number.');
       return;
     }
+    const parsedBranchId = branchId ? parseInt(branchId, 10) : undefined;
+    if (manualType === 'ticket' && (!parsedBranchId || parsedBranchId <= 0)) {
+      Alert.alert('Invalid', 'Please enter a valid branch ID for ticket lookup.');
+      return;
+    }
     setManualModalVisible(false);
-    dispatch(lookupManual({ type: manualType, number: num, branchId: undefined }));
+    dispatch(lookupManual({ type: manualType, number: num, branchId: parsedBranchId }));
     setShowDetails(true);
   };
 
@@ -178,6 +184,7 @@ export default function HomeScreen({ navigation }: Props) {
             variant="outline"
             onPress={() => {
               setManualNumber('');
+              setBranchId('');
               setManualModalVisible(true);
             }}
             disabled={!isOnline}
@@ -230,6 +237,17 @@ export default function HomeScreen({ navigation }: Props) {
               onChangeText={setManualNumber}
               placeholderTextColor={colors.textLight}
             />
+
+            {manualType === 'ticket' && (
+              <TextInput
+                style={styles.manualInput}
+                placeholder="Enter branch ID"
+                keyboardType="numeric"
+                value={branchId}
+                onChangeText={setBranchId}
+                placeholderTextColor={colors.textLight}
+              />
+            )}
 
             <View style={styles.manualActions}>
               <Button
@@ -288,7 +306,7 @@ function RecentItem({ record }: { record: VerificationRecord }) {
             {ref?.route_name && `• ${ref.route_name}`}
           </Text>
           <Text style={styles.recentMeta}>
-            {ref ? `Rs. ${ref.net_amount.toFixed(2)}` : record.error || 'Failed'} • {time}
+            {ref ? `Rs. ${(ref.net_amount ?? 0).toFixed(2)}` : record.error || 'Failed'} • {time}
           </Text>
         </View>
       </View>

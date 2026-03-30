@@ -91,20 +91,19 @@ export default function TicketDetailsModal({
             <DetailRow label="Travel Date" value={result.travel_date} />
             <DetailRow label="Departure" value={result.departure} />
             <DetailRow label="Passengers" value={result.passenger_count} />
-            <DetailRow label="Amount" value={`Rs. ${result.net_amount.toFixed(2)}`} />
+            <DetailRow label="Amount" value={`Rs. ${(result.net_amount ?? 0).toFixed(2)}`} />
 
-            {result.checked_in_at && (
-              <DetailRow
-                label="Checked In At"
-                value={new Date(result.checked_in_at).toLocaleString()}
-              />
-            )}
-            {checkInResult?.checked_in_at && (
+            {checkInResult?.checked_in_at ? (
               <DetailRow
                 label="Checked In At"
                 value={new Date(checkInResult.checked_in_at).toLocaleString()}
               />
-            )}
+            ) : result.checked_in_at ? (
+              <DetailRow
+                label="Checked In At"
+                value={new Date(result.checked_in_at).toLocaleString()}
+              />
+            ) : null}
 
             {/* Items */}
             {result.items.length > 0 && (

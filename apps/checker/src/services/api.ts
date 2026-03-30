@@ -85,6 +85,12 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Don't intercept 401s from auth endpoints — let them propagate as-is
+    const url = originalRequest.url || '';
+    if (url.includes('/auth/mobile-login') || url.includes('/auth/login')) {
+      return Promise.reject(error);
+    }
+
     // Session kicked out — don't try refresh, go straight to login
     const detail = (error.response?.data as { detail?: string })?.detail;
     if (detail === 'session_expired_elsewhere') {

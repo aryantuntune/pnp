@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextStyle, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, TextStyle, Alert } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -18,25 +18,28 @@ type Props = {
 };
 
 const SCAN_SIZE = 250;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function QRScannerScreen({ navigation }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const { lastResult, lastCheckIn, isScanning, isCheckingIn, error } = useSelector(
     (s: RootState) => s.verification,
   );
+  const { width: screenWidth } = useWindowDimensions();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [flashOn, setFlashOn] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const lastScannedRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
     dispatch(clearResult());
   }, [dispatch]);
 
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
+    if (isProcessingRef.current) return;
+
     const { data } = result;
     const now = Date.now();
 
@@ -53,9 +56,11 @@ export default function QRScannerScreen({ navigation }: Props) {
       return;
     }
 
+    isProcessingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const action = await dispatch(scanQR(data));
+    isProcessingRef.current = false;
     if (scanQR.fulfilled.match(action)) {
       setShowModal(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -104,7 +109,7 @@ export default function QRScannerScreen({ navigation }: Props) {
     );
   }
 
-  const sideWidth = (SCREEN_WIDTH - SCAN_SIZE) / 2;
+  const sideWidth = (screenWidth - SCAN_SIZE) / 2;
 
   return (
     <View style={styles.container}>

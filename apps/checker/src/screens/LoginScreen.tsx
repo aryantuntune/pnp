@@ -22,7 +22,7 @@ export default function LoginScreen() {
   const { isLoading, error } = useSelector((s: RootState) => s.auth);
   const sessionExpired = useSelector((s: RootState) => s.ui.sessionExpired);
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   useEffect(() => {
@@ -30,16 +30,16 @@ export default function LoginScreen() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (sessionExpired && (email || password)) {
+    if (sessionExpired && (username || password)) {
       dispatch(setSessionExpired(false));
     }
-  }, [email, password, sessionExpired, dispatch]);
+  }, [username, password, sessionExpired, dispatch]);
 
-  const isValid = email.includes('@') && password.length >= 6;
+  const isValid = username.trim().length >= 3 && password.length >= 6;
 
   const handleLogin = () => {
     if (!isValid) return;
-    dispatch(login({ email: email.trim(), password }));
+    dispatch(login({ username: username.trim(), password }));
   };
 
   return (
@@ -68,13 +68,14 @@ export default function LoginScreen() {
           )}
 
           <Input
-            label="Email"
-            placeholder="Enter your email"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            autoComplete="email"
-            accessibilityLabel="Email address"
+            label="Username"
+            placeholder="Enter your username"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={username}
+            onChangeText={setUsername}
+            autoComplete="username"
+            accessibilityLabel="Username"
           />
 
           <Input

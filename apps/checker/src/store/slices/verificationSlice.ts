@@ -60,8 +60,11 @@ export const checkIn = createAsyncThunk(
     try {
       const result = await verificationService.checkIn(verificationCode);
       await incrementTodayCount();
-      // Persist history update
+      // Update the most recent scan entry with check-in result
       const history = await getVerificationHistory();
+      if (history.length > 0 && history[0].result?.verification_code === verificationCode) {
+        history[0].checkIn = result;
+      }
       await saveVerificationHistory(history);
       return result;
     } catch (err: any) {
@@ -126,8 +129,12 @@ const verificationSlice = createSlice({
         state.verifiedToday = action.payload;
       })
       .addCase(loadHistory.fulfilled, (state, action) => {
-        if (state.recentVerifications.length === 0 && action.payload.length > 0) {
-          state.recentVerifications = action.payload.slice(0, MAX_RECENT);
+        const persisted = (action.payload as VerificationRecord[]).slice(0, MAX_RECENT);
+        if (persisted.length > 0) {
+          // Merge: keep in-session entries, backfill with persisted history
+          const inSessionTimestamps = new Set(state.recentVerifications.map(r => r.timestamp));
+          const backfill = persisted.filter(r => !inSessionTimestamps.has(r.timestamp));
+          state.recentVerifications = [...state.recentVerifications, ...backfill].slice(0, MAX_RECENT);
         }
       })
       .addCase(scanQR.pending, (state) => {
@@ -203,6 +210,16 @@ const verificationSlice = createSlice({
       .addCase(lookupManual.rejected, (state, action) => {
         state.isScanning = false;
         state.error = action.payload as string;
+        state.recentVerifications = [
+          {
+            outcome: 'error' as VerificationOutcome,
+            result: null,
+            checkIn: null,
+            error: action.payload as string,
+            timestamp: new Date().toISOString(),
+          },
+          ...state.recentVerifications,
+        ].slice(0, MAX_RECENT);
       });
   },
 });

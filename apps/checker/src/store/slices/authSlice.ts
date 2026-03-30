@@ -34,11 +34,14 @@ export const checkAuthStatus = createAsyncThunk('auth/checkStatus', async () => 
 
 export const login = createAsyncThunk(
   'auth/login',
-  async (creds: { email: string; password: string }, { rejectWithValue }) => {
+  async (creds: { username: string; password: string }, { rejectWithValue }) => {
     try {
-      const response = await authService.login(creds.email, creds.password);
+      const response = await authService.login(creds.username, creds.password);
       return response.user;
     } catch (err: any) {
+      // For login, prefer the backend's detail message over generic friendlyError mapping
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') return rejectWithValue(detail);
       return rejectWithValue(friendlyError(err));
     }
   },
@@ -90,6 +93,10 @@ const authSlice = createSlice({
         state.error = action.payload as string;
       })
       .addCase(logout.fulfilled, (state) => {
+        state.isAuthenticated = false;
+        state.checker = null;
+      })
+      .addCase(logout.rejected, (state) => {
         state.isAuthenticated = false;
         state.checker = null;
       });

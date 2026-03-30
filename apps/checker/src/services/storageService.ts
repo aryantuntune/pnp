@@ -159,4 +159,7 @@ export async function saveVerificationHistory(records: any[]): Promise<void> {
 export async function clearAll(): Promise<void> {
   await clearTokens();
   await clearCheckerData();
+  await AsyncStorage.removeItem(KEYS.VERIFICATION_COUNT);
+  await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
+  await AsyncStorage.removeItem(VERIFICATION_HISTORY_KEY);
 }
