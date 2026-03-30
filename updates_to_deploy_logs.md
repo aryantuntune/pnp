@@ -2,6 +2,57 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (Role-based access for Branch & Route Master)
+
+### Module
+
+Frontend — Branch Master / Route Master
+
+### Commit ID
+
+3feae36
+
+### Changes
+
+Role-based access control applied to Branch Master and Route Master pages:
+
+| Role | Add New | Edit Existing | View |
+|---|---|---|---|
+| SUPER_ADMIN | ✅ | ✅ | ✅ |
+| ADMIN | ❌ | ✅ | ✅ |
+| MANAGER / BILLING_OPERATOR / TICKET_CHECKER | ❌ | ❌ | ✅ |
+
+* **Add Branch / Add Route** button is only visible to SUPER_ADMIN
+* **Edit** button in the table is only visible to SUPER_ADMIN and ADMIN
+* All other roles see a read-only view (View button only)
+* Branch page: current user is now fetched from `/api/auth/me` on mount to determine role
+
+### Files Modified
+
+* `frontend/src/app/dashboard/branches/page.tsx`
+* `frontend/src/app/dashboard/routes/page.tsx`
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migration or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose up --build -d frontend
+```
+
+Or if running Next.js directly (not Docker):
+
+```bash
+cd frontend
+npm run build
+# then restart your Next.js process / PM2 / systemd service
+```
+
+---
+
 ## Deployment Update — 2026-03-30 (2 decimal places system-wide + ticket tab order fix)
 
 ### Module
