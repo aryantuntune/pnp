@@ -409,32 +409,31 @@ export default function UsersPage() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-3">
+          {/* Row 1 — Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by username, email, or name..."
+              value={searchInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchInput(val);
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                debounceRef.current = setTimeout(() => {
+                  setSearch(val);
+                  setPage(1);
+                }, 400);
+              }}
+              className="pl-9"
+            />
+          </div>
+          {/* Row 2 — Dropdowns + Clear */}
           <div className="flex flex-wrap items-end gap-3">
-            <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
-              <Label className="mb-1.5 block">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by username, email, or name..."
-                  value={searchInput}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSearchInput(val);
-                    if (debounceRef.current) clearTimeout(debounceRef.current);
-                    debounceRef.current = setTimeout(() => {
-                      setSearch(val);
-                      setPage(1);
-                    }, 400);
-                  }}
-                  className="pl-9"
-                />
-              </div>
-            </div>
             <div>
               <Label className="mb-1.5 block">Role</Label>
               <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v === "all" ? "" : v); setPage(1); }}>
-                <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="All Roles" />
                 </SelectTrigger>
                 <SelectContent>
@@ -448,7 +447,7 @@ export default function UsersPage() {
             <div>
               <Label className="mb-1.5 block">Status</Label>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
-                <SelectTrigger className="w-full sm:w-[120px]">
+                <SelectTrigger className="w-[130px]">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -461,7 +460,7 @@ export default function UsersPage() {
             <div>
               <Label className="mb-1.5 block">Route</Label>
               <Select value={routeFilter} onValueChange={(v) => { setRouteFilter(v === "all" ? "" : v); setPage(1); }}>
-                <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectTrigger className="w-[220px]">
                   <SelectValue placeholder="All Routes" />
                 </SelectTrigger>
                 <SelectContent>
@@ -478,6 +477,7 @@ export default function UsersPage() {
               <Button
                 variant="ghost"
                 size="sm"
+                className="self-end"
                 onClick={() => {
                   setSearchInput("");
                   setSearch("");
