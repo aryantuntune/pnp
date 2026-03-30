@@ -1,0 +1,32 @@
+BEGIN;
+
+UPDATE items SET name = LEFT('TRUCK 10 WHLR (Old)', 50), short_name = LEFT('TRUCK 10 WHLR (Old)', 30) WHERE id = 22;
+UPDATE items SET name = LEFT('GOODS PER HALF TON (Old)', 50), short_name = LEFT('GOODS PER HALF TON (Old)', 30) WHERE id = 23;
+UPDATE items SET name = LEFT('PASSENGER LUGGAGE ABV 20KG (Old)', 50), short_name = LEFT('PASS LUGGAGE ABV 20KG (Old)', 30) WHERE id = 24;
+UPDATE items SET name = LEFT('DOG/GOATS/SHEEP (Old)', 50), short_name = LEFT('DOG/GOATS/SHEEP (Old)', 30) WHERE id = 25;
+UPDATE items SET name = LEFT('COWS/BUFFELLOW (Old)', 50), short_name = LEFT('COWS/BUFFELLOW (Old)', 30) WHERE id = 26;
+UPDATE items SET name = LEFT('MONTH PASS STUDNT UPTO 10TH (Old)', 50), short_name = LEFT('PASS STUDNT UPTO 10TH (Old)', 30) WHERE id = 27;
+UPDATE items SET name = LEFT('MONTH PASS STUDNT AVOVE XTH (Old)', 50), short_name = LEFT('PASS STUDNT AVOVE XTH (Old)', 30) WHERE id = 28;
+UPDATE items SET name = LEFT('TOURIST (FOR 1 HOUR) (Old)', 50), short_name = LEFT('TOURIST (FOR 1 HOUR) (Old)', 30) WHERE id = 29;
+UPDATE items SET name = LEFT('MONTH PASS PASSENGER (Old)', 50), short_name = LEFT('MONTH PASS PASSENGER (Old)', 30) WHERE id = 30;
+UPDATE items SET name = LEFT('FISH/CHICKEN/BIRDS/FRUITS (Old)', 50), short_name = LEFT('FISH/CHICKEN/BIRDS (Old)', 30) WHERE id = 31;
+UPDATE items SET name = LEFT('JCB (Old)', 50), short_name = LEFT('JCB (Old)', 30) WHERE id = 32;
+UPDATE items SET name = LEFT('TRACTOR WITH TROLLY (Old)', 50), short_name = LEFT('TRACTOR WITH TROLLY (Old)', 30) WHERE id = 33;
+UPDATE items SET name = LEFT('SPECIAL FERRY (Old)', 50), short_name = LEFT('SPECIAL FERRY (Old)', 30) WHERE id = 34;
+UPDATE items SET name = LEFT('ROAD ROLLER (Old)', 50), short_name = LEFT('ROAD ROLLER (Old)', 30) WHERE id = 35;
+UPDATE items SET name = LEFT('HEAVY MACHINES (Old)', 50), short_name = LEFT('HEAVY MACHINES (Old)', 30) WHERE id = 36;
+UPDATE items SET name = LEFT('HYDRA (Old)', 50), short_name = LEFT('HYDRA (Old)', 30) WHERE id = 37;
+UPDATE items SET name = LEFT('OIL TANKER (Old)', 50), short_name = LEFT('OIL TANKER (Old)', 30) WHERE id = 38;
+UPDATE items SET name = LEFT('WAITING CHARGES (Old)', 50), short_name = LEFT('WAITING CHARGES (Old)', 30) WHERE id = 39;
+UPDATE items SET name = LEFT('PARTY (Old)', 50), short_name = LEFT('PARTY (Old)', 30) WHERE id = 40;
+UPDATE items SET name = LEFT('SHOOTING (Old)', 50), short_name = LEFT('SHOOTING (Old)', 30) WHERE id = 41;
+UPDATE items SET name = LEFT('PUMPE FILLING CHARGES (Old)', 50), short_name = LEFT('PUMPE FILLING CHARGES (Old)', 30) WHERE id = 42;
+UPDATE items SET name = LEFT('CAFE COUNTER (Old)', 50), short_name = LEFT('CAFE COUNTER (Old)', 30) WHERE id = 43;
+UPDATE items SET name = LEFT('SHIPE TO SHORE (Old)', 50), short_name = LEFT('SHIPE TO SHORE (Old)', 30) WHERE id = 44;
+UPDATE items SET name = LEFT('SPECIAL FERRY DAY (Old)', 50), short_name = LEFT('SPECIAL FERRY DAY (Old)', 30) WHERE id = 45;
+UPDATE items SET name = LEFT('LUGGAGE (Old)', 50), short_name = LEFT('LUGGAGE (Old)', 30) WHERE id = 151;
+UPDATE items SET name = LEFT('ROUND UP (Old)', 50), short_name = LEFT('ROUND UP (Old)', 30) WHERE id = 152;
+UPDATE items SET name = LEFT('MOTERCYCLE BELO 100 CC (Old)', 50), short_name = LEFT('MOTERCYCLE < 100 CC (Old)', 30) WHERE id = 153;
+UPDATE items SET name = LEFT('EMPTY 14 WHEELER GOODS TRUCK (Old)', 50), short_name = LEFT('EMPTY 14W TRUCK (Old)', 30) WHERE id = 154;
+
+COMMIT;
