@@ -2215,30 +2215,28 @@ export default function TicketingPage() {
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              By default, every print opens a browser popup asking you to confirm. This setup removes that popup so receipts print instantly to your default printer.
+              By default, every print opens a browser popup asking you to confirm. Follow the steps below to remove that popup so receipts print instantly — works on <strong>Chrome</strong> and <strong>Microsoft Edge</strong>.
             </p>
-            <p className="text-muted-foreground">
-              Works on <strong>Chrome</strong> and <strong>Microsoft Edge</strong>. Only needs to be done once per computer.
-            </p>
-            <ol className="space-y-2 list-decimal list-inside text-foreground">
-              <li>Click <strong>Download Setup File</strong> below.</li>
-              <li>Open your <strong>Downloads</strong> folder and double-click <code className="bg-muted px-1 rounded text-xs">setup-direct-printing.bat</code>.</li>
-              <li>If Windows shows a security warning, click <strong>More info → Run anyway</strong>.</li>
-              <li>Close all browser windows and reopen from your desktop shortcut.</li>
-            </ol>
+            <div className="space-y-2">
+              <p className="font-medium text-foreground">Steps (one time per computer):</p>
+              <ol className="space-y-2 list-decimal list-inside text-muted-foreground">
+                <li>Right-click your <strong>Chrome</strong> or <strong>Edge</strong> desktop shortcut → <strong>Properties</strong>.</li>
+                <li>In the <strong>Target</strong> field, click at the end and add a space followed by: <code className="bg-muted text-foreground px-1.5 py-0.5 rounded text-xs font-mono">--kiosk-printing</code></li>
+                <li>Click <strong>OK</strong>, then close and reopen the browser.</li>
+              </ol>
+            </div>
+            <div className="bg-muted rounded-lg px-3 py-2 font-mono text-xs break-all text-muted-foreground">
+              Example Target:<br />
+              <span className="text-foreground">&quot;C:\Program Files\Google\Chrome\Application\chrome.exe&quot; --kiosk-printing</span>
+            </div>
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-xs">
-              Make sure the receipt printer is set as your <strong>Windows default printer</strong> before running.
+              Make sure the receipt printer is set as your <strong>Windows default printer</strong> before printing.
             </div>
           </div>
           <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setShowPrinterSetup(false)}>
               Close
             </Button>
-            <a href="/setup-direct-printing.bat" download>
-              <Button>
-                <Printer className="h-4 w-4 mr-2" /> Download Setup File
-              </Button>
-            </a>
           </DialogFooter>
         </DialogContent>
       </Dialog>
