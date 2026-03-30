@@ -459,8 +459,8 @@ async def step5_update_items(conn, dry_run: bool) -> dict:
     #         UNIQUE constraint violations during V2 rename.
     if not dry_run:
         await conn.execute(
-            "UPDATE items SET name = name || '__V1_MIGRATING', "
-            "short_name = short_name || '__V1' "
+            "UPDATE items SET name = '_tmp_' || id::text, "
+            "short_name = '_t_' || id::text "
             "WHERE id = ANY($1::int[])",
             list(current.keys()),
         )
