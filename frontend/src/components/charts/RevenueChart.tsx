@@ -28,7 +28,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
         <YAxis tick={{ fontSize: 12 }} />
         <Tooltip
           formatter={(value: number | undefined) => [
-            `\u20B9${(value ?? 0).toLocaleString("en-IN")}`,
+            `\u20B9${(value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             "Revenue",
           ]}
         />

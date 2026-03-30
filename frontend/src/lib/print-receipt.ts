@@ -227,9 +227,9 @@ function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** Format number: drop .00 decimals, keep non-zero decimals */
+/** Format number: always show 2 decimal places */
 function fmtNum(n: number): string {
-  return n % 1 === 0 ? String(n) : n.toFixed(2);
+  return n.toFixed(2);
 }
 
 // ── Print via hidden iframe ──

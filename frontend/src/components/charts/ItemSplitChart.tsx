@@ -64,7 +64,7 @@ export default function ItemSplitChart({ data }: ItemSplitChartProps) {
         </Pie>
         <Tooltip
           formatter={(value: number | undefined) => [
-            `\u20B9${(value ?? 0).toLocaleString("en-IN")}`,
+            `\u20B9${(value ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             "Revenue",
           ]}
         />

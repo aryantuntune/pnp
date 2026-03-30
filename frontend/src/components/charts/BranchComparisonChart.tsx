@@ -38,7 +38,7 @@ export default function BranchComparisonChart({
           formatter={(value: number | undefined, name: string | undefined) => {
             const v = value ?? 0;
             if (name === "total_revenue") {
-              return [`\u20B9${v.toLocaleString("en-IN")}`, "Revenue"];
+              return [`\u20B9${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Revenue"];
             }
             return [v.toLocaleString("en-IN"), "Tickets"];
           }}

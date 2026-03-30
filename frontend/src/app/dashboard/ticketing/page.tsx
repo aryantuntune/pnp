@@ -1940,7 +1940,7 @@ export default function TicketingPage() {
                                   selectedId={fi.item_id}
                                   disabled={fi.is_cancelled}
                                   onSelect={(id) => handleItemChange(fi.tempId, id)}
-                                  tabIndex={0}
+                                  tabIndex={-1}
                                 />
                               </td>
                               <td className="px-3 py-2">

@@ -408,7 +408,7 @@ export default function HouseboatBookingPage() {
                       <div>
                         <div className="flex items-baseline gap-1">
                           <span className="text-3xl font-bold text-slate-900">
-                            &#8377;{room.price.toLocaleString("en-IN")}
+                            &#8377;{room.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                           <span className="text-gray-400 text-sm font-medium">
                             / night

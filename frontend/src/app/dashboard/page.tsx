@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(amount || 0);
+  new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "-";
