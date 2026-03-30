@@ -118,8 +118,9 @@ function fmtNum(n: number): string {
 }
 
 // ── Receipt parts builders ──
-// Returns CSS and body HTML separately so they can be injected into the main
-// document (required for window.print() to respect --kiosk-printing).
+// buildReceiptBodyHtml   — inner body content, shared by both paths
+// buildQzReceiptHtml     — full HTML document for QZ Tray (body-scoped styles)
+// buildReceiptStyles     — scoped CSS for the main-window fallback path
 
 function buildReceiptStyles(widthMm: number, paperWidth: PaperWidth): string {
   const fontSize = paperWidth === "58mm" ? "11px" : "12px";
@@ -160,6 +161,55 @@ function buildReceiptStyles(widthMm: number, paperWidth: PaperWidth): string {
 @media screen {
   [data-ssmspl-receipt] { display: none !important; }
 }`.trim();
+}
+
+/** Full HTML document for QZ Tray — uses body-level (unscoped) styles. */
+function buildQzReceiptHtml(
+  data: ReceiptData,
+  logoBase64: string | null,
+  qrBase64: string | null,
+): string {
+  const widthMm  = data.paperWidth === "58mm" ? 58 : 80;
+  const fontSize = data.paperWidth === "58mm" ? "11px" : "12px";
+  const numColW  = data.paperWidth === "58mm" ? "36px" : "44px";
+  const amtColW  = data.paperWidth === "58mm" ? "42px" : "50px";
+  const noteSize = data.paperWidth === "58mm" ? "9px"  : "11px";
+  const body = buildReceiptBodyHtml(data, logoBase64, qrBase64);
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@page { size: ${widthMm}mm auto; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Courier New", Courier, monospace;
+  font-size: ${fontSize};
+  font-weight: 700;
+  width: ${widthMm}mm;
+  padding: 2mm 2mm;
+  line-height: 1.2;
+  color: #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.center { text-align: center; }
+.bold   { font-weight: 900; }
+.dash   { border-top: 2px solid #000; margin: 2px 0; }
+table   { width: 100%; border-collapse: collapse; }
+col.desc { width: auto; }
+col.num  { width: ${numColW}; }
+col.amt  { width: ${amtColW}; }
+td      { padding: 0 1px; vertical-align: top; }
+td.r    { text-align: right; white-space: nowrap; }
+.r      { text-align: right; }
+.header-line { display: flex; justify-content: space-between; }
+.note   { font-size: ${noteSize}; font-weight: 900; line-height: 1.2; }
+</style>
+</head>
+<body>${body}</body>
+</html>`;
 }
 
 function buildReceiptBodyHtml(
@@ -236,7 +286,7 @@ ${itemRows}
 ${qrHtml}`.trim();
 }
 
-// ── Print via main window (respects --kiosk-printing) ──
+// ── Print ──
 
 export async function printReceipt(data: ReceiptData): Promise<void> {
   const [logoBase64, qrBase64] = await Promise.all([
@@ -244,7 +294,24 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
     fetchQrBase64(data.ticketId),
   ]);
 
-  const widthMm  = data.paperWidth === "58mm" ? 58 : 80;
+  const widthMm = data.paperWidth === "58mm" ? 58 : 80;
+
+  // ── Path 1: QZ Tray (silent, no dialog) ──
+  // Used when a printer has been selected in Printer Setup.
+  const { getStoredPrinterName, qzPrint, qzConnect } = await import("./qz-service");
+  const printerName = getStoredPrinterName();
+  if (printerName) {
+    try {
+      await qzConnect();
+      const html = buildQzReceiptHtml(data, logoBase64, qrBase64);
+      await qzPrint(printerName, html, widthMm);
+      return; // done — no dialog shown
+    } catch {
+      // QZ Tray unavailable or failed → fall through to window.print()
+    }
+  }
+
+  // ── Path 2: main-window window.print() (respects --kiosk-printing) ──
   const stylesCss = buildReceiptStyles(widthMm, data.paperWidth);
   const bodyHtml  = buildReceiptBodyHtml(data, logoBase64, qrBase64);
 

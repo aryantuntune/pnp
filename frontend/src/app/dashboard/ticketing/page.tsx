@@ -287,6 +287,12 @@ export default function TicketingPage() {
 
   // Printer setup dialog
   const [showPrinterSetup, setShowPrinterSetup] = useState(false);
+  const [qzStatus, setQzStatus] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
+  const [qzPrinters, setQzPrinters] = useState<string[]>([]);
+  const [qzSelectedPrinter, setQzSelectedPrinter] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("ssmspl_qz_printer") || "" : ""
+  );
+  const [qzLoading, setQzLoading] = useState(false);
 
   // Last ticket info (fetched from API each time payment modal opens)
   const [lastTicketInfo, setLastTicketInfo] = useState<{
@@ -1198,7 +1204,30 @@ export default function TicketingPage() {
           <p className="text-muted-foreground text-sm mt-1">Create and manage ferry tickets</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowPrinterSetup(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              setShowPrinterSetup(true);
+              setQzStatus("connecting");
+              setQzLoading(true);
+              try {
+                const { qzConnect, qzListPrinters } = await import("@/lib/qz-service");
+                const ok = await qzConnect();
+                if (ok) {
+                  const list = await qzListPrinters();
+                  setQzPrinters(list);
+                  setQzStatus("connected");
+                } else {
+                  setQzStatus("failed");
+                }
+              } catch {
+                setQzStatus("failed");
+              } finally {
+                setQzLoading(false);
+              }
+            }}
+          >
             <Settings2 className="h-4 w-4 mr-1.5" /> Printer Setup
           </Button>
           <Button onClick={openCreateModal}>
@@ -2210,25 +2239,123 @@ export default function TicketingPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" /> Direct Printing Setup
+              <Printer className="h-5 w-5" /> Printer Setup
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">
-              By default every print opens a browser popup to confirm. The setup file removes that popup so receipts go directly to the printer — works on <strong>Chrome</strong> and <strong>Edge</strong>.
-            </p>
-            <div className="space-y-2">
-              <p className="font-medium text-foreground">Steps (one time per computer):</p>
-              <ol className="space-y-2 list-decimal list-inside text-muted-foreground">
-                <li>Ask your administrator for the <code className="bg-muted text-foreground px-1 rounded text-xs">setup-direct-printing.bat</code> file and run it.</li>
-                <li>It will create a new shortcut on your Desktop called <strong>Chrome - Direct Print</strong> or <strong>Edge - Direct Print</strong>.</li>
-                <li>Close all browser windows completely.</li>
-                <li>From now on, always open the browser using that new Desktop shortcut.</li>
-              </ol>
+
+            {/* QZ Tray status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    qzStatus === "connected" ? "bg-green-500" :
+                    qzStatus === "connecting" ? "bg-yellow-400 animate-pulse" :
+                    qzStatus === "failed" ? "bg-red-500" : "bg-gray-300"
+                  }`}
+                />
+                <span className="font-medium text-foreground">QZ Tray</span>
+                <span className="text-muted-foreground">
+                  {qzStatus === "connected" ? "Connected" :
+                   qzStatus === "connecting" ? "Connecting…" :
+                   qzStatus === "failed" ? "Not found" : ""}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={qzLoading}
+                onClick={async () => {
+                  setQzStatus("connecting");
+                  setQzLoading(true);
+                  try {
+                    const { qzConnect, qzListPrinters } = await import("@/lib/qz-service");
+                    const ok = await qzConnect();
+                    if (ok) {
+                      setQzPrinters(await qzListPrinters());
+                      setQzStatus("connected");
+                    } else {
+                      setQzStatus("failed");
+                    }
+                  } catch {
+                    setQzStatus("failed");
+                  } finally {
+                    setQzLoading(false);
+                  }
+                }}
+              >
+                {qzLoading ? "Connecting…" : "Refresh"}
+              </Button>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-xs">
-              <strong>Important:</strong> The popup will still appear if you open the browser from the original shortcut or taskbar. Always use the <em>Direct Print</em> shortcut for ticketing.
-            </div>
+
+            {/* Printer selector */}
+            {qzStatus === "connected" && (
+              <div className="space-y-2">
+                <Label>Select Receipt Printer</Label>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 h-9 border border-input rounded-md px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={qzSelectedPrinter}
+                    onChange={(e) => setQzSelectedPrinter(e.target.value)}
+                  >
+                    <option value="">-- Select a printer --</option>
+                    {qzPrinters.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    disabled={!qzSelectedPrinter}
+                    onClick={() => {
+                      localStorage.setItem("ssmspl_qz_printer", qzSelectedPrinter);
+                      setShowPrinterSetup(false);
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+                {qzSelectedPrinter && (
+                  <p className="text-xs text-green-600">
+                    Active: <strong>{qzSelectedPrinter}</strong> — receipts will print silently.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* QZ Tray not found — install instructions */}
+            {qzStatus === "failed" && (
+              <div className="space-y-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-xs">
+                  QZ Tray is not running on this computer. Install it once and receipts will print silently — no dialog, any browser.
+                </div>
+                <div>
+                  <p className="font-medium mb-1">Setup steps (one time per computer):</p>
+                  <ol className="space-y-1 list-decimal list-inside text-muted-foreground">
+                    <li>Download and install <strong>QZ Tray</strong> from <a href="https://qz.io/download" target="_blank" rel="noreferrer" className="text-blue-600 underline">qz.io/download</a></li>
+                    <li>Launch QZ Tray — it appears as an icon in the system tray (bottom-right)</li>
+                    <li>Right-click the tray icon → <strong>Site Manager</strong> → uncheck <strong>Block Unsigned</strong></li>
+                    <li>Click <strong>Refresh</strong> above</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {/* Currently saved printer */}
+            {qzStatus !== "connected" && qzSelectedPrinter && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground border rounded-lg px-3 py-2">
+                <span>Saved printer: <strong className="text-foreground">{qzSelectedPrinter}</strong></span>
+                <button
+                  className="text-destructive hover:underline"
+                  onClick={() => {
+                    localStorage.removeItem("ssmspl_qz_printer");
+                    setQzSelectedPrinter("");
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
           </div>
           <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setShowPrinterSetup(false)}>
