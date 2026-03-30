@@ -90,7 +90,6 @@ export async function fetchQrBase64(ticketId: number): Promise<string | null> {
 // ── Date/time helpers ──
 
 function formatReceiptDate(isoDate: string): string {
-  // YYYY-MM-DD -> DD-MM-YYYY
   const [y, m, d] = isoDate.split("-");
   return `${d}-${m}-${y}`;
 }
@@ -109,88 +108,103 @@ function formatReceiptTime(createdAt: string | null, departure: string | null): 
   }
 }
 
-// ── Receipt HTML builder ──
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
-function buildReceiptHtml(data: ReceiptData, logoBase64: string | null, qrBase64: string | null): string {
+/** Format number: always show 2 decimal places */
+function fmtNum(n: number): string {
+  return n.toFixed(2);
+}
+
+// ── Receipt parts builders ──
+// Returns CSS and body HTML separately so they can be injected into the main
+// document (required for window.print() to respect --kiosk-printing).
+
+function buildReceiptStyles(widthMm: number, paperWidth: PaperWidth): string {
+  const fontSize = paperWidth === "58mm" ? "11px" : "12px";
+  const numColW  = paperWidth === "58mm" ? "36px" : "44px";
+  const amtColW  = paperWidth === "58mm" ? "42px" : "50px";
+  const noteSize = paperWidth === "58mm" ? "9px"  : "11px";
+
+  return `
+@page { size: ${widthMm}mm auto; margin: 0; }
+[data-ssmspl-receipt] {
+  font-family: "Courier New", Courier, monospace;
+  font-size: ${fontSize};
+  font-weight: 700;
+  width: ${widthMm}mm;
+  padding: 2mm 2mm;
+  line-height: 1.2;
+  color: #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+[data-ssmspl-receipt] * { margin: 0; padding: 0; box-sizing: border-box; }
+[data-ssmspl-receipt] .center { text-align: center; }
+[data-ssmspl-receipt] .bold   { font-weight: 900; }
+[data-ssmspl-receipt] .dash   { border-top: 2px solid #000; margin: 2px 0; }
+[data-ssmspl-receipt] table   { width: 100%; border-collapse: collapse; }
+[data-ssmspl-receipt] col.desc { width: auto; }
+[data-ssmspl-receipt] col.num  { width: ${numColW}; }
+[data-ssmspl-receipt] col.amt  { width: ${amtColW}; }
+[data-ssmspl-receipt] td      { padding: 0 1px; vertical-align: top; }
+[data-ssmspl-receipt] td.r    { text-align: right; white-space: nowrap; }
+[data-ssmspl-receipt] .r      { text-align: right; }
+[data-ssmspl-receipt] .header-line { display: flex; justify-content: space-between; }
+[data-ssmspl-receipt] .note   { font-size: ${noteSize}; font-weight: 900; line-height: 1.2; }
+@media print {
+  body > *:not([data-ssmspl-receipt]) { display: none !important; }
+  [data-ssmspl-receipt] { display: block !important; margin: 0; padding: 2mm 2mm; transform: scale(0.92); transform-origin: top center; }
+}
+@media screen {
+  [data-ssmspl-receipt] { display: none !important; }
+}`.trim();
+}
+
+function buildReceiptBodyHtml(
+  data: ReceiptData,
+  logoBase64: string | null,
+  qrBase64: string | null,
+): string {
   const {
-    ticketNo,
-    branchName,
-    branchPhone,
-    fromTo,
-    ticketDate,
-    createdAt,
-    departure,
-    items,
-    netAmount,
-    createdBy,
-    paperWidth,
-    paymentModeName,
+    ticketNo, branchName, branchPhone, fromTo,
+    ticketDate, createdAt, departure, items,
+    netAmount, createdBy, paperWidth, paymentModeName,
   } = data;
 
   const widthMm = paperWidth === "58mm" ? 58 : 80;
-  const time = formatReceiptTime(createdAt, departure);
+  const time    = formatReceiptTime(createdAt, departure);
   const dateStr = formatReceiptDate(ticketDate);
-  // Build item rows — single row per item
-  const itemRows = items
-    .map((item) => {
-      const lines: string[] = [];
-      lines.push(
-        `<tr>` +
-          `<td>${escHtml(item.name)}</td>` +
-          `<td class="r">${fmtNum(item.quantity)}</td>` +
-          `<td class="r">${fmtNum(item.rate)}</td>` +
-          `<td class="r">${fmtNum(item.levy)}</td>` +
-          `<td class="r">${fmtNum(item.amount)}</td>` +
-          `</tr>`
+
+  const itemRows = items.map((item) => {
+    const rows: string[] = [];
+    rows.push(
+      `<tr>` +
+        `<td>${escHtml(item.name)}</td>` +
+        `<td class="r">${fmtNum(item.quantity)}</td>` +
+        `<td class="r">${fmtNum(item.rate)}</td>` +
+        `<td class="r">${fmtNum(item.levy)}</td>` +
+        `<td class="r">${fmtNum(item.amount)}</td>` +
+      `</tr>`,
+    );
+    if (item.vehicleNo) {
+      rows.push(
+        `<tr><td colspan="5" style="padding-left:8px;">&nbsp;&nbsp;${escHtml(item.vehicleNo)}</td></tr>`,
       );
-      if (item.vehicleNo) {
-        lines.push(
-          `<tr><td colspan="5" style="padding-left:8px;">&nbsp;&nbsp;${escHtml(item.vehicleNo)}</td></tr>`
-        );
-      }
-      return lines.join("");
-    })
-    .join("");
+    }
+    return rows.join("");
+  }).join("");
 
   const logoHtml = logoBase64
     ? `<img src="${logoBase64}" style="width:80px;height:auto;margin:0 auto 4px;display:block;" />`
     : "";
 
   const qrHtml = qrBase64
-    ? `<img src="${qrBase64}" style="width:140px;height:140px;margin:0 auto;display:block;" />`
+    ? `<img src="${qrBase64}" style="width:${widthMm === 58 ? 100 : 140}px;height:auto;margin:0 auto;display:block;" />`
     : "";
 
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Receipt #${ticketNo}</title>
-<style>
-  @page { size: ${widthMm}mm auto; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: "Courier New", Courier, monospace;
-    font-size: ${paperWidth === "58mm" ? "11px" : "12px"};
-    font-weight: 700;
-    width: ${widthMm}mm;
-    padding: 2mm 2mm;
-    line-height: 1.2;
-    color: #000;
-    -webkit-print-color-adjust: exact;
-  }
-  .center { text-align: center; }
-  .bold { font-weight: 900; }
-  .dash { border-top: 2px solid #000; margin: 2px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  col.desc { width: auto; }
-  col.num { width: ${paperWidth === "58mm" ? "36px" : "44px"}; }
-  col.amt { width: ${paperWidth === "58mm" ? "42px" : "50px"}; }
-  td { padding: 0 1px; vertical-align: top; }
-  td.r { text-align: right; white-space: nowrap; }
-  .r { text-align: right; }
-  .header-line { display: flex; justify-content: space-between; }
-  .note { font-size: ${paperWidth === "58mm" ? "9px" : "11px"}; font-weight: 900; line-height: 1.2; }
-  @media print {
-    body { margin: 0; padding: 2mm 2mm; transform: scale(0.92); transform-origin: top center; }
-  }
-</style></head><body>
+  return `
 ${logoHtml}
 <div class="center bold">SUVARNADURGA SHIPPING &amp;</div>
 <div class="center bold">MARINE SERVICES PVT.LTD.</div>
@@ -219,79 +233,57 @@ ${itemRows}
 <div>PAYMENT MODE: ${escHtml(paymentModeName)}</div>
 <div class="header-line"><span>NET TOTAL WITH GOVT.TAX. :</span><span class="bold">${fmtNum(netAmount)}</span></div>
 <div class="dash"></div>
-${qrHtml}
-</body></html>`;
+${qrHtml}`.trim();
 }
 
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-/** Format number: always show 2 decimal places */
-function fmtNum(n: number): string {
-  return n.toFixed(2);
-}
-
-// ── Print via hidden iframe ──
+// ── Print via main window (respects --kiosk-printing) ──
 
 export async function printReceipt(data: ReceiptData): Promise<void> {
-  // Preload logo and QR in parallel
   const [logoBase64, qrBase64] = await Promise.all([
     preloadLogo(),
     fetchQrBase64(data.ticketId),
   ]);
 
-  const html = buildReceiptHtml(data, logoBase64, qrBase64);
+  const widthMm  = data.paperWidth === "58mm" ? 58 : 80;
+  const stylesCss = buildReceiptStyles(widthMm, data.paperWidth);
+  const bodyHtml  = buildReceiptBodyHtml(data, logoBase64, qrBase64);
 
-  // Create hidden iframe
-  const iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.left = "-9999px";
-  iframe.style.top = "-9999px";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "none";
-  document.body.appendChild(iframe);
+  // Inject a hidden receipt container + scoped print styles into the main
+  // document, then call window.print() on the top-level window.
+  // This is required for --kiosk-printing to suppress the dialog;
+  // iframe.contentWindow.print() does NOT trigger the flag reliably.
+  const styleEl = document.createElement("style");
+  styleEl.setAttribute("data-ssmspl-print-style", "");
+  styleEl.textContent = stylesCss;
 
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!iframeDoc) {
-    document.body.removeChild(iframe);
-    return;
-  }
+  const container = document.createElement("div");
+  container.setAttribute("data-ssmspl-receipt", "");
+  container.innerHTML = bodyHtml;
 
-  iframeDoc.open();
-  iframeDoc.write(html);
-  iframeDoc.close();
+  document.head.appendChild(styleEl);
+  document.body.appendChild(container);
 
-  // Wait for images to load before printing
+  // Wait for images to load
   await new Promise<void>((resolve) => {
-    const images = iframeDoc.querySelectorAll("img");
-    if (images.length === 0) {
-      resolve();
-      return;
-    }
-    let loaded = 0;
-    const checkDone = () => {
-      loaded++;
-      if (loaded >= images.length) resolve();
-    };
-    images.forEach((img) => {
-      if (img.complete) {
-        checkDone();
-      } else {
-        img.onload = checkDone;
-        img.onerror = checkDone;
-      }
-    });
+    const imgs = container.querySelectorAll("img");
+    if (!imgs.length) { resolve(); return; }
+    let n = 0;
+    const done = () => { if (++n >= imgs.length) resolve(); };
+    imgs.forEach((img) => (img.complete ? done() : ((img.onload = done), (img.onerror = done))));
   });
 
-  // Small delay for rendering
-  await new Promise((r) => setTimeout(r, 100));
+  await new Promise((r) => setTimeout(r, 80));
 
-  iframe.contentWindow?.print();
+  const cleanup = () => {
+    styleEl.remove();
+    container.remove();
+  };
 
-  // Clean up after a delay to allow print dialog
-  setTimeout(() => {
-    document.body.removeChild(iframe);
-  }, 5000);
+  // afterprint fires after the dialog is dismissed (or immediately if
+  // --kiosk-printing is active and the job was sent silently)
+  window.addEventListener("afterprint", cleanup, { once: true });
+  // Safety fallback in case afterprint never fires
+  setTimeout(cleanup, 15000);
+
+  window.print();
 }
