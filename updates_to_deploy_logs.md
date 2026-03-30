@@ -2,6 +2,47 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (Items Master & Item Rate Management UI fixes)
+
+### Module
+
+Frontend — Items Master / Item Rate Management
+
+### Commit ID
+
+bfbeb99
+
+### Changes
+
+* **Items Master**: Status filter now defaults to "Active" on page load — legacy V1 `_tmp_` items (inactive) are hidden by default. "Clear filters" resets back to Active, not All. The "Clear filters" button only appears when the user has deviated from the Active default.
+* **Item Rate Management**: Replaced the `ID` column (non-sequential DB IDs with gaps from V1→V2 migration) with a sequential `#` row number (1, 2, 3…). Numbering is page-aware (page 2 at 10/page starts at 11). Column is non-sortable.
+
+### Files Modified
+
+* `frontend/src/app/dashboard/items/page.tsx`
+* `frontend/src/app/dashboard/item-rates/page.tsx`
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migration or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose up --build -d frontend
+```
+
+Or if running Next.js directly (not Docker):
+
+```bash
+cd frontend
+npm run build
+# then restart your Next.js process / PM2 / systemd service
+```
+
+---
+
 ## Deployment Update — 2026-03-30 (Route Filter — User Management)
 
 ### Module
@@ -2334,3 +2375,64 @@ sudo systemctl restart ssmspl-frontend
 * Split payment (multiple payment rows per ticket) is now fully impossible from the frontend. Single payment mode per ticket is enforced at UI, validation, and payload level.
 * The `received_amount` / Change display is Cash-only. UPI tickets only require a Reference ID.
 * Multi-ticketing previously hardcoded `ref_no: null` for all tickets — UPI batch tickets now correctly carry their reference IDs to the backend.
+
+---
+
+## Deployment Update — 2026-03-30
+
+### Module
+
+Rate Change Logs
+
+### Commit ID
+
+6800341
+
+### Changes
+
+* Fixed default date filter on Rate Change Logs page — was filtering to today only, making the page always appear empty on load
+* Default now shows last 30 days (`dateFrom = today - 30 days`, `dateTo = today`)
+
+### Files Modified
+
+* `frontend/src/app/dashboard/rate-change-logs/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+**Step 1 — Verify / create the `rate_change_logs` table**
+
+The table is created by Alembic migration `e8f2a4b61c93` and is **not** in `ddl.sql`. Check whether it already exists:
+
+```bash
+psql -U ssmspl_user -d ssmspl_db -c "\dt rate_change_logs"
+```
+
+- If the table **does not exist**, run the migration:
+  ```bash
+  cd backend
+  source .venv/bin/activate
+  alembic upgrade head
+  sudo systemctl restart ssmspl
+  ```
+- If it **already exists**, skip this step — `alembic upgrade head` is idempotent but will skip re-creating it.
+
+**Step 2 — Deploy frontend**
+
+```bash
+cd frontend
+rm -rf .next
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Important Notes
+
+* **Log data starts from when the migration is first applied.** There is no historical backfill — changes made before `e8f2a4b61c93` was deployed will not appear.
+* **Only rate changes are logged**, not levy changes. A log entry is created only when a PATCH to `/api/item-rates/{id}` includes the `rate` field and the new value differs from the old value.
+* **Initial rate creation (POST) does not log.** Only subsequent edits via the Item Rates page are tracked.
+* If the page shows "Failed to load rate change logs", the table likely doesn't exist yet — run Step 1.
+* If the page shows "No rate change logs found", the table exists but is empty — make a rate change via Item Rates to verify the logging pipeline is working.
