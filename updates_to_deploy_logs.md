@@ -2,6 +2,59 @@
 
 ---
 
+## Deployment Update — 2026-03-30 (2 decimal places system-wide + ticket tab order fix)
+
+### Module
+
+Frontend — Global UI / Ticketing
+
+### Commit ID
+
+9dce111
+
+### Changes
+
+* **Monetary amounts — 2 decimal places everywhere**: All amount/currency displays across the system now consistently show 2 decimal places (e.g. `100.00` instead of `100`). Previously, whole-number amounts dropped the decimal portion in several places.
+  - `print-receipt.ts`: `fmtNum` now always uses `.toFixed(2)` (was stripping `.00` for whole numbers)
+  - `dashboard/page.tsx`: `formatCurrency` changed from `maximumFractionDigits: 0` to `minimumFractionDigits: 2, maximumFractionDigits: 2`
+  - `RevenueChart`, `ItemSplitChart`, `BranchComparisonChart`: added `minimumFractionDigits: 2, maximumFractionDigits: 2` to all revenue `toLocaleString` calls
+  - `customer/history/page.tsx` and `customer/history/[id]/page.tsx`: added `minimumFractionDigits: 2`
+  - `houseboat-booking/page.tsx`: added `minimumFractionDigits: 2, maximumFractionDigits: 2` to price display
+* **Ticket generation — Tab key skips item name field**: In the ticket generation items table, pressing Tab from the Item ID field now jumps directly to the Qty field, bypassing the Item Name dropdown (which auto-fills from the ID anyway).
+
+### Files Modified
+
+* `frontend/src/lib/print-receipt.ts`
+* `frontend/src/app/dashboard/page.tsx`
+* `frontend/src/app/dashboard/ticketing/page.tsx`
+* `frontend/src/app/customer/history/page.tsx`
+* `frontend/src/app/customer/history/[id]/page.tsx`
+* `frontend/src/app/houseboat-booking/page.tsx`
+* `frontend/src/components/charts/RevenueChart.tsx`
+* `frontend/src/components/charts/ItemSplitChart.tsx`
+* `frontend/src/components/charts/BranchComparisonChart.tsx`
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migration or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose up --build -d frontend
+```
+
+Or if running Next.js directly (not Docker):
+
+```bash
+cd frontend
+npm run build
+# then restart your Next.js process / PM2 / systemd service
+```
+
+---
+
 ## Deployment Update — 2026-03-30 (User Management filter layout fix)
 
 ### Module
