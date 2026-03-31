@@ -79,7 +79,6 @@ function isFormRowInvalid(fi: FormItem, items: Item[]): boolean {
   if (fi.is_cancelled) return false;
   const def = items.find((i) => i.id === fi.item_id);
   if (!def || fi.quantity < 1) return true;
-  if (def.is_vehicle && !fi.vehicle_no.trim()) return true;
   return false;
 }
 
@@ -924,12 +923,7 @@ export default function TicketingPage() {
       setPaymentError("Please select a payment mode.");
       return;
     }
-    if (isUpiMode) {
-      if (!formRefNo.trim()) {
-        setPaymentError("Reference ID is required for UPI payments.");
-        return;
-      }
-    } else {
+    if (!isUpiMode) {
       if (formReceivedAmount <= 0) {
         setPaymentError("Received amount must be greater than zero.");
         return;
@@ -1207,25 +1201,10 @@ export default function TicketingPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
+            onClick={() => {
               setShowPrinterSetup(true);
-              setQzStatus("connecting");
-              setQzLoading(true);
-              try {
-                const { qzConnect, qzListPrinters } = await import("@/lib/qz-service");
-                const ok = await qzConnect();
-                if (ok) {
-                  const list = await qzListPrinters();
-                  setQzPrinters(list);
-                  setQzStatus("connected");
-                } else {
-                  setQzStatus("failed");
-                }
-              } catch {
-                setQzStatus("failed");
-              } finally {
-                setQzLoading(false);
-              }
+              setQzStatus("idle");
+              setQzPrinters([]);
             }}
           >
             <Settings2 className="h-4 w-4 mr-1.5" /> Printer Setup
@@ -1621,7 +1600,7 @@ export default function TicketingPage() {
             {/* Ref No (UPI only) */}
             {isUpiMode && (
               <div>
-                <Label htmlFor="confirm-ref-no">Reference / Transaction ID</Label>
+                <Label htmlFor="confirm-ref-no">Reference / Transaction ID <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="confirm-ref-no"
                   type="text"
@@ -2235,7 +2214,10 @@ export default function TicketingPage() {
       </Dialog>
 
       {/* Printer Setup Dialog */}
-      <Dialog open={showPrinterSetup} onOpenChange={setShowPrinterSetup}>
+      <Dialog open={showPrinterSetup} onOpenChange={(open) => {
+        setShowPrinterSetup(open);
+        if (!open) { setQzStatus("idle"); setQzLoading(false); setQzPrinters([]); }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

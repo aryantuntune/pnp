@@ -25,6 +25,26 @@ import {
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
 
+// Branch display order: grouped by route (from → to)
+const BRANCH_ORDER = [
+  "Dabhol", "Dhopave",
+  "Veshvi", "Bagmandle",
+  "Jaigad", "Tavsal",
+  "Agardanda", "Dighi",
+  "Vasai", "Bhayandar",
+  "Virar", "Safale",
+];
+
+const PAYMENT_MODE_ORDER = ["Cash", "UPI", "Online"];
+
+function sortByOrder<T>(items: T[], key: keyof T, order: string[]): T[] {
+  return [...items].sort((a, b) => {
+    const ai = order.findIndex((o) => o.toLowerCase() === String(a[key]).toLowerCase());
+    const bi = order.findIndex((o) => o.toLowerCase() === String(b[key]).toLowerCase());
+    return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
+  });
+}
+
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "-";
   return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -548,7 +568,7 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {todaySummary.branch_breakdown.map((row) => (
+                            {sortByOrder(todaySummary.branch_breakdown, "branch_name", BRANCH_ORDER).map((row) => (
                               <tr key={row.branch_name} className="border-b border-border last:border-0">
                                 <td className="py-2 px-3">{row.branch_name}</td>
                                 <td className="py-2 px-3 text-right">{(row.ticket_count ?? 0).toLocaleString("en-IN")}</td>
@@ -575,7 +595,7 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {todaySummary.payment_mode_breakdown.map((row) => (
+                            {sortByOrder(todaySummary.payment_mode_breakdown, "payment_mode", PAYMENT_MODE_ORDER).map((row) => (
                               <tr key={row.payment_mode} className="border-b border-border last:border-0">
                                 <td className="py-2 px-3">{row.payment_mode}</td>
                                 <td className="py-2 px-3 text-right">{(row.ticket_count ?? 0).toLocaleString("en-IN")}</td>

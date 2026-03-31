@@ -2,6 +2,67 @@
 
 ---
 
+## Deployment Update — 2026-04-01 (Dashboard ordering, optional fields, multi-ticket print fix)
+
+### Module
+
+Frontend — Dashboard / Ticketing / Multi-Ticketing
+Backend — Ticket Service
+
+### Changes
+
+**1. Dashboard — Today's Collection branch & payment mode ordering**
+- Branch breakdown now displays in fixed route sequence: Dabhol → Dhopave, Veshvi → Bagmandle, Jaigad → Tavsal, Agardanda → Dighi, Vasai → Bhayandar, Virar → Safale. Branches not in the list appear at the end.
+- Payment mode breakdown now displays in fixed order: Cash → UPI → Online.
+
+**2. Ticketing & Multi-Ticketing — Vehicle number made optional**
+- Removed frontend validation that blocked ticket submission when a vehicle item had no vehicle number in both single ticketing and multi-ticketing pages.
+- Vehicle number field placeholder updated to "(optional)".
+
+**3. Ticketing & Multi-Ticketing — UPI transaction/reference ID made optional**
+- Removed frontend validation requiring a UPI reference ID before submitting in both single ticketing and multi-ticketing pages.
+- Removed backend service validation (`ticket_service.py`) that returned HTTP 400 when UPI ref_no was empty.
+- Reference ID field label updated to show "(optional)".
+
+**4. Multi-Ticketing — Print time fix**
+- Fixed: printed ticket was showing the first ferry schedule time instead of the actual ticket generation time.
+- Added `print:hidden` to the main page content so the route info header (which contained First/Last Ferry times) no longer appears on the printed output.
+- Ticket generation time is now captured at the exact moment of saving and displayed on each printed ticket as `Date: YYYY-MM-DD   Time: HH:MM`.
+
+### Files Modified
+
+* `frontend/src/app/dashboard/page.tsx` — branch/payment mode sort order
+* `frontend/src/app/dashboard/ticketing/page.tsx` — vehicle no & UPI ref optional
+* `frontend/src/app/dashboard/multiticketing/page.tsx` — vehicle no & UPI ref optional, print time fix
+* `backend/app/services/ticket_service.py` — removed UPI ref_no required validation
+
+### VPS Deployment Steps
+
+Backend and frontend both changed. Backend restart required.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose up --build -d
+```
+
+Or if running directly:
+
+```bash
+# Backend
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl-backend
+
+# Frontend
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+---
+
 ## Deployment Update — 2026-03-30 (QZ Tray silent printing integration)
 
 ### Module

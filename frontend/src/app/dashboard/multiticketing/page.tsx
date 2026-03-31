@@ -136,7 +136,6 @@ function isRowInvalid(
   if (item.isSfItem) return false;
   const def = itemLookup(item.itemId);
   if (!def || item.qty < 1) return true;
-  if (def.is_vehicle && !item.vehicleNo.trim()) return true;
   return false;
 }
 
@@ -165,6 +164,7 @@ export default function MultiTicketingPage() {
   // Print state
   const [printData, setPrintData] = useState<Ticket[] | null>(null);
   const [showPrint, setShowPrint] = useState(false);
+  const [printTime, setPrintTime] = useState("");
   const printTriggered = useRef(false);
   const saveRef = useRef<HTMLButtonElement>(null);
 
@@ -416,9 +416,6 @@ export default function MultiTicketingPage() {
       if (!t.paymentModeId || t.paymentModeId <= 0)
         return `${label}: Please select a payment mode.`;
 
-      const selectedMode = initData.payment_modes.find((pm) => pm.id === t.paymentModeId);
-      if (selectedMode?.description.toUpperCase() === "UPI" && !t.refNo.trim())
-        return `${label}: Reference ID is required for UPI payments.`;
 
       const activeItems = t.items.filter((it) => it.qty > 0);
       if (activeItems.length === 0)
@@ -429,11 +426,6 @@ export default function MultiTicketingPage() {
         if (it.qty > 0 && it.itemId <= 0)
           return `${label}, Row ${ii + 1}: Please select an item.`;
 
-        if (it.qty > 0 && it.itemId > 0) {
-          const itemDef = findItem(it.itemId);
-          if (itemDef?.is_vehicle && !it.vehicleNo.trim())
-            return `${label}, Row ${ii + 1}: Vehicle number is required for "${itemDef.name}".`;
-        }
       }
     }
 
@@ -485,6 +477,8 @@ export default function MultiTicketingPage() {
       const { data } = await api.post<Ticket[]>(`/api/tickets/batch${branchParam}`, {
         tickets: payload,
       });
+      const now = new Date();
+      setPrintTime(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
       setPrintData(data);
       setShowPrint(true);
     } catch (e: unknown) {
@@ -505,7 +499,7 @@ export default function MultiTicketingPage() {
 
   return (
     <>
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden print:hidden">
         {/* ── Page header ── */}
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h1 className="text-2xl font-bold">Multi-Ticketing</h1>
@@ -638,7 +632,7 @@ export default function MultiTicketingPage() {
                             <label className="text-sm text-foreground whitespace-nowrap">UPI Ref No:</label>
                             <input
                               type="text"
-                              placeholder="Transaction / Reference ID (required)"
+                              placeholder="Transaction / Reference ID (optional)"
                               value={ticket.refNo}
                               onChange={(e) => updateTicketRefNo(ticket.tempId, e.target.value)}
                               className="border border-input rounded px-2 py-1 text-sm bg-background text-foreground flex-1"
@@ -787,7 +781,7 @@ export default function MultiTicketingPage() {
                                           e.target.value
                                         )
                                       }
-                                      placeholder="Vehicle No"
+                                      placeholder="Vehicle No (optional)"
                                       className="border border-input rounded px-2 py-1 text-sm w-full min-w-0 sm:min-w-[120px] bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                                     />
                                   ) : (
@@ -851,8 +845,6 @@ export default function MultiTicketingPage() {
                   onClick={handleSaveAndPrint}
                   disabled={submitting || tickets.some((t) => {
                     if (!t.paymentModeId) return true;
-                    const isUpi = initData?.payment_modes.find((pm) => pm.id === t.paymentModeId)?.description.toUpperCase() === "UPI";
-                    if (isUpi && !t.refNo.trim()) return true;
                     return t.items.some((it) => isRowInvalid(it, findItem));
                   })}
                 >
@@ -883,7 +875,7 @@ export default function MultiTicketingPage() {
                   <strong>Route:</strong> {ticket.route_name}
                 </p>
                 <p>
-                  <strong>Date:</strong> {ticket.ticket_date}
+                  <strong>Date:</strong> {ticket.ticket_date}&nbsp;&nbsp;&nbsp;<strong>Time:</strong> {printTime}
                 </p>
               </div>
               <table className="w-full text-sm border-collapse mb-3">

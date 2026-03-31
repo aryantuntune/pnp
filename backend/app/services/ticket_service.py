@@ -529,17 +529,6 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: int) -> dict:
 async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> dict:
     effective_payment_mode_id = data.payment_mode_id
 
-    # Validate UPI payments require a ref_no
-    upi_check = await db.execute(
-        select(PaymentMode.description).where(PaymentMode.id == effective_payment_mode_id)
-    )
-    pm_description = upi_check.scalar_one_or_none() or ""
-    if pm_description.upper() == "UPI" and not (data.ref_no and data.ref_no.strip()):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reference ID (ref_no) is required for UPI payments.",
-        )
-
     await _validate_references(db, data.branch_id, data.route_id, effective_payment_mode_id)
     await _validate_items(db, data.items)
 
