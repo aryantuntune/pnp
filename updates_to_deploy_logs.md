@@ -2,6 +2,48 @@
 
 ---
 
+## Deployment Update — 2026-04-01 (Receipt print layout fix + landline removal)
+
+### Module
+
+Frontend — Ticketing / Print Receipt
+
+### Changes
+
+**1. Receipt print — amount column no longer cut off on right edge**
+- Added `table-layout: fixed` to the items table in both the QZ Tray HTML path and the `window.print()` path. Columns now honour their specified widths strictly instead of expanding to accommodate overflowing content, which was pushing the rightmost Amount column outside the printable area.
+- Removed `white-space: nowrap` from right-aligned cells (`td.r`) so values wrap within their column rather than overflowing.
+- Added `overflow: hidden` to cells and the receipt container as a hard clip safety net.
+- Slightly widened fixed column sizes: 58 mm paper — num cols 36→38 px, amt col 42→46 px; 80 mm paper — num cols 44→46 px, amt col 50→56 px.
+- Window-print scale adjusted from `0.92` to `0.90` and `transform-origin` changed to `top left` so the whole receipt scales inward from the left edge.
+
+**2. Receipt print — landline phone number removed**
+- `02348-248900` (Dabhol STD landline) no longer appears on printed tickets.
+- `buildReceiptBodyHtml` now filters `branchPhone` before display: splits on commas and keeps only numbers that do not start with `0` (Indian STD landline pattern). Mobile numbers (e.g. `9767248900`) are unaffected.
+
+### Files Modified
+
+* `frontend/src/lib/print-receipt.ts` — table-layout, column widths, overflow fix, phone filter
+
+### VCS
+
+Frontend only. No backend changes. No DB migrations.
+
+### VPS Deployment Steps
+
+Frontend rebuild only.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-01 (Dashboard ordering, optional fields, multi-ticket print fix)
 
 ### Module

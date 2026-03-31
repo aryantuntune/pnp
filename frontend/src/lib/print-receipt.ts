@@ -124,8 +124,8 @@ function fmtNum(n: number): string {
 
 function buildReceiptStyles(widthMm: number, paperWidth: PaperWidth): string {
   const fontSize = paperWidth === "58mm" ? "11px" : "12px";
-  const numColW  = paperWidth === "58mm" ? "36px" : "44px";
-  const amtColW  = paperWidth === "58mm" ? "42px" : "50px";
+  const numColW  = paperWidth === "58mm" ? "38px" : "46px";
+  const amtColW  = paperWidth === "58mm" ? "46px" : "56px";
   const noteSize = paperWidth === "58mm" ? "9px"  : "11px";
 
   return `
@@ -138,6 +138,7 @@ function buildReceiptStyles(widthMm: number, paperWidth: PaperWidth): string {
   padding: 2mm 2mm;
   line-height: 1.2;
   color: #000;
+  overflow: hidden;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -145,18 +146,18 @@ function buildReceiptStyles(widthMm: number, paperWidth: PaperWidth): string {
 [data-ssmspl-receipt] .center { text-align: center; }
 [data-ssmspl-receipt] .bold   { font-weight: 900; }
 [data-ssmspl-receipt] .dash   { border-top: 2px solid #000; margin: 2px 0; }
-[data-ssmspl-receipt] table   { width: 100%; border-collapse: collapse; }
+[data-ssmspl-receipt] table   { width: 100%; border-collapse: collapse; table-layout: fixed; }
 [data-ssmspl-receipt] col.desc { width: auto; }
 [data-ssmspl-receipt] col.num  { width: ${numColW}; }
 [data-ssmspl-receipt] col.amt  { width: ${amtColW}; }
-[data-ssmspl-receipt] td      { padding: 0 1px; vertical-align: top; }
-[data-ssmspl-receipt] td.r    { text-align: right; white-space: nowrap; }
+[data-ssmspl-receipt] td      { padding: 0 1px; vertical-align: top; overflow: hidden; }
+[data-ssmspl-receipt] td.r    { text-align: right; }
 [data-ssmspl-receipt] .r      { text-align: right; }
 [data-ssmspl-receipt] .header-line { display: flex; justify-content: space-between; }
 [data-ssmspl-receipt] .note   { font-size: ${noteSize}; font-weight: 900; line-height: 1.2; }
 @media print {
   body > *:not([data-ssmspl-receipt]) { display: none !important; }
-  [data-ssmspl-receipt] { display: block !important; margin: 0; padding: 2mm 2mm; transform: scale(0.92); transform-origin: top center; }
+  [data-ssmspl-receipt] { display: block !important; margin: 0; padding: 2mm 2mm; transform: scale(0.90); transform-origin: top left; }
 }
 @media screen {
   [data-ssmspl-receipt] { display: none !important; }
@@ -171,8 +172,8 @@ function buildQzReceiptHtml(
 ): string {
   const widthMm  = data.paperWidth === "58mm" ? 58 : 80;
   const fontSize = data.paperWidth === "58mm" ? "11px" : "12px";
-  const numColW  = data.paperWidth === "58mm" ? "36px" : "44px";
-  const amtColW  = data.paperWidth === "58mm" ? "42px" : "50px";
+  const numColW  = data.paperWidth === "58mm" ? "38px" : "46px";
+  const amtColW  = data.paperWidth === "58mm" ? "46px" : "56px";
   const noteSize = data.paperWidth === "58mm" ? "9px"  : "11px";
   const body = buildReceiptBodyHtml(data, logoBase64, qrBase64);
 
@@ -191,18 +192,19 @@ body {
   padding: 2mm 2mm;
   line-height: 1.2;
   color: #000;
+  overflow: hidden;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 .center { text-align: center; }
 .bold   { font-weight: 900; }
 .dash   { border-top: 2px solid #000; margin: 2px 0; }
-table   { width: 100%; border-collapse: collapse; }
+table   { width: 100%; border-collapse: collapse; table-layout: fixed; }
 col.desc { width: auto; }
 col.num  { width: ${numColW}; }
 col.amt  { width: ${amtColW}; }
-td      { padding: 0 1px; vertical-align: top; }
-td.r    { text-align: right; white-space: nowrap; }
+td      { padding: 0 1px; vertical-align: top; overflow: hidden; }
+td.r    { text-align: right; }
 .r      { text-align: right; }
 .header-line { display: flex; justify-content: space-between; }
 .note   { font-size: ${noteSize}; font-weight: 900; line-height: 1.2; }
@@ -226,6 +228,13 @@ function buildReceiptBodyHtml(
   const widthMm = paperWidth === "58mm" ? 58 : 80;
   const time    = formatReceiptTime(createdAt, departure);
   const dateStr = formatReceiptDate(ticketDate);
+
+  // Show only mobile numbers — strip STD landlines (start with 0) from display
+  const displayPhone = branchPhone
+    .split(",")
+    .map(p => p.trim())
+    .filter(p => p.length > 0 && !p.startsWith("0"))
+    .join(", ");
 
   const itemRows = items.map((item) => {
     const rows: string[] = [];
@@ -261,7 +270,7 @@ ${logoHtml}
 <div class="center bold">${escHtml(branchName.toUpperCase())}</div>
 <div class="center">MAHARASHTRA MARITIME BOARD APPROVAL</div>
 <div class="center bold">${escHtml(fromTo)}</div>
-<div class="header-line"><span>Ph: ${escHtml(branchPhone)}</span><span>TIME: ${time}</span></div>
+<div class="header-line"><span>Ph: ${escHtml(displayPhone)}</span><span>TIME: ${time}</span></div>
 <div class="header-line"><span>TICKET MEMO NO: ${ticketNo}</span><span>DATE: ${dateStr}</span></div>
 <div class="header-line"><span>PAYMENT MODE: ${escHtml(paymentModeName)}</span><span>BY: ${escHtml(createdBy)}</span></div>
 <div class="dash"></div>
