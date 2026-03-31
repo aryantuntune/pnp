@@ -28,10 +28,10 @@ const formatCurrency = (amount: number) =>
 // Branch display order: grouped by route (from → to)
 const BRANCH_ORDER = [
   "Dabhol", "Dhopave",
-  "Veshvi", "Bagmandle",
+  "Veshvi", "Bagmandale",
   "Jaigad", "Tavsal",
   "Agardanda", "Dighi",
-  "Vasai", "Bhayandar",
+  "Vasai", "Bhayander",
   "Virar", "Safale",
 ];
 
