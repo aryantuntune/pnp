@@ -2809,3 +2809,66 @@ sudo systemctl restart ssmspl-frontend
 * **Initial rate creation (POST) does not log.** Only subsequent edits via the Item Rates page are tracked.
 * If the page shows "Failed to load rate change logs", the table likely doesn't exist yet — run Step 1.
 * If the page shows "No rate change logs found", the table exists but is empty — make a rate change via Item Rates to verify the logging pipeline is working.
+
+---
+
+## Deployment Update — 2026-04-01 (Ticket Checker Accounts + Checker App v1.1.0)
+
+### Module
+
+Backend — User Seed / Checker Mobile App
+
+### Commit IDs
+
+* `fe56a9d` — Checker app v1.1.0 (username login, bug fixes)
+* `fd375ff` — Ticket checker seed script
+
+### Changes
+
+**Checker App (v1.1.0 / versionCode 2):**
+* Login switched from email to username — matches backend `LoginRequest.username`
+* Backend error messages now surfaced directly on login failure
+* Manual ticket lookup now requires a Branch ID input when type is "ticket"
+* QR scanner: fixed double-scan race condition; use `useWindowDimensions` for orientation safety
+* `TicketDetailsModal`: null-safe `net_amount`, deduplicated `checked_in_at` row
+* `clearAll()` now fully clears all AsyncStorage keys on logout
+* Verification history: better merge logic; failed manual lookups appear in recent list
+
+**New Ticket Checker Accounts (6 users, default password `Password@123`):**
+
+| Username | Full Name | Route |
+|---|---|---|
+| `dhanashri.jadhav` | Dhanashri Rajendra Jadhav | Route 3 — JAIGAD-TAVSAL |
+| `sapna.shete` | Sapna Rajesh Shete | Route 1 — DABHOL-DHOPAVE |
+| `zahoor.hasware` | Zahoor Mahmood Hasware | Route 4 — AGARDANDA-DIGHI |
+| `digambar.bamne.tc` | Digambar Shivaji Bamne | Route 5 — VASAI-BHAYANDAR |
+| `tejas.saldurkar` | Tejas Sharad Saldurkar | Route 2 — VESVI-BAGMANDALE |
+| `vikrant.nijai` | Vikrant Premnath Nijai | Route 7 — VIRAR-SAFALE |
+
+> ⚠ `digambar.bamne` already exists as BILLING_OPERATOR on Route 5. A separate `.tc` account was created. If a single account is preferred, run: `UPDATE users SET role = 'TICKET_CHECKER' WHERE username = 'digambar.bamne';` (removes billing-operator access).
+
+### Files Added
+
+* `backend/scripts/seed_ticket_checkers_2026_04_01.sql` *(new)*
+* `apps/checker/src/` — multiple files updated
+* `apps/checker/app.json` — version bumped to 1.1.0 / versionCode 2
+
+### VPS Deployment Steps
+
+**Step 1 — Pull and run the seed script**
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+psql -U ssmspl_user -d ssmspl_db -f backend/scripts/seed_ticket_checkers_2026_04_01.sql
+```
+
+The script will print a table of the 6 new accounts on success.
+
+**Step 2 — APK**
+
+The updated APK (v1.1.0) is available at:
+https://expo.dev/artifacts/eas/j9inccPskGhmPkjbDBrNx5.apk
+
+Distribute to all ticket checkers. They log in with their **username** (not email) and the default password `Password@123`.
