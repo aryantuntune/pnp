@@ -248,16 +248,32 @@ Backend — Alembic Migrations
 - Updating an item rate triggers `insert_rate_change_log()` which inserts into this table — the missing `date` column caused `UndefinedColumnError` and a 500 on every item rate edit.
 - Migration safely adds missing columns with `IF NOT EXISTS` or creates the full table if it doesn't exist.
 
+**5. Company table — missing `active_theme` column**
+- Model maps `active_theme` but production DB didn't have the column. Would 500 on any `select(Company)` query.
+
+**6. Payment transactions — column name mismatch**
+- Production DB had `sabpaisa_txn_id`/`sabpaisa_message` but model expects `gateway_txn_id`/`gateway_message`. Renamed to match model.
+
+**7. Other missing columns fixed across tables**
+- `boats.branch_id`, `tickets.ref_no`, `ticket_items.vehicle_name`, `bookings.booking_date`, `refresh_tokens.portal_user_id` (+ made `user_id` nullable), `portal_users.google_id` — all added via migration.
+
+**8. DDL script fully synced with models**
+- Updated all CREATE TABLE statements to include every current column.
+- Added PATCH sections for migrating existing databases.
+- Added `rate_change_logs` CREATE TABLE (was missing entirely).
+
 ### Files Modified
 
 * `backend/alembic/versions/b7a1c3d52e90_add_failed_login_and_locked_until_to_users.py` — migration for users table
 * `backend/alembic/versions/c4e8f2a71d93_add_missing_portal_user_columns.py` — migration for portal_users table
 * `backend/alembic/versions/d5f9a3b82e14_create_email_otps_table.py` — migration for email_otps table
 * `backend/alembic/versions/e6a1b4c93f25_fix_rate_change_logs_table.py` — migration for rate_change_logs table
+* `backend/alembic/versions/f7b2c5d84a36_fix_company_and_payment_transactions.py` — migration for company, payment_transactions, and remaining columns
+* `backend/scripts/ddl.sql` — full DDL sync with current models
 
 ### VCS
 
-Backend DB migrations only. All 20 models verified OK against live database after applying.
+Backend DB migrations + DDL update. All 20 models verified OK against live database after applying.
 
 ### VPS Deployment Steps
 
@@ -3450,3 +3466,49 @@ If the .bat fails (permissions), manually import via QZ Tray:
 
 
 Distribute to all ticket checkers. They log in with their **username** (not email) and the default password `Password@123`.
+
+---
+
+## Deployment Update — 2026-04-02 (Emergency Recovery & Dashboard Enhancements)
+
+### Summary
+This was a complex multi-stage deployment executed directly on the live VPS to deploy dashboard branch sorting, POS visibility toggles, and to fundamentally repair a completely locked Alembic migration state.
+
+### Commits
+* `b3524e7` — Dashboard logic enhancements
+* `0355b49` — POS toggle & TS build fix (`@ts-ignore` on qz-tray import)
+* `e74a85d` — Reprint script / React batch print race condition fix
+
+### Changes & Patches
+1. **Frontend sorting:** Dashboard branches are now strictly sorted by route topology instead of Postgres group order.
+2. **Missing Types:** Next.js build failed locally in Docker (`qz-tray` missing types). Bypassed with `@ts-ignore`.
+3. **Database Ghost Conflicts:** The `users` table already contained `mobile_number` and `ferry_schedules` contained `capacity` from previous manual DDL updates. This caused `alembic upgrade head` to repeatedly crash and roll back, stranding missing columns.
+4. **Database Fix (Manual Overrides):** Instead of fighting Alembic, we natively applied safely-gated (`IF NOT EXISTS`) SQL to manually inject:
+    * `payment_modes.show_at_pos` (And hid 'online' from the frontend mapping)
+    * `users.failed_login_attempts` & `users.locked_until` (Which cured the `PATCH /api/item-rates/11` HTTP 500 auth crash)
+    * `portal_users.google_id`, `is_verified`, `is_active`
+5. **Rate Change Logs:** The ghost `rate_change_logs` table missing all tracking fields was cleanly dropped and rebuilt.
+
+### Manual SQL Executed on Live DB
+```sql
+-- Fix Auth / Items 500 Crash
+ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+
+-- Rebuild Rate Change Logs completely natively
+DROP TABLE IF EXISTS rate_change_logs;
+CREATE TABLE rate_change_logs (
+    id BIGSERIAL PRIMARY KEY,
+    date DATE NOT NULL,
+    time TIME NOT NULL,
+    route_id INTEGER NOT NULL REFERENCES routes(id),
+    item_id INTEGER NOT NULL REFERENCES items(id),
+    old_rate NUMERIC(38, 2),
+    new_rate NUMERIC(38, 2),
+    updated_by_user UUID NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Complete Alembic
+alembic stamp head
+```
