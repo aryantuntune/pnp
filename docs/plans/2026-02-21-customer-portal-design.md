@@ -9,7 +9,7 @@ Complete the customer portal for production: backend booking APIs, QR code gener
 
 ## Decisions
 
-- **Payment gateway**: Deferred. Bookings set to CONFIRMED immediately. Hook point left for Razorpay integration later.
+- **Payment gateway**: CCAvenue hosted checkout integrated. Bookings start as PENDING, confirmed on successful payment callback.
 - **QR codes**: Yes. Generate a UUID `verification_code` per booking, encode as QR.
 - **Email**: Yes. Send booking confirmation via async SMTP.
 - **Capacity**: Yes. Enforce per-departure limits via `ferry_schedules.capacity`.

@@ -850,7 +850,7 @@ git commit -m "feat(service): add QR code generation service"
 
 **Step 1: Add SMTP config to settings**
 
-In `backend/app/config.py`, add inside the `Settings` class after the Razorpay fields:
+In `backend/app/config.py`, add inside the `Settings` class after the CCAvenue fields:
 
 ```python
     # Email (SMTP)

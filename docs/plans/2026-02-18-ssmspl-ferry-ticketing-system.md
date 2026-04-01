@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a full-stack ferry boat ticketing system for Suvarnadurga Shipping & Marine Services Pvt. Ltd. with FastAPI backend, Next.js frontend, PostgreSQL database, JWT/RBAC authentication, and Razorpay payment integration.
+**Goal:** Build a full-stack ferry boat ticketing system for Suvarnadurga Shipping & Marine Services Pvt. Ltd. with FastAPI backend, Next.js frontend, PostgreSQL database, JWT/RBAC authentication, and CCAvenue payment integration.
 
 **Architecture:** Monorepo with `backend/` (FastAPI async Python) and `frontend/` (Next.js) directories. The backend uses SQLAlchemy 2.0 async ORM with PostgreSQL. Auth is JWT-based with role-based access control. Four isolated environments (dev, test, staging, prod) each use their own database.
 
-**Tech Stack:** Python 3.12, FastAPI, SQLAlchemy 2.0 async, PostgreSQL 16, Alembic, Uvicorn, Gunicorn, JWT (python-jose), bcrypt, Next.js 14, TypeScript, Tailwind CSS, Razorpay.
+**Tech Stack:** Python 3.12, FastAPI, SQLAlchemy 2.0 async, PostgreSQL 16, Alembic, Uvicorn, Gunicorn, JWT (python-jose), bcrypt, Next.js 14, TypeScript, Tailwind CSS, CCAvenue.
 
 ---
 
@@ -208,7 +208,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.18
 python-dotenv==1.0.1
-razorpay==1.4.1
+pycryptodome>=3.20,<4.0
 email-validator==2.2.0
 ```
 
@@ -274,9 +274,11 @@ DATABASE_URL=postgresql+asyncpg://ssmspl_user:ssmspl_pass@localhost:5432/ssmspl_
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000
 
-# Razorpay
-RAZORPAY_KEY_ID=your_key_id
-RAZORPAY_KEY_SECRET=your_key_secret
+# CCAvenue Payment Gateway
+CCAVENUE_MERCHANT_ID=
+CCAVENUE_ACCESS_CODE=
+CCAVENUE_WORKING_KEY=
+CCAVENUE_BASE_URL=https://test.ccavenue.com
 ```
 
 **Step 2: Create `.env.development`** (copy of example with dev values)
@@ -292,8 +294,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=7
 DATABASE_URL=postgresql+asyncpg://ssmspl_user:ssmspl_pass@localhost:5432/ssmspl_db_dev
 ALLOWED_ORIGINS=http://localhost:3000
-RAZORPAY_KEY_ID=rzp_test_placeholder
-RAZORPAY_KEY_SECRET=placeholder_secret
+CCAVENUE_MERCHANT_ID=
+CCAVENUE_ACCESS_CODE=
+CCAVENUE_WORKING_KEY=
+CCAVENUE_BASE_URL=https://test.ccavenue.com
 ```
 
 **Step 3: Create `.env.test`**
@@ -309,8 +313,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=7
 DATABASE_URL=postgresql+asyncpg://ssmspl_user:ssmspl_pass@localhost:5432/ssmspl_db_test
 ALLOWED_ORIGINS=http://localhost:3000
-RAZORPAY_KEY_ID=rzp_test_placeholder
-RAZORPAY_KEY_SECRET=placeholder_secret
+CCAVENUE_MERCHANT_ID=
+CCAVENUE_ACCESS_CODE=
+CCAVENUE_WORKING_KEY=
+CCAVENUE_BASE_URL=https://test.ccavenue.com
 ```
 
 **Step 4: Create `.env.staging`**
@@ -326,8 +332,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 DATABASE_URL=postgresql+asyncpg://ssmspl_user:REPLACE_PASS@staging-db-host:5432/ssmspl_db_staging
 ALLOWED_ORIGINS=https://staging.ssmspl.com
-RAZORPAY_KEY_ID=rzp_test_placeholder
-RAZORPAY_KEY_SECRET=placeholder_secret
+CCAVENUE_MERCHANT_ID=
+CCAVENUE_ACCESS_CODE=
+CCAVENUE_WORKING_KEY=
+CCAVENUE_BASE_URL=https://test.ccavenue.com
 ```
 
 **Step 5: Create `.env.production`**
@@ -343,8 +351,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
 DATABASE_URL=postgresql+asyncpg://ssmspl_user:REPLACE_PASS@prod-db-host:5432/ssmspl_db_prod
 ALLOWED_ORIGINS=https://app.ssmspl.com
-RAZORPAY_KEY_ID=rzp_live_placeholder
-RAZORPAY_KEY_SECRET=placeholder_secret
+CCAVENUE_MERCHANT_ID=
+CCAVENUE_ACCESS_CODE=
+CCAVENUE_WORKING_KEY=
+CCAVENUE_BASE_URL=https://secure.ccavenue.com
 ```
 
 **Step 6: Create `backend/app/config.py`**
@@ -379,9 +389,11 @@ class Settings(BaseSettings):
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
 
-    # Razorpay
-    RAZORPAY_KEY_ID: str = ""
-    RAZORPAY_KEY_SECRET: str = ""
+    # CCAvenue Payment Gateway
+    CCAVENUE_MERCHANT_ID: str = ""
+    CCAVENUE_ACCESS_CODE: str = ""
+    CCAVENUE_WORKING_KEY: str = ""
+    CCAVENUE_BASE_URL: str = "https://test.ccavenue.com"
 
 
 @lru_cache
@@ -1680,7 +1692,7 @@ npm install -D @types/js-cookie
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_APP_NAME=SSMSPL
-NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
+NEXT_PUBLIC_PAYMENT_GATEWAY=ccavenue
 ```
 
 **Step 4: Copy to `.env.local`**

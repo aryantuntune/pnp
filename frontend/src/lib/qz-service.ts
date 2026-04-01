@@ -56,6 +56,7 @@ async function signData(toSign: string): Promise<string> {
 let qzCache: any = null;
 async function getQz(): Promise<any> {
   if (qzCache) return qzCache;
+  // @ts-ignore: no types available
   const mod = await import("qz-tray");
   qzCache = (mod as any).default ?? mod;
   return qzCache;

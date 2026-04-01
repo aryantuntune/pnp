@@ -156,7 +156,7 @@ services:
       RETENTION_DAYS: "7"
     volumes:
       - ./backend/scripts/backup_db.sh:/scripts/backup_db.sh:ro
-      - db-backups:/backups
+      - ./backups:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -179,7 +179,6 @@ services:
 
 volumes:
   pg_data:
-  db-backups:
 
 networks:
   internal:
