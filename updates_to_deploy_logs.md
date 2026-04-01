@@ -3155,5 +3155,74 @@ npm run build
 sudo systemctl restart ssmspl-frontend
 ```
 
+---
+
+## Deployment Update — 2026-04-02 (QZ Tray — certificate-based silent printing)
+
+### Module
+
+Backend — QZ Tray signing endpoint
+Frontend — QZ Tray service
+Tools — Direct printing setup script
+
+### Changes
+
+**1. Switched from "Allow Unsigned" to certificate-based signing**
+- Previously QZ Tray required "Allow Unsigned" to be manually checked in its settings on every POS machine — any site could print silently, which is a security gap.
+- Now uses a self-signed SSMSPL certificate (`ssmspl-qz.crt`). QZ Tray only trusts this specific certificate, so only the SSMSPL app can print silently.
+- The certificate is embedded directly in `qz-service.ts`. No separate file needs to be copied to the browser machine.
+
+**2. Server-side signing (`/api/qz/sign`)**
+- QZ Tray requires the certificate's matching private key to sign a challenge string during connection.
+- A new authenticated endpoint `POST /api/qz/sign` handles signing — the private key never leaves the backend server.
+- Only logged-in staff can trigger the signing, so anonymous users cannot initiate silent printing.
+- Uses `pycryptodome` (`Crypto.Signature.pkcs1_15`, `Crypto.Hash.SHA`) for RSA-SHA1 signing (QZ Tray's required algorithm).
+
+**3. `tools/setup-direct-printing.bat` rewritten**
+- Old: created browser shortcuts with `--kiosk-printing` flag.
+- New: automatically imports the SSMSPL certificate fingerprint into QZ Tray's `allowed.dat` file so the certificate is trusted without manual Site Manager steps. Also removes the fingerprint from `blocked.dat` if it was ever accidentally blocked. Restarts QZ Tray automatically if it is running.
+
+### Files Modified / Added
+
+* `backend/app/routers/qz.py` *(new)* — `/api/qz/sign` signing endpoint
+* `backend/app/main.py` — registers the QZ router
+* `frontend/src/lib/qz-service.ts` — embedded cert, server-side signing, removed "Allow Unsigned" mode
+* `tools/setup-direct-printing.bat` — auto-imports cert fingerprint into QZ Tray allowed list
+* `.gitignore` — added `*.key` and `*.crt` (raw PEM files are not committed; cert is embedded in code)
+
+### VPS Deployment Steps
+
+**Step 1 — Pull and install new dependency**
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+cd backend
+source .venv/bin/activate
+pip install pycryptodome
+```
+
+**Step 2 — Restart backend**
+
+```bash
+sudo systemctl restart ssmspl-backend
+```
+
+**Step 3 — Rebuild and restart frontend**
+
+```bash
+cd ../frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+**Step 4 — On each POS machine (one time)**
+
+Run `tools/setup-direct-printing.bat` as Administrator. This imports the certificate fingerprint into QZ Tray automatically. QZ Tray must already be installed.
+
+If the .bat fails (permissions), manually import via QZ Tray:
+- Right-click QZ Tray tray icon → Site Manager → click **+** → select `ssmspl-qz.crt`
+
 
 Distribute to all ticket checkers. They log in with their **username** (not email) and the default password `Password@123`.

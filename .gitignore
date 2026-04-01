@@ -81,3 +81,7 @@ data/Report_format/
 
 # Analysis & audit (local only, never commit)
 analysis_issues/
+
+# QZ Tray certificate/key files (raw PEM — embedded in code where needed)
+*.key
+*.crt

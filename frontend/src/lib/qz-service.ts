@@ -2,7 +2,7 @@
 /**
  * QZ Tray service — direct printing without the browser print dialog.
  * QZ Tray must be installed and running on the POS machine (https://qz.io).
- * In QZ Tray settings, "Allow Unsigned" must be enabled.
+ * Uses QZ Tray's demo certificate for silent trusted printing (no popup).
  */
 
 const PRINTER_KEY = "ssmspl_qz_printer";
@@ -17,7 +17,42 @@ export function setStoredPrinterName(name: string): void {
   localStorage.setItem(PRINTER_KEY, name);
 }
 
-// Lazily load qz-tray (must be client-side only — it uses WebSocket / window)
+// ── SSMSPL signing certificate ──
+// Self-signed cert generated for SSMSPL POS printing.
+// The corresponding ssmspl-qz.crt must be imported into QZ Tray Site Manager (one time per machine).
+const DEMO_CERT = `-----BEGIN CERTIFICATE-----
+MIIDczCCAlugAwIBAgIUE75Z8l7av7Cbn4cJNRew+55+3NowDQYJKoZIhvcNAQEL
+BQAwSTELMAkGA1UEBhMCSU4xFDASBgNVBAgMC01haGFyYXNodHJhMQ8wDQYDVQQK
+DAZTU01TUEwxEzARBgNVBAMMClNTTVNQTCBQT1MwHhcNMjYwMzMxMjAwODU4WhcN
+MzYwMzI4MjAwODU4WjBJMQswCQYDVQQGEwJJTjEUMBIGA1UECAwLTWFoYXJhc2h0
+cmExDzANBgNVBAoMBlNTTVNQTDETMBEGA1UEAwwKU1NNU1BMIFBPUzCCASIwDQYJ
+KoZIhvcNAQEBBQADggEPADCCAQoCggEBAN0DjPw375xr1ekRgc+SFzpJ85rz6phg
+wzEenwvbYHX0A57lY7JrjvQ+T91dVRh3iLrNkT5h/zvBlWNw8QxcV4sj77Jaa2M5
+4baRrpRwy+kzoAsKz1tyZgdxph+D82QS37kN5beNgGP9WKekz3luSUem1X0GGA2+
+SWoH0vt9s0ja9o6tx2KsvnDvmUDGftzBPctYdPSwRNgzrQDIA9p1WDYp5k1xX0Ce
+yNz1hgZ14tvXjMJisPkob9x+HeaXMEq/gGQfdxrX6EqdoqrdxvqU3XxhzVby3dZ6
+jl2RjH/GunoTQR5GimQOecJwa8/Um9FB3Qp6Vq1SY39ytrpSdpSTWNUCAwEAAaNT
+MFEwHQYDVR0OBBYEFL2yQJFoVBTLuokdrIzcxJlJhP9DMB8GA1UdIwQYMBaAFL2y
+QJFoVBTLuokdrIzcxJlJhP9DMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEL
+BQADggEBAHNWhVuDtuqyY3m2SOR8+1I7Njf7FiQkjqZwsWh1OUvAoA4/IaF5KTZ7
+dxbXadocc0QvLxzZ4VUtnLvv/wkS6O10c8fqGwmo5iGs1trPxxl/ITGudZe5MnW7
+3zLBAz+fjihpsmcobueD+GpUZGC1yCaRxe+xhJUJGNew1GIEJGbuqKD5/XSOMotv
+FLLwRncvJkKNmRP5b1Sl7ishZOQH4f93tDISXgM+nRdzTKBlhKPyV3J/VW7T+wsv
+AO0moNMiN/MnwXWhaJV3NaO9qeCssDksPmhxZvtJmL/u1EOjIVZJm1cPoGwPI5at
+p6L3yvxnuNZ/zDHSx3xpX794fL/LI1Q=
+-----END CERTIFICATE-----`;
+
+// Signing is done server-side — the private key never leaves the backend.
+// The frontend calls /api/qz/sign with the challenge string and gets back
+// the RSA-SHA256 signature. Requires the user to be logged in.
+async function signData(toSign: string): Promise<string> {
+  const { default: api } = await import("./api");
+  const res = await api.post<{ signature: string }>("/api/qz/sign", { message: toSign });
+  return res.data.signature;
+}
+
+// ── QZ module cache ──
+
 let qzCache: any = null;
 async function getQz(): Promise<any> {
   if (qzCache) return qzCache;
@@ -26,15 +61,11 @@ async function getQz(): Promise<any> {
   return qzCache;
 }
 
-// Configure unsigned mode — QZ Tray must have "Allow Unsigned" checked in its
-// settings (right-click tray icon → Site Manager → uncheck "Block Unsigned")
-function applyUnsignedSecurity(qz: any) {
+function applyDemoSecurity(qz: any) {
   qz.security.setCertificatePromise((_resolve: any, _reject: any) => {
-    _resolve("");
+    _resolve(DEMO_CERT);
   });
-  qz.security.setSignaturePromise((_toSign: any, _resolve: any, _reject: any) => {
-    _resolve("");
-  });
+  qz.security.setSignaturePromise(async (toSign: any) => signData(toSign));
 }
 
 export function qzIsConnected(): boolean {
@@ -47,14 +78,13 @@ export function qzIsConnected(): boolean {
 }
 
 /**
- * Connect to QZ Tray. Returns true if connected, false if QZ Tray is not
- * running or not installed.
+ * Connect to QZ Tray. Returns true if connected, false if QZ Tray is not running.
  */
 export async function qzConnect(): Promise<boolean> {
   try {
     const qz = await getQz();
     if (qz.websocket.isActive()) return true;
-    applyUnsignedSecurity(qz);
+    applyDemoSecurity(qz);
     await Promise.race([
       qz.websocket.connect({ retries: 1, delay: 0.5 }),
       new Promise<never>((_, reject) =>
@@ -86,7 +116,7 @@ export async function qzListPrinters(): Promise<string[]> {
     if (!ok) return [];
   }
   try {
-    const result = await qz.printers.find("");
+    const result = await qz.printers.find();
     if (!result) return [];
     return Array.isArray(result) ? result : [result];
   } catch {
@@ -96,9 +126,6 @@ export async function qzListPrinters(): Promise<string[]> {
 
 /**
  * Print a full HTML document directly to the named printer via QZ Tray.
- * @param printerName  Exact printer name as returned by qzListPrinters()
- * @param html         Full HTML document string (<!DOCTYPE html>…</html>)
- * @param widthMm      Paper width in mm (58 or 80)
  */
 export async function qzPrint(
   printerName: string,
@@ -107,13 +134,13 @@ export async function qzPrint(
 ): Promise<void> {
   const qz = await getQz();
   if (!qz.websocket.isActive()) {
-    applyUnsignedSecurity(qz);
+    applyDemoSecurity(qz);
     await qz.websocket.connect({ retries: 1, delay: 0.5 });
   }
 
   const config = qz.configs.create(printerName, {
     colorType: "blackWhite",
-    size: { width: widthMm, height: null }, // null = auto-height
+    size: { width: widthMm, height: null },
     units: "mm",
     margins: 0,
     scaleContent: false,

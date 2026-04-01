@@ -12,7 +12,7 @@ from app.config import settings
 from app.database import engine
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler, RateLimitExceeded, SLOWAPI_AVAILABLE
 from app.middleware.security import SecurityHeadersMiddleware
-from app.routers import auth, users, boats, branches, routes, items, item_rates, ferry_schedules, payment_modes, tickets, portal_auth, company, booking, portal_bookings, reports, verification, contact, dashboard, portal_payment, portal_theme, settings as settings_router, rate_change_logs
+from app.routers import auth, users, boats, branches, routes, items, item_rates, ferry_schedules, payment_modes, tickets, portal_auth, company, booking, portal_bookings, reports, verification, contact, dashboard, portal_payment, portal_theme, settings as settings_router, rate_change_logs, qz
 
 logger = logging.getLogger("ssmspl")
 
@@ -247,6 +247,7 @@ app.include_router(portal_payment.router)
 app.include_router(portal_theme.router)
 app.include_router(settings_router.router)
 app.include_router(rate_change_logs.router)
+app.include_router(qz.router)
 
 
 @app.get("/health", tags=["Health"])
