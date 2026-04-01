@@ -2,6 +2,181 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Automated Google Drive Backup)
+
+### Module
+
+Infrastructure — Backup System (server-side, no frontend UI)
+
+### What This Does
+
+Automatically uploads the daily PostgreSQL database backup to Google Drive so that a copy of the business data always exists off-server. If the Hostinger VPS dies, you can restore the database from the Google Drive copy.
+
+### How It Works
+
+| Time | What Happens | Where |
+|---|---|---|
+| **2:00 AM** | `backup_db.sh` (existing) dumps the PostgreSQL database to a compressed `.sql.gz` file | `./backups/` on VPS |
+| **2:15 AM** | `sync_backup_gdrive.sh` (new) picks up the latest backup, uploads it to Google Drive, verifies file size, sends email notification | Google Drive `SSMSPL-Backups/` folder |
+
+### Retention Policy
+
+| Location | How Long | Managed By |
+|---|---|---|
+| VPS (`./backups/`) | 7 days | `backup_db.sh` (auto-deletes older files) |
+| Google Drive (`SSMSPL-Backups/`) | 30 days | `sync_backup_gdrive.sh` (auto-deletes older files) |
+
+### Safety Features
+
+- **Race condition guard**: sync script waits until the backup file is at least 5 minutes old before uploading (prevents uploading a half-written dump)
+- **Duplicate detection**: if today's backup already exists on Google Drive, upload is skipped
+- **Size verification**: after upload, compares local vs remote file size to catch corruption
+- **Email notifications**: sends SUCCESS/FAILED/WARNING emails to your inbox after every run
+- **Non-fatal cleanup**: if Google Drive retention cleanup fails, the upload is still reported as successful
+
+### Email Notifications
+
+You will receive one email per day at ~2:15 AM:
+- **[OK]** — backup uploaded successfully, includes file name and size
+- **[ALERT]** — backup failed (no file found, upload error)
+- **[WARN]** — backup uploaded but something was off (size mismatch, file too new)
+
+### Files Added/Changed
+
+| File | Change |
+|---|---|
+| `docker-compose.prod.yml` | Changed `db-backups` named Docker volume to `./backups` bind mount (so host scripts can access backup files) |
+| `backend/scripts/sync_backup_gdrive.sh` | **New** — uploads latest backup to Google Drive via `rclone`, verifies, rotates old backups |
+| `backend/scripts/notify_backup.sh` | **New** — sends email notification via `msmtp` (lightweight Gmail SMTP client) |
+| `backups/.gitignore` | **New** — keeps `.sql.gz` files out of git |
+| `docs/plans/2026-04-02-automated-gdrive-backup.md` | **New** — full implementation plan with step-by-step instructions |
+
+### VPS Deployment Steps
+
+**Prerequisites to install on VPS (one-time setup):**
+
+```bash
+# 1. Install rclone (Google Drive sync tool)
+sudo apt update && sudo apt install -y rclone
+
+# 2. Configure rclone with your Google account (interactive)
+rclone config
+#   - Name: gdrive
+#   - Type: drive (Google Drive)
+#   - Scope: 1 (full access)
+#   - Auto config: n (headless server — it gives you a URL to open in your browser)
+#   - Authorize in browser, paste code back
+
+# 3. Verify Google Drive connection
+rclone lsd gdrive:
+rclone mkdir gdrive:SSMSPL-Backups
+
+# 4. Install msmtp (email sender)
+sudo apt install -y msmtp msmtp-mta
+
+# 5. Configure Gmail SMTP — create /etc/msmtprc:
+sudo tee /etc/msmtprc > /dev/null <<'MSMTP'
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        /var/log/msmtp.log
+
+account        gmail
+host           smtp.gmail.com
+port           587
+from           YOUR_GMAIL@gmail.com
+user           YOUR_GMAIL@gmail.com
+password       YOUR_16_CHAR_APP_PASSWORD
+
+account default : gmail
+MSMTP
+sudo chmod 600 /etc/msmtprc
+
+# To get an App Password: https://myaccount.google.com/apppasswords
+# Select "Mail" > "Linux Computer" > copy the 16-char code
+
+# 6. Test email
+echo "Test from SSMSPL" | msmtp your-email@gmail.com
+```
+
+**Deploy the code and activate:**
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+
+git pull origin main
+
+# Copy existing backups from the old Docker volume before restarting
+docker cp ssmspl-db-backup-1:/backups/. ./backups/
+
+# Restart db-backup service (now uses bind mount)
+docker compose -f docker-compose.prod.yml up -d db-backup
+
+# Make scripts executable
+chmod +x backend/scripts/sync_backup_gdrive.sh
+chmod +x backend/scripts/notify_backup.sh
+
+# Create log file
+sudo touch /var/log/ssmspl-backup-sync.log
+sudo chmod 644 /var/log/ssmspl-backup-sync.log
+
+# Add cron job (runs at 2:15 AM daily, 15 min after backup_db.sh)
+(sudo crontab -l 2>/dev/null; echo "15 2 * * * BACKUP_DIR=/path/to/ssmspl/backups BACKUP_NOTIFY_EMAIL=your-email@gmail.com /path/to/ssmspl/backend/scripts/sync_backup_gdrive.sh >> /var/log/ssmspl-backup-sync.log 2>&1") | sudo crontab -
+
+# Verify cron is set
+sudo crontab -l
+```
+
+**Test the full pipeline manually:**
+
+```bash
+# Trigger a backup
+docker exec ssmspl-db-backup-1 /scripts/backup_db.sh
+
+# Trigger the sync
+BACKUP_DIR=./backups BACKUP_NOTIFY_EMAIL=your-email@gmail.com ./backend/scripts/sync_backup_gdrive.sh
+
+# Check Google Drive
+rclone ls gdrive:SSMSPL-Backups/
+
+# You should also receive a success email
+```
+
+### How to Restore from Google Drive
+
+If the VPS is lost and you need to recover:
+
+```bash
+# 1. List available backups
+rclone ls gdrive:SSMSPL-Backups/
+
+# 2. Download the one you want
+rclone copy gdrive:SSMSPL-Backups/ssmspl_db_prod_YYYYMMDD_HHMMSS.sql.gz ./backups/
+
+# 3. Restore into PostgreSQL (on the new server)
+docker exec -i ssmspl-db-backup-1 /scripts/restore_db.sh /backups/ssmspl_db_prod_YYYYMMDD_HHMMSS.sql.gz
+```
+
+### Hostinger Snapshots (Bonus)
+
+In addition to DB backups, take periodic full VPS snapshots from the Hostinger panel:
+1. Log into Hostinger VPS dashboard > **Snapshots**
+2. Create a snapshot before major deployments
+3. Rotate old snapshots (Hostinger allows 1-3 depending on plan)
+
+This covers the entire server state (OS, Docker, config, SSL certs), not just the database.
+
+### This Feature Has No Frontend UI
+
+This is a server-side cron job. There is no dashboard page to control it. You know it is working by:
+1. Checking your email for the daily notification
+2. Opening Google Drive > `SSMSPL-Backups/` folder to see the files
+3. Checking the log: `cat /var/log/ssmspl-backup-sync.log`
+
+---
+
 ## Deployment Update — 2026-04-02 (Fix model-to-DB mismatches causing 500 errors)
 
 ### Module
