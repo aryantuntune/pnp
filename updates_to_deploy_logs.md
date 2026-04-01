@@ -2974,4 +2974,77 @@ The script will print a table of the 6 new accounts on success.
 The updated APK (v1.1.0) is available at:
 https://expo.dev/artifacts/eas/j9inccPskGhmPkjbDBrNx5.apk
 
+---
+
+## Deployment Update — 2026-04-02 (Payment mode POS visibility toggle)
+
+### Module
+
+Backend — Payment Modes / Ticket Service
+Frontend — Payment Mode Master
+
+### Changes
+
+**1. `show_at_pos` flag on payment modes**
+- Added a `show_at_pos` boolean column to the `payment_modes` table (default `TRUE`).
+- When `FALSE`, the payment mode is hidden from the POS ticket-payment dropdown but remains active in the system for portal/customer-app revenue tracking.
+- "Online" is set to `FALSE` automatically by the migration — it was causing confusion at counters since it is exclusively used for customer portal / CCAvenue gateway payments, not counter-collected payments.
+- Card is already `is_active = FALSE` on the live server so it is unaffected.
+
+**2. Payment Mode Master page — "Show at POS" toggle**
+- The payment mode master (`/dashboard/payment-modes`) now shows a **"Show at POS"** column (Yes/No badge) for every mode.
+- The Create and Edit dialogs include a **"Show at POS"** toggle switch with a helper note: *"Turn off for portal/online-only modes."*
+- The View detail modal also shows the Show at POS status.
+
+**3. Multi-ticket POS init — POS query fixed**
+- `ticket_service.py`: the multi-ticket init endpoint now filters payment modes by both `is_active = TRUE` **and** `show_at_pos = TRUE`, matching the behaviour already in place on the single-ticket page.
+- Previously the multi-ticket form still showed "Online" in its payment mode dropdown even though the single-ticket form already filtered it out.
+
+**4. Seed data updated**
+- `seed_data.sql`: payment modes INSERT now explicitly sets `show_at_pos` per mode (`FALSE` for Online, `TRUE` for Cash / UPI / Card) so fresh dev installs are consistent with production.
+
+### Files Modified
+
+* `backend/app/models/payment_mode.py` — added `show_at_pos` mapped column *(committed earlier)*
+* `backend/app/schemas/payment_mode.py` — added `show_at_pos` to Create / Update / Read schemas *(committed earlier)*
+* `backend/app/services/payment_mode_service.py` — added `show_at_pos` filter support *(committed earlier)*
+* `backend/app/routers/payment_modes.py` — exposed `show_at_pos` query param on list / count endpoints *(committed earlier)*
+* `frontend/src/types/index.ts` — added `show_at_pos` to `PaymentMode`, `PaymentModeCreate`, `PaymentModeUpdate` *(committed earlier)*
+* `frontend/src/app/dashboard/payment-modes/page.tsx` — Show at POS column, toggle in dialogs *(committed earlier)*
+* `frontend/src/app/dashboard/ticketing/page.tsx` — POS payment mode fetch already used `show_at_pos=true` *(committed earlier)*
+* `backend/alembic/versions/a3c5d8e91f02_add_show_at_pos_to_payment_modes.py` — migration *(committed earlier)*
+* `backend/scripts/ddl.sql` — `show_at_pos BOOLEAN NOT NULL DEFAULT TRUE` column *(committed earlier)*
+* `backend/app/services/ticket_service.py` — multi-ticket POS query now filters by `show_at_pos = TRUE`
+* `backend/scripts/seed_data.sql` — explicit `show_at_pos` values per payment mode
+
+### VPS Deployment Steps
+
+**Step 1 — Pull and run migration**
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+```
+
+The migration adds `show_at_pos` to `payment_modes` and automatically sets `show_at_pos = FALSE` for the "Online" mode.
+
+**Step 2 — Restart backend**
+
+```bash
+sudo systemctl restart ssmspl-backend
+```
+
+**Step 3 — Rebuild and restart frontend**
+
+```bash
+cd ../frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+
 Distribute to all ticket checkers. They log in with their **username** (not email) and the default password `Password@123`.

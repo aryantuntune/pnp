@@ -132,12 +132,12 @@ ON CONFLICT (id) DO UPDATE SET
 -- ============================================================
 -- 6. PAYMENT MODES
 -- ============================================================
-INSERT INTO payment_modes (id, description, is_active)
+INSERT INTO payment_modes (id, description, is_active, show_at_pos)
 VALUES
-    (1, 'Cash',   TRUE),
-    (2, 'UPI',    TRUE),
-    (3, 'Card',   TRUE),
-    (4, 'Online', TRUE)
+    (1, 'Cash',   TRUE,  TRUE),
+    (2, 'UPI',    TRUE,  TRUE),
+    (3, 'Card',   TRUE,  TRUE),
+    (4, 'Online', TRUE,  FALSE)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================

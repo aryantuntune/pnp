@@ -306,9 +306,9 @@ async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = 
         for row in items_with_rates_result.all()
     ]
 
-    # Get active payment modes
+    # Get active payment modes that are visible on POS
     pm_result = await db.execute(
-        select(PaymentMode).where(PaymentMode.is_active == True).order_by(PaymentMode.id)
+        select(PaymentMode).where(PaymentMode.is_active == True, PaymentMode.show_at_pos == True).order_by(PaymentMode.id)
     )
     payment_modes = pm_result.scalars().all()
 
