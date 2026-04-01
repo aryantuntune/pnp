@@ -3512,3 +3512,16 @@ CREATE TABLE rate_change_logs (
 -- Complete Alembic
 alembic stamp head
 ```
+
+### Manual Data Patches
+```sql
+-- Fix Multi-Ticketing "Fake morning schedule" generated times for off-hours tickets
+UPDATE tickets
+SET departure = (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)
+WHERE ticket_date = '2026-04-02' 
+  AND (
+       (created_at AT TIME ZONE 'Asia/Kolkata')::time >= '23:00:00'::time 
+       OR 
+       (created_at AT TIME ZONE 'Asia/Kolkata')::time <= '06:15:00'::time
+  );
+```
