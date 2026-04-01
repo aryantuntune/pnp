@@ -2,6 +2,51 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Multi-ticket print time fix)
+
+### Module
+
+Frontend — Multi-Ticketing
+
+### Changes
+
+**Multi-ticket print now shows actual generation time, not first ferry time**
+- Root cause: Tailwind `print:hidden` CSS wasn't reliably hiding the main content div (which contains the First Ferry / Last Ferry schedule header) during `window.print()`. The ferry schedule times leaked into the printed output.
+- Fix: Replaced CSS-based print hiding with **conditional rendering** — when printing, the main content is completely unmounted from the DOM. If it's not in the DOM, it cannot print.
+- Replaced `printTime` React state with a synchronous `useRef` to eliminate any React batching race condition on the time value.
+- Removed dependency on Tailwind `print:hidden` / `print:block` variants entirely.
+
+### Note on previously printed tickets
+
+5 multi-tickets were printed with the incorrect (first ferry) time. The actual generation timestamps are stored in the `created_at` column of the `tickets` table and can be queried:
+```sql
+SELECT ticket_no, ticket_date, created_at AT TIME ZONE 'Asia/Kolkata' AS generated_at
+FROM tickets ORDER BY id DESC LIMIT 10;
+```
+
+### Files Modified
+
+* `frontend/src/app/dashboard/multiticketing/page.tsx` — conditional rendering, ref-based print time
+
+### VCS
+
+Frontend only. No backend changes. No DB migrations.
+
+### VPS Deployment Steps
+
+Frontend rebuild only.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Automated Google Drive Backup)
 
 ### Module

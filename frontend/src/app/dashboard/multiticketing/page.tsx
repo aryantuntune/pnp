@@ -164,7 +164,8 @@ export default function MultiTicketingPage() {
   // Print state
   const [printData, setPrintData] = useState<Ticket[] | null>(null);
   const [showPrint, setShowPrint] = useState(false);
-  const [printTime, setPrintTime] = useState("");
+  // Ref (not state) — guaranteed synchronous, no React batching race
+  const printTimeRef = useRef("");
   const printTriggered = useRef(false);
   const saveRef = useRef<HTMLButtonElement>(null);
 
@@ -478,7 +479,7 @@ export default function MultiTicketingPage() {
         tickets: payload,
       });
       const now = new Date();
-      setPrintTime(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+      printTimeRef.current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       setPrintData(data);
       setShowPrint(true);
     } catch (e: unknown) {
@@ -499,7 +500,9 @@ export default function MultiTicketingPage() {
 
   return (
     <>
-      <div className="flex flex-col flex-1 overflow-hidden print:hidden">
+      {/* When printing, unmount main content entirely — no CSS print-hide needed */}
+      {!showPrint && (
+      <div className="flex flex-col flex-1 overflow-hidden">
         {/* ── Page header ── */}
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h1 className="text-2xl font-bold">Multi-Ticketing</h1>
@@ -855,10 +858,11 @@ export default function MultiTicketingPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Print View ── */}
+      {/* ── Print View — main content is unmounted above, so only this renders ── */}
       {showPrint && printData && (
-        <div className="hidden print:block p-4">
+        <div className="p-4">
           {printData.map((ticket, idx) => (
             <div key={ticket.id} className="mb-8">
               {idx > 0 && <hr className="border-t-2 border-dashed border-gray-400 my-6" />}
@@ -875,7 +879,7 @@ export default function MultiTicketingPage() {
                   <strong>Route:</strong> {ticket.route_name}
                 </p>
                 <p>
-                  <strong>Date:</strong> {ticket.ticket_date}&nbsp;&nbsp;&nbsp;<strong>Time:</strong> {printTime}
+                  <strong>Date:</strong> {ticket.ticket_date}&nbsp;&nbsp;&nbsp;<strong>Time:</strong> {printTimeRef.current}
                 </p>
               </div>
               <table className="w-full text-sm border-collapse mb-3">
