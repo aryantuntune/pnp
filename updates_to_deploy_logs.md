@@ -2,6 +2,115 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Fix model-to-DB mismatches causing 500 errors)
+
+### Module
+
+Backend — Alembic Migrations
+
+### Changes
+
+**1. Users table — missing columns (caused item master 500 error)**
+- `failed_login_attempts` (INTEGER, default 0) and `locked_until` (TIMESTAMPTZ) were mapped in the User model but had no migration.
+- Every authenticated request runs `select(User)` which includes ALL mapped columns — if any column is missing in the DB, the query fails with 500.
+- This was the root cause of admin users getting "Internal Server Error" when editing items (or any other authenticated action).
+
+**2. Portal users table — missing columns**
+- `google_id` (VARCHAR 255, unique), `is_verified` (BOOLEAN, default false), `is_active` (BOOLEAN, default true) were mapped in the PortalUser model but had no migration.
+- Would cause 500 on any portal user query (login, registration, OTP verification).
+
+**3. Email OTPs table — missing table**
+- The `email_otps` table was referenced by `EmailOtp` model and `otp_service.py` but was never created in the database.
+- Would cause 500 on any OTP send/verify flow for portal users.
+
+### Files Modified
+
+* `backend/alembic/versions/b7a1c3d52e90_add_failed_login_and_locked_until_to_users.py` — migration for users table
+* `backend/alembic/versions/c4e8f2a71d93_add_missing_portal_user_columns.py` — migration for portal_users table
+* `backend/alembic/versions/d5f9a3b82e14_create_email_otps_table.py` — migration for email_otps table
+
+### VCS
+
+Backend DB migrations only. All 20 models verified OK against live database after applying.
+
+### VPS Deployment Steps
+
+Run Alembic migrations + backend restart. No frontend changes.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+
+git pull origin main
+
+# Apply migrations
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+
+# Restart backend
+sudo systemctl restart ssmspl-backend
+```
+
+---
+
+## Deployment Update — 2026-04-02 (Dashboard loose ends resolved)
+
+### Module
+
+Frontend — Dashboard + Backend — Dashboard Service
+
+### Changes
+
+**1. Branch cancellation counts now visible in dashboard**
+- Added `cancelled_count` to the `TodaySummary.branch_breakdown` TypeScript interface.
+- Updated the API response mapping to extract `cancelled_count` from backend data.
+- Added a "Cancelled" column to the Branch Breakdown table — shows count in red when > 0, em-dash when zero.
+
+**2. WebSocket vs HTTP race condition fixed**
+- Added a `wsHasData` ref to track whether WebSocket has already delivered live stats for today.
+- HTTP stats callback now skips `setStats()` when WS data is already present, preventing stale HTTP payloads from briefly overwriting fresh WebSocket data on initial page load.
+- Guard resets when switching to a historical date so HTTP stats apply correctly there.
+
+**3. Backend totals aggregation moved to Postgres**
+- Replaced Python-level `sum()` list comprehensions in `get_today_summary()` with a single Postgres `SELECT` query using `func.count()`, `func.sum()`, and `case()`.
+- Totals (`total_tickets`, `total_cancelled`, `total_revenue`) are now computed in one DB round trip instead of iterating branch results in Python.
+
+**4. Spec updated**
+- Updated `docs/dashboard_changes_summary.md` to mark all three functional loose ends as resolved.
+
+### Files Modified
+
+* `frontend/src/app/dashboard/page.tsx` — cancelled_count mapping, WS race guard, useRef import
+* `backend/app/services/dashboard_service.py` — Postgres-level totals aggregation
+* `docs/dashboard_changes_summary.md` — marked loose ends resolved
+
+### VCS
+
+Frontend + Backend changes. No DB migrations.
+
+### VPS Deployment Steps
+
+Frontend rebuild + backend restart.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+# Backend
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl-backend
+
+# Frontend
+cd ../frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-01 (Receipt print layout fix + landline removal)
 
 ### Module
