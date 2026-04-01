@@ -198,11 +198,17 @@ Backend — Alembic Migrations
 - The `email_otps` table was referenced by `EmailOtp` model and `otp_service.py` but was never created in the database.
 - Would cause 500 on any OTP send/verify flow for portal users.
 
+**4. Rate change logs table — missing columns (caused item rate edit 500 error)**
+- The `rate_change_logs` table on production was missing `date`, `time`, and other columns mapped in the `RateChangeLog` model.
+- Updating an item rate triggers `insert_rate_change_log()` which inserts into this table — the missing `date` column caused `UndefinedColumnError` and a 500 on every item rate edit.
+- Migration safely adds missing columns with `IF NOT EXISTS` or creates the full table if it doesn't exist.
+
 ### Files Modified
 
 * `backend/alembic/versions/b7a1c3d52e90_add_failed_login_and_locked_until_to_users.py` — migration for users table
 * `backend/alembic/versions/c4e8f2a71d93_add_missing_portal_user_columns.py` — migration for portal_users table
 * `backend/alembic/versions/d5f9a3b82e14_create_email_otps_table.py` — migration for email_otps table
+* `backend/alembic/versions/e6a1b4c93f25_fix_rate_change_logs_table.py` — migration for rate_change_logs table
 
 ### VCS
 
@@ -210,7 +216,7 @@ Backend DB migrations only. All 20 models verified OK against live database afte
 
 ### VPS Deployment Steps
 
-Run Alembic migrations + backend restart. No frontend changes.
+Rebuild Docker + run Alembic migrations inside the container.
 
 ```bash
 ssh user@your-vps-ip
@@ -218,13 +224,11 @@ cd /path/to/ssmspl
 
 git pull origin main
 
-# Apply migrations
-cd backend
-source .venv/bin/activate
-alembic upgrade head
+# Rebuild and restart
+docker compose -f docker-compose.prod.yml up --build -d
 
-# Restart backend
-sudo systemctl restart ssmspl-backend
+# Apply migrations inside backend container
+docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
 ```
 
 ---
