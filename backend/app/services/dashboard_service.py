@@ -18,22 +18,30 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-async def get_dashboard_stats(db: AsyncSession, current_user: User | None = None) -> dict:
+async def get_dashboard_stats(
+    db: AsyncSession,
+    current_user: User | None = None,
+    for_date: date | None = None,
+) -> dict:
     """Return aggregated dashboard statistics.
 
     For route-scoped users (MANAGER and below), ticket_count and today_revenue
     are filtered to the branches belonging to the user's route.
+    Accepts an optional for_date; defaults to today.
     """
-    today = date.today()
+    target_date = for_date or date.today()
 
     # Determine branch scope
     branch_ids: tuple[int, int] | None = None
     if current_user and needs_route_scope(current_user) and current_user.route_id:
         branch_ids = await get_route_branch_ids(db, current_user.route_id)
 
-    ticket_count_q = select(func.count()).select_from(Ticket)
+    # Ticket count and revenue for the target date
+    ticket_count_q = select(func.count()).select_from(Ticket).where(
+        Ticket.ticket_date == target_date
+    )
     today_revenue_q = select(func.coalesce(func.sum(Ticket.net_amount), 0)).where(
-        Ticket.ticket_date == today
+        Ticket.ticket_date == target_date
     )
 
     # Apply branch scope to ticket queries
@@ -71,12 +79,17 @@ async def get_dashboard_stats(db: AsyncSession, current_user: User | None = None
     }
 
 
-async def get_today_summary(db: AsyncSession, current_user: User | None = None) -> dict:
-    """Return today's ticket summary grouped by branch and payment mode.
+async def get_today_summary(
+    db: AsyncSession,
+    current_user: User | None = None,
+    for_date: date | None = None,
+) -> dict:
+    """Return ticket summary grouped by branch and payment mode for a given date.
 
     For route-scoped users, results are filtered to their route's branches.
+    Accepts an optional for_date; defaults to today.
     """
-    today = date.today()
+    today = for_date or date.today()
 
     # Determine branch scope
     branch_ids: tuple[int, int] | None = None
@@ -100,6 +113,7 @@ async def get_today_summary(db: AsyncSession, current_user: User | None = None) 
             Ticket.branch_id,
             Branch.name.label("branch_name"),
             func.count().label("ticket_count"),
+            func.count().filter(Ticket.is_cancelled == True).label("cancelled_count"),
             revenue_expr.label("revenue"),
         )
         .join(Branch, Ticket.branch_id == Branch.id)
@@ -115,6 +129,7 @@ async def get_today_summary(db: AsyncSession, current_user: User | None = None) 
             "branch_id": row.branch_id,
             "branch_name": row.branch_name,
             "ticket_count": row.ticket_count,
+            "cancelled_count": row.cancelled_count,
             "revenue": Decimal(str(row.revenue)),
         }
         for row in branch_rows.all()
@@ -146,13 +161,33 @@ async def get_today_summary(db: AsyncSession, current_user: User | None = None) 
         for row in payment_rows.all()
     ]
 
-    # --- Totals ---
-    total_tickets = sum(b["ticket_count"] for b in branches)
-    total_revenue = sum(b["revenue"] for b in branches)
+    # --- Totals (aggregated at Postgres level) ---
+    totals_q = (
+        select(
+            func.count().label("total_tickets"),
+            func.count().filter(Ticket.is_cancelled == True).label("total_cancelled"),  # noqa: E712
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Ticket.is_cancelled == False, Ticket.net_amount),  # noqa: E712
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("total_revenue"),
+        )
+        .select_from(Ticket)
+        .where(Ticket.ticket_date == today)
+    )
+    if branch_ids:
+        totals_q = totals_q.where(Ticket.branch_id.in_(branch_ids))
+
+    totals_row = (await db.execute(totals_q)).one()
 
     return {
-        "total_tickets": total_tickets,
-        "total_revenue": total_revenue,
+        "total_tickets": totals_row.total_tickets,
+        "total_cancelled": totals_row.total_cancelled,
+        "total_revenue": Decimal(str(totals_row.total_revenue)),
         "branches": branches,
         "payment_modes": payment_modes,
     }

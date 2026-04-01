@@ -85,17 +85,18 @@ async def get_revenue_report(
     route_id: int | None = None,
     grouping: str = "day",
 ) -> dict:
-    # Tickets: revenue from non-cancelled tickets
+    # Tickets: revenue and count from non-cancelled tickets
     ticket_period = _period_expr(Ticket.ticket_date, grouping)
     tq = select(
         ticket_period.label("period"),
         func.coalesce(func.sum(
             case((Ticket.is_cancelled == False, Ticket.net_amount), else_=0)
         ), 0).label("revenue"),
+        func.count().filter(Ticket.is_cancelled == False).label("ticket_count"),
     ).group_by(ticket_period)
     tq = _apply_ticket_filters(tq, date_from, date_to, branch_id, route_id)
     ticket_rows = (await db.execute(tq)).all()
-    ticket_map = {r.period: float(r.revenue) for r in ticket_rows}
+    ticket_map = {r.period: {"revenue": float(r.revenue), "count": int(r.ticket_count)} for r in ticket_rows}
 
     # Bookings: revenue from non-cancelled bookings
     booking_period = _period_expr(Booking.travel_date, grouping)
@@ -104,25 +105,32 @@ async def get_revenue_report(
         func.coalesce(func.sum(
             case((Booking.is_cancelled == False, Booking.net_amount), else_=0)
         ), 0).label("revenue"),
+        func.count().filter(Booking.is_cancelled == False).label("booking_count"),
     ).group_by(booking_period)
     bq = _apply_booking_filters(bq, date_from, date_to, branch_id, route_id)
     booking_rows = (await db.execute(bq)).all()
-    booking_map = {r.period: float(r.revenue) for r in booking_rows}
+    booking_map = {r.period: {"revenue": float(r.revenue), "count": int(r.booking_count)} for r in booking_rows}
 
     # Merge
     all_periods = sorted(set(ticket_map.keys()) | set(booking_map.keys()))
     rows = []
     total_t = total_b = 0.0
+    total_count = 0
     for p in all_periods:
-        t_rev = ticket_map.get(p, 0)
-        b_rev = booking_map.get(p, 0)
+        t = ticket_map.get(p, {"revenue": 0, "count": 0})
+        b = booking_map.get(p, {"revenue": 0, "count": 0})
+        t_rev = t["revenue"]
+        b_rev = b["revenue"]
+        period_count = t["count"] + b["count"]
         total_t += t_rev
         total_b += b_rev
+        total_count += period_count
         rows.append({
             "period": p,
             "ticket_revenue": t_rev,
             "booking_revenue": b_rev,
             "total_revenue": t_rev + b_rev,
+            "ticket_count": period_count,
         })
 
     return {

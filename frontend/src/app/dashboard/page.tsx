@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import api from "@/lib/api";
 import { User } from "@/types";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import RevenueChart from "@/components/charts/RevenueChart";
 import BranchComparisonChart from "@/components/charts/BranchComparisonChart";
 import ItemSplitChart from "@/components/charts/ItemSplitChart";
+import ItemQuantityChart from "@/components/charts/ItemQuantityChart";
 import {
   Ticket,
   Ship,
@@ -20,6 +21,8 @@ import {
   Shield,
   IndianRupee,
   ArrowRight,
+  RefreshCw,
+  CalendarDays,
 } from "lucide-react";
 
 const formatCurrency = (amount: number) =>
@@ -69,14 +72,16 @@ interface TicketRow {
 
 interface TodaySummary {
   total_tickets: number;
+  total_cancelled: number;
   total_revenue: number;
-  branch_breakdown: { branch_name: string; ticket_count: number; total_revenue: number }[];
+  branch_breakdown: { branch_name: string; ticket_count: number; cancelled_count: number; total_revenue: number }[];
   payment_mode_breakdown: { payment_mode: string; ticket_count: number; total_revenue: number }[];
 }
 
 interface RevenueRow {
   period: string;
   total_revenue: number;
+  ticket_count?: number;
 }
 
 interface BranchRow {
@@ -90,6 +95,12 @@ interface ItemRow {
   is_vehicle: boolean;
   total_revenue: number;
   total_quantity: number;
+}
+
+interface PaymentTrendRow {
+  payment_mode_name: string;
+  total_revenue: number;
+  total_count: number;
 }
 
 export default function DashboardPage() {
@@ -107,15 +118,27 @@ export default function DashboardPage() {
   const [revenueData, setRevenueData] = useState<RevenueRow[]>([]);
   const [branchData, setBranchData] = useState<BranchRow[]>([]);
   const [itemData, setItemData] = useState<ItemRow[]>([]);
-  const [revenuePeriod, setRevenuePeriod] = useState<7 | 30>(7);
+  const [revenuePeriod, setRevenuePeriod] = useState<7 | 30 | "mtd">(7);
   const [sectionsLoading, setSectionsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>(toISODate(new Date()));
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [paymentTrendData, setPaymentTrendData] = useState<PaymentTrendRow[]>([]);
+  // Force re-render every 30s so "Updated X min ago" stays current
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Real-time stats via WebSocket
   const { stats: wsStats, connected: wsConnected } = useDashboardWS();
+  // Track whether WS has already delivered live data for today — prevents HTTP from overwriting it
+  const wsHasData = useRef(false);
 
-  // Merge WebSocket stats into display stats when available
+  // Merge WebSocket stats into display stats only when viewing today
   useEffect(() => {
-    if (wsStats) {
+    if (wsStats && selectedDate === toISODate(new Date())) {
+      wsHasData.current = true;
       setStats({
         ticketCount: wsStats.ticket_count,
         revenue: wsStats.today_revenue,
@@ -123,46 +146,52 @@ export default function DashboardPage() {
         activeBranches: wsStats.active_branches,
       });
     }
-  }, [wsStats]);
+  }, [wsStats, selectedDate]);
 
   const fetchEnhancedSections = useCallback(
-    async (days: number) => {
+    async (days: 7 | 30 | "mtd", forDate?: string) => {
       setSectionsLoading(true);
       try {
-        const today = new Date();
-        const todayStr = toISODate(today);
-        const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-        const periodStart = new Date(today);
-        periodStart.setDate(periodStart.getDate() - (days - 1));
+        const targetDate = forDate || toISODate(new Date());
+        const dateObj = new Date(targetDate + "T00:00:00");
+        const monthStart = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}-01`;
+        let periodStart: Date;
+        if (days === "mtd") {
+          periodStart = new Date(monthStart + "T00:00:00");
+        } else {
+          periodStart = new Date(dateObj);
+          periodStart.setDate(periodStart.getDate() - ((days as number) - 1));
+        }
         const periodStartStr = toISODate(periodStart);
 
-        const [summaryRes, revenueRes, branchRes, itemRes] = await Promise.allSettled([
-          api.get("/api/dashboard/today-summary"),
+        const [summaryRes, revenueRes, branchRes, itemRes, statsRes, paymentTrendRes] = await Promise.allSettled([
+          api.get("/api/dashboard/today-summary", { params: { date: targetDate } }),
           api.get("/api/reports/revenue", {
-            params: {
-              date_from: periodStartStr,
-              date_to: todayStr,
-              grouping: "day",
-            },
+            params: { date_from: periodStartStr, date_to: targetDate, grouping: "day" },
           }),
           api.get("/api/reports/branch-summary", {
-            params: { date_from: monthStart, date_to: todayStr },
+            params: { date_from: monthStart, date_to: targetDate },
           }),
           api.get("/api/reports/item-breakdown", {
-            params: { date_from: monthStart, date_to: todayStr },
+            params: { date_from: monthStart, date_to: targetDate },
+          }),
+          api.get("/api/dashboard/stats", { params: { date: targetDate } }),
+          api.get("/api/reports/payment-mode", {
+            params: { date_from: periodStartStr, date_to: targetDate },
           }),
         ]);
 
-        // Map today-summary: backend returns { branches, payment_modes } with "revenue" field
         if (summaryRes.status === "fulfilled") {
           const raw = summaryRes.value.data;
           setTodaySummary({
             total_tickets: raw.total_tickets ?? 0,
+            total_cancelled: raw.total_cancelled ?? 0,
             total_revenue: raw.total_revenue ?? 0,
             branch_breakdown: (raw.branches || raw.branch_breakdown || []).map(
-              (b: { branch_name: string; ticket_count: number; revenue?: number; total_revenue?: number }) => ({
+              (b: { branch_name: string; ticket_count: number; cancelled_count?: number; revenue?: number; total_revenue?: number }) => ({
                 branch_name: b.branch_name,
                 ticket_count: b.ticket_count ?? 0,
+                cancelled_count: b.cancelled_count ?? 0,
                 total_revenue: b.total_revenue ?? b.revenue ?? 0,
               })
             ),
@@ -192,7 +221,6 @@ export default function DashboardPage() {
           );
         }
 
-        // Map item-breakdown: backend returns "total_qty" but frontend expects "total_quantity"
         if (itemRes.status === "fulfilled") {
           setItemData(
             (itemRes.value.data.rows || []).map(
@@ -205,8 +233,36 @@ export default function DashboardPage() {
             )
           );
         }
+
+        // Update stat cards for the selected date
+        // Skip if viewing today and WebSocket has already delivered fresh data (prevents race overwrite)
+        const isViewingToday = targetDate === toISODate(new Date());
+        if (statsRes.status === "fulfilled" && !(isViewingToday && wsHasData.current)) {
+          const s = statsRes.value.data;
+          setStats({
+            ticketCount: s.ticket_count,
+            revenue: s.today_revenue,
+            activeFerries: s.active_ferries,
+            activeBranches: s.active_branches,
+          });
+        }
+
+        // Payment mode trend
+        if (paymentTrendRes.status === "fulfilled") {
+          setPaymentTrendData(
+            (paymentTrendRes.value.data.rows || []).map(
+              (r: { payment_mode_name?: string; total_revenue?: number; total_count?: number }) => ({
+                payment_mode_name: r.payment_mode_name ?? "",
+                total_revenue: r.total_revenue ?? 0,
+                total_count: r.total_count ?? 0,
+              })
+            )
+          );
+        }
+
+        setLastUpdated(new Date());
       } catch {
-        // error already handled by Promise.allSettled per-request
+        // errors handled per-request via allSettled
       } finally {
         setSectionsLoading(false);
       }
@@ -215,22 +271,24 @@ export default function DashboardPage() {
   );
 
   const handleRevenuePeriodChange = useCallback(
-    (days: 7 | 30) => {
+    (days: 7 | 30 | "mtd", forDate?: string) => {
       setRevenuePeriod(days);
-      // Only re-fetch revenue data with the new period
-      const today = new Date();
-      const todayStr = toISODate(today);
-      const periodStart = new Date(today);
-      periodStart.setDate(periodStart.getDate() - (days - 1));
+      const targetDate = forDate || toISODate(new Date());
+      const dateObj = new Date(targetDate + "T00:00:00");
+      let periodStart: Date;
+      if (days === "mtd") {
+        periodStart = new Date(
+          `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}-01T00:00:00`
+        );
+      } else {
+        periodStart = new Date(dateObj);
+        periodStart.setDate(periodStart.getDate() - ((days as number) - 1));
+      }
       const periodStartStr = toISODate(periodStart);
 
       api
         .get("/api/reports/revenue", {
-          params: {
-            date_from: periodStartStr,
-            date_to: todayStr,
-            grouping: "day",
-          },
+          params: { date_from: periodStartStr, date_to: targetDate, grouping: "day" },
         })
         .then(({ data }) => {
           setRevenueData(data.rows || []);
@@ -252,7 +310,8 @@ export default function DashboardPage() {
       // Fetch initial stats via HTTP (fallback / first paint)
       api
         .get<{ ticket_count: number; today_revenue: number; active_ferries: number; active_branches: number }>(
-          "/api/dashboard/stats"
+          "/api/dashboard/stats",
+          { params: { date: toISODate(new Date()) } }
         )
         .then(({ data: s }) => {
           setStats({
@@ -283,12 +342,33 @@ export default function DashboardPage() {
 
       // Fetch enhanced dashboard sections for users with Reports permission
       if (menu.includes("Reports")) {
-        fetchEnhancedSections(7);
+        fetchEnhancedSections(7, toISODate(new Date()));
       } else {
         setSectionsLoading(false);
       }
     });
   }, [fetchEnhancedSections]);
+
+  // Re-fetch all sections when the selected date changes (date picker interaction)
+  useEffect(() => {
+    if (!user) return;
+    if (!(user.menu_items || []).includes("Reports")) return;
+    // Reset WS-data guard when switching to a historical date — HTTP stats should apply there
+    if (selectedDate !== toISODate(new Date())) wsHasData.current = false;
+    fetchEnhancedSections(revenuePeriod, selectedDate);
+  }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh every 5 minutes — only when viewing today
+  useEffect(() => {
+    if (!user || !(user.menu_items || []).includes("Reports")) return;
+    const interval = setInterval(() => {
+      const todayStr = toISODate(new Date());
+      if (selectedDate === todayStr) {
+        fetchEnhancedSections(revenuePeriod, todayStr);
+      }
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user, selectedDate, revenuePeriod, fetchEnhancedSections]);
 
   if (!user) {
     return (
@@ -325,10 +405,28 @@ export default function DashboardPage() {
     .replace(/\b\w/g, (c) => c.toUpperCase());
   const canSeeReports = menu.includes("Reports");
 
+  // Date-picker derived values
+  const todayStr = toISODate(new Date());
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = toISODate(yesterdayDate);
+  const isToday = selectedDate === todayStr;
+  const selectedDateObj = new Date(selectedDate + "T00:00:00");
+  const monthLabel = selectedDateObj.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const collectionLabel = isToday
+    ? "Today\u2019s Collection"
+    : `Collection \u2014 ${selectedDateObj.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+  const lastUpdatedLabel = lastUpdated
+    ? (() => {
+        const mins = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
+        return mins === 0 ? "Just now" : `${mins} min ago`;
+      })()
+    : null;
+
   // Only show stat cards the user can access
   const allStatCards = [
     {
-      label: "Tickets Issued",
+      label: isToday ? "Tickets Today" : "Tickets Issued",
       value: (stats.ticketCount ?? 0).toLocaleString("en-IN"),
       icon: Ticket,
       color: "text-blue-600",
@@ -336,7 +434,7 @@ export default function DashboardPage() {
       requires: "Ticketing",
     },
     {
-      label: "Revenue",
+      label: isToday ? "Today\u2019s Revenue" : "Revenue",
       value: `\u20B9${formatCurrency(stats.revenue)}`,
       icon: IndianRupee,
       color: "text-emerald-600",
@@ -413,16 +511,54 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       {statCards.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-lg font-semibold">Overview</h2>
-            {wsConnected && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Overview</h2>
+              {wsConnected && isToday && (
+                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  Live
                 </span>
-                Live
-              </span>
+              )}
+              {!isToday && (
+                <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                  Historical
+                </span>
+              )}
+            </div>
+            {/* Date picker — visible to admins/managers (Reports permission) */}
+            {canSeeReports && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex gap-1">
+                  <Button
+                    variant={isToday ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedDate(todayStr)}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant={selectedDate === yesterdayStr ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedDate(yesterdayStr)}
+                  >
+                    Yesterday
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1.5 border border-input rounded-md px-3 py-1.5 bg-background text-sm">
+                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    max={todayStr}
+                    onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                    className="bg-transparent outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
             )}
           </div>
           <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(statCards.length, 4)} gap-4`}>
@@ -522,15 +658,30 @@ export default function DashboardPage() {
       {/* ── Enhanced Dashboard Sections (Reports permission required) ── */}
       {canSeeReports && (
         <>
-          {/* Section 1: Today's Collection Summary */}
+          {/* Section 1: Collection Summary */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Today&apos;s Collection</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">{collectionLabel}</CardTitle>
+              <div className="flex items-center gap-2">
+                {lastUpdatedLabel && (
+                  <span className="text-xs text-muted-foreground hidden sm:inline">Updated {lastUpdatedLabel}</span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchEnhancedSections(revenuePeriod, selectedDate)}
+                  disabled={sectionsLoading}
+                  title="Refresh"
+                >
+                  <RefreshCw className={`h-4 w-4 ${sectionsLoading ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {sectionsLoading ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Skeleton className="h-20 rounded-xl" />
                     <Skeleton className="h-20 rounded-xl" />
                     <Skeleton className="h-20 rounded-xl" />
                   </div>
@@ -539,7 +690,7 @@ export default function DashboardPage() {
               ) : todaySummary ? (
                 <div className="space-y-4">
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-blue-50 rounded-xl p-4">
                       <p className="text-sm text-blue-600 font-medium">Total Tickets</p>
                       <p className="text-2xl font-bold text-blue-900 mt-1">
@@ -552,9 +703,25 @@ export default function DashboardPage() {
                         {"\u20B9"}{formatCurrency(todaySummary.total_revenue)}
                       </p>
                     </div>
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-sm text-slate-600 font-medium">Avg. Ticket Value</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        {todaySummary.total_tickets > 0
+                          ? `\u20B9${formatCurrency(todaySummary.total_revenue / todaySummary.total_tickets)}`
+                          : "\u2014"}
+                      </p>
+                    </div>
                   </div>
+                  {todaySummary.total_cancelled > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />
+                        {todaySummary.total_cancelled} ticket{todaySummary.total_cancelled !== 1 ? "s" : ""} cancelled
+                      </span>
+                    </div>
+                  )}
 
-                  {/* Branch Breakdown Table */}
+                  {/* Branch Breakdown Table with inline progress bars */}
                   {todaySummary.branch_breakdown && todaySummary.branch_breakdown.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-2">By Branch</h3>
@@ -564,17 +731,38 @@ export default function DashboardPage() {
                             <tr className="border-b border-border">
                               <th className="text-left py-2 px-3 text-muted-foreground font-medium">Branch Name</th>
                               <th className="text-right py-2 px-3 text-muted-foreground font-medium">Tickets</th>
+                              <th className="text-right py-2 px-3 text-muted-foreground font-medium">Cancelled</th>
+                              <th className="py-2 px-3 text-muted-foreground font-medium w-24"></th>
                               <th className="text-right py-2 px-3 text-muted-foreground font-medium">Revenue</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {sortByOrder(todaySummary.branch_breakdown, "branch_name", BRANCH_ORDER).map((row) => (
-                              <tr key={row.branch_name} className="border-b border-border last:border-0">
-                                <td className="py-2 px-3">{row.branch_name}</td>
-                                <td className="py-2 px-3 text-right">{(row.ticket_count ?? 0).toLocaleString("en-IN")}</td>
-                                <td className="py-2 px-3 text-right font-medium">{"\u20B9"}{formatCurrency(row.total_revenue)}</td>
-                              </tr>
-                            ))}
+                            {(() => {
+                              const rows = sortByOrder(todaySummary.branch_breakdown, "branch_name", BRANCH_ORDER);
+                              const maxRev = Math.max(...rows.map((r) => r.total_revenue), 1);
+                              return rows.map((row) => (
+                                <tr key={row.branch_name} className="border-b border-border last:border-0">
+                                  <td className="py-2 px-3">{row.branch_name}</td>
+                                  <td className="py-2 px-3 text-right">{(row.ticket_count ?? 0).toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-3 text-right">
+                                    {(row.cancelled_count ?? 0) > 0 ? (
+                                      <span className="text-red-500 font-medium">{row.cancelled_count}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden w-full">
+                                      <div
+                                        className="h-full bg-blue-400 rounded-full"
+                                        style={{ width: `${Math.round((row.total_revenue / maxRev) * 100)}%` }}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium">{"\u20B9"}{formatCurrency(row.total_revenue)}</td>
+                                </tr>
+                              ));
+                            })()}
                           </tbody>
                         </table>
                       </div>
@@ -591,17 +779,31 @@ export default function DashboardPage() {
                             <tr className="border-b border-border">
                               <th className="text-left py-2 px-3 text-muted-foreground font-medium">Payment Mode</th>
                               <th className="text-right py-2 px-3 text-muted-foreground font-medium">Tickets</th>
+                              <th className="py-2 px-3 text-muted-foreground font-medium w-24"></th>
                               <th className="text-right py-2 px-3 text-muted-foreground font-medium">Revenue</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {sortByOrder(todaySummary.payment_mode_breakdown, "payment_mode", PAYMENT_MODE_ORDER).map((row) => (
-                              <tr key={row.payment_mode} className="border-b border-border last:border-0">
-                                <td className="py-2 px-3">{row.payment_mode}</td>
-                                <td className="py-2 px-3 text-right">{(row.ticket_count ?? 0).toLocaleString("en-IN")}</td>
-                                <td className="py-2 px-3 text-right font-medium">{"\u20B9"}{formatCurrency(row.total_revenue)}</td>
-                              </tr>
-                            ))}
+                            {(() => {
+                              const rows = sortByOrder(todaySummary.payment_mode_breakdown, "payment_mode", PAYMENT_MODE_ORDER);
+                              const maxRev = Math.max(...rows.map((r) => r.total_revenue), 1);
+                              const pmColors: Record<string, string> = { Cash: "bg-emerald-400", UPI: "bg-blue-400", Online: "bg-violet-400" };
+                              return rows.map((row) => (
+                                <tr key={row.payment_mode} className="border-b border-border last:border-0">
+                                  <td className="py-2 px-3">{row.payment_mode}</td>
+                                  <td className="py-2 px-3 text-right">{(row.ticket_count ?? 0).toLocaleString("en-IN")}</td>
+                                  <td className="py-2 px-3">
+                                    <div className="h-2 bg-muted rounded-full overflow-hidden w-full">
+                                      <div
+                                        className={`h-full rounded-full ${pmColors[row.payment_mode] ?? "bg-primary"}`}
+                                        style={{ width: `${Math.round((row.total_revenue / maxRev) * 100)}%` }}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-medium">{"\u20B9"}{formatCurrency(row.total_revenue)}</td>
+                                </tr>
+                              ));
+                            })()}
                           </tbody>
                         </table>
                       </div>
@@ -610,7 +812,17 @@ export default function DashboardPage() {
 
                   {/* Handle empty summary data */}
                   {todaySummary.total_tickets === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">No collections recorded today</p>
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                        <Ticket className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {isToday ? "No tickets issued yet" : "No tickets on this date"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isToday ? "Entries will appear here as tickets are printed" : "Try selecting a different date"}
+                      </p>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -627,16 +839,23 @@ export default function DashboardPage() {
                 <Button
                   variant={revenuePeriod === 7 ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handleRevenuePeriodChange(7)}
+                  onClick={() => handleRevenuePeriodChange(7, selectedDate)}
                 >
-                  7 Days
+                  7D
                 </Button>
                 <Button
                   variant={revenuePeriod === 30 ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handleRevenuePeriodChange(30)}
+                  onClick={() => handleRevenuePeriodChange(30, selectedDate)}
                 >
-                  30 Days
+                  30D
+                </Button>
+                <Button
+                  variant={revenuePeriod === "mtd" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleRevenuePeriodChange("mtd", selectedDate)}
+                >
+                  MTD
                 </Button>
               </div>
             </CardHeader>
@@ -646,7 +865,10 @@ export default function DashboardPage() {
               ) : revenueData.length > 0 ? (
                 <RevenueChart data={revenueData} />
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <BarChart3 className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">No revenue data for this period</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -654,75 +876,152 @@ export default function DashboardPage() {
           {/* Section 3: Branch Comparison */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Branch Performance (This Month)</CardTitle>
+              <CardTitle className="text-lg">Branch Performance ({monthLabel})</CardTitle>
             </CardHeader>
             <CardContent>
               {sectionsLoading ? (
-                <Skeleton className="h-[250px] rounded-xl" />
+                <div className="space-y-12">
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="h-[300px] bg-muted rounded-xl animate-pulse" />
+                  </div>
+                </div>
               ) : branchData.length > 0 ? (
                 <BranchComparisonChart data={branchData} />
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <MapPin className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">No branch data this month</p>
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Section 4: Top Items */}
+          {/* Section 4: Payment Mode Trend */}
+          {paymentTrendData.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Payment Mode Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {(() => {
+                    const maxRev = Math.max(...paymentTrendData.map((r) => r.total_revenue), 1);
+                    const colors: Record<string, string> = {
+                      Cash: "bg-emerald-500",
+                      UPI: "bg-blue-500",
+                      Online: "bg-violet-500",
+                    };
+                    return sortByOrder(
+                      paymentTrendData.filter((r) => r.total_revenue > 0),
+                      "payment_mode_name",
+                      PAYMENT_MODE_ORDER
+                    ).map((row) => (
+                      <div key={row.payment_mode_name}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium">{row.payment_mode_name}</span>
+                          <span className="text-muted-foreground">
+                            {row.total_count} tickets &middot; {"\u20B9"}{formatCurrency(row.total_revenue)}
+                          </span>
+                        </div>
+                        <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              colors[row.payment_mode_name] ?? "bg-primary"
+                            }`}
+                            style={{ width: `${Math.round((row.total_revenue / maxRev) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Section 5: Top Items */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Item Performance (This Month)</CardTitle>
+              <CardTitle className="text-lg">Item Performance ({monthLabel})</CardTitle>
             </CardHeader>
             <CardContent>
               {sectionsLoading ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Skeleton className="h-[300px] rounded-xl" />
-                  <Skeleton className="h-[300px] rounded-xl" />
+                  <div className="h-[300px] bg-muted rounded-xl animate-pulse" />
+                  <div className="h-[300px] bg-muted rounded-xl animate-pulse" />
                 </div>
               ) : itemData.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Donut Chart */}
+                  {/* Revenue split donut */}
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Vehicle vs Passenger Revenue</h3>
                     <ItemSplitChart data={itemData} />
                   </div>
 
-                  {/* Top 5 Items Table */}
+                  {/* Quantity bar chart */}
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Top 5 Items</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Volume by Item</h3>
+                    <ItemQuantityChart data={itemData} />
+                  </div>
+
+                  {/* Top 5 Items Table */}
+                  <div className="lg:col-span-2">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Top 5 Items by Revenue</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border">
                             <th className="text-left py-2 px-3 text-muted-foreground font-medium">Item Name</th>
                             <th className="text-right py-2 px-3 text-muted-foreground font-medium">Quantity</th>
+                            <th className="py-2 px-3 w-28"></th>
                             <th className="text-right py-2 px-3 text-muted-foreground font-medium">Revenue</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {topItems.map((item) => (
-                            <tr key={item.item_name} className="border-b border-border last:border-0">
-                              <td className="py-2 px-3">
-                                <div className="flex items-center gap-2">
-                                  {item.item_name}
-                                  <Badge variant="outline" className="text-xs">
-                                    {item.is_vehicle ? "Vehicle" : "Passenger"}
-                                  </Badge>
-                                </div>
-                              </td>
-                              <td className="py-2 px-3 text-right">{(item.total_quantity ?? 0).toLocaleString("en-IN")}</td>
-                              <td className="py-2 px-3 text-right font-medium">{"\u20B9"}{formatCurrency(item.total_revenue)}</td>
-                            </tr>
-                          ))}
+                          {topItems.map((item) => {
+                            const maxRev = Math.max(...topItems.map((i) => i.total_revenue), 1);
+                            return (
+                              <tr key={item.item_name} className="border-b border-border last:border-0">
+                                <td className="py-2 px-3">
+                                  <div className="flex items-center gap-2">
+                                    {item.item_name}
+                                    <Badge variant="outline" className="text-xs">
+                                      {item.is_vehicle ? "Vehicle" : "Passenger"}
+                                    </Badge>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-right">{(item.total_quantity ?? 0).toLocaleString("en-IN")}</td>
+                                <td className="py-2 px-3">
+                                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-emerald-400 rounded-full"
+                                      style={{ width: `${Math.round((item.total_revenue / maxRev) * 100)}%` }}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-right font-medium">{"\u20B9"}{formatCurrency(item.total_revenue)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                     {topItems.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">No items data available</p>
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <p className="text-sm text-muted-foreground">No items data available</p>
+                      </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <BarChart3 className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">No item data this month</p>
+                </div>
               )}
             </CardContent>
           </Card>

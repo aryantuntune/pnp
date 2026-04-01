@@ -1,8 +1,9 @@
 import asyncio
+import datetime
 import json
 import logging
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
     description="Returns aggregated dashboard stats: ticket count, today's revenue, active ferries, active branches.",
 )
 async def stats(
+    for_date: datetime.date | None = Query(None, alias="date"),
     current_user: User = Depends(
         require_roles(
             UserRole.SUPER_ADMIN,
@@ -37,7 +39,7 @@ async def stats(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_dashboard_stats(db, current_user)
+    return await get_dashboard_stats(db, current_user, for_date=for_date)
 
 
 @router.get(
@@ -47,6 +49,7 @@ async def stats(
     description="Returns today's ticket count and revenue broken down by branch and payment mode.",
 )
 async def today_summary(
+    for_date: datetime.date | None = Query(None, alias="date"),
     current_user: User = Depends(
         require_roles(
             UserRole.SUPER_ADMIN,
@@ -56,7 +59,7 @@ async def today_summary(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_today_summary(db, current_user)
+    return await get_today_summary(db, current_user, for_date=for_date)
 
 
 async def _authenticate_ws(websocket: WebSocket) -> tuple[User | None, str | None]:

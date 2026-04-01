@@ -11,6 +11,7 @@ class RevenueRow(BaseModel):
     ticket_revenue: float = 0
     booking_revenue: float = 0
     total_revenue: float = 0
+    ticket_count: int = 0
 
 
 class RevenueReport(BaseModel):
