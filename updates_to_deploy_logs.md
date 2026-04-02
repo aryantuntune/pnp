@@ -10,12 +10,13 @@ Frontend — Ticket Management / POS Printing
 
 ### Summary
 
-Added a download button for the direct printing setup script directly from the Printer Setup dialog.
+Added a download button for the direct printing setup script directly from the Printer Setup dialog, and renamed the "Save & Print" button to "Print" in the payment confirmation dialog.
 
 ### Changes
 
 - Served `setup-direct-printing.bat` as a static file located at `/setup-direct-printing.bat`
 - Added a Download button in the printer setup dialog footer (always visible) with a download icon
+- Renamed the "Save & Print" button to "Print" (and "Saving..." to "Printing...") in the payment confirmation dialog
 
 ### Files Added / Modified
 
