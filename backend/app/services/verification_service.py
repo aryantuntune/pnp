@@ -12,6 +12,7 @@ from app.models.item import Item
 from app.models.branch import Branch
 from app.models.route import Route
 from app.models.user import User
+from app.core.data_cutoff import is_before_cutoff
 from app.core.rbac import UserRole
 
 
@@ -184,6 +185,8 @@ async def lookup_ticket_by_code(db: AsyncSession, verification_code: uuid.UUID, 
     )
     ticket = result.scalar_one_or_none()
     if not ticket:
+        return None
+    if is_before_cutoff(ticket.ticket_date, user.role):
         return None
     _check_route_access(user, ticket.route_id)
     return await _build_ticket_result(db, ticket)
@@ -367,7 +370,7 @@ async def lookup_ticket_by_number(
         ).order_by(Ticket.id.desc()).limit(1)
     )
     ticket = result.scalar_one_or_none()
-    if not ticket:
+    if not ticket or is_before_cutoff(ticket.ticket_date, user.role):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Ticket #{ticket_no} not found for branch {branch_id}",

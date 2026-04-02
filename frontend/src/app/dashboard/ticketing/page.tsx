@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { getSelectedBranchId, getSelectedBranchName } from "@/lib/auth";
+import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import {
   User,
   Ticket,
@@ -1371,6 +1372,7 @@ export default function TicketingPage() {
               <Input
                 type="date"
                 value={dateFrom}
+                min={user?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                 onChange={(e) => {
                   setDateFrom(e.target.value);
                   setPage(1);
@@ -1386,6 +1388,7 @@ export default function TicketingPage() {
               <Input
                 type="date"
                 value={dateTo}
+                min={user?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                 onChange={(e) => {
                   setDateTo(e.target.value);
                   setPage(1);
@@ -1818,6 +1821,7 @@ export default function TicketingPage() {
                     required
                     readOnly={user?.role === "BILLING_OPERATOR"}
                     tabIndex={user?.role === "BILLING_OPERATOR" ? -1 : undefined}
+                    min={user?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                     value={formTicketDate}
                     onChange={(e) => setFormTicketDate(e.target.value)}
                     className={

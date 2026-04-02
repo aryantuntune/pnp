@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { Route } from "@/types";
+import { DATA_CUTOFF_DATE } from "@/lib/utils";
+import { Route, User } from "@/types";
 import {
   Table,
   TableBody,
@@ -99,6 +100,9 @@ export default function RateChangeLogsPage() {
   const [page, setPage] = useState(0);
   const limit = 50;
 
+  // Current user (for data cutoff)
+  const [user, setUser] = useState<User | null>(null);
+
   // Dropdown data
   const [routes, setRoutes] = useState<Route[]>([]);
   const [items, setItems] = useState<{ id: number; name: string }[]>([]);
@@ -106,12 +110,14 @@ export default function RateChangeLogsPage() {
   // Fetch dropdown data
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [routeResp, itemResp] = await Promise.all([
+      const [routeResp, itemResp, meResp] = await Promise.all([
         api.get<Route[]>("/api/routes?limit=200&status=active"),
         api.get<{ id: number; name: string }[]>("/api/items?limit=200&status=active"),
+        api.get<User>("/api/auth/me"),
       ]);
       setRoutes(routeResp.data);
       setItems(itemResp.data);
+      setUser(meResp.data);
     } catch {
       // non-critical
     }
@@ -182,6 +188,7 @@ export default function RateChangeLogsPage() {
               <Input
                 type="date"
                 value={dateFrom}
+                min={user?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                 onChange={(e) => {
                   setDateFrom(e.target.value);
                   setPage(0);
@@ -194,6 +201,7 @@ export default function RateChangeLogsPage() {
               <Input
                 type="date"
                 value={dateTo}
+                min={user?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                 onChange={(e) => {
                   setDateTo(e.target.value);
                   setPage(0);

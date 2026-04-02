@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import api from "@/lib/api";
+import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import { User } from "@/types";
 import { useDashboardWS } from "@/hooks/useDashboardWS";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -553,6 +554,7 @@ export default function DashboardPage() {
                   <input
                     type="date"
                     value={selectedDate}
+                    min={user?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                     max={todayStr}
                     onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
                     className="bg-transparent outline-none cursor-pointer"

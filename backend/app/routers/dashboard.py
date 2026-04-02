@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_token
 from app.database import get_db, AsyncSessionLocal
 from app.dependencies import require_roles
+from app.core.data_cutoff import clamp_single_date
 from app.core.rbac import UserRole
 from app.models.user import User
 from app.schemas.dashboard import TodaySummaryResponse
@@ -39,6 +40,7 @@ async def stats(
     ),
     db: AsyncSession = Depends(get_db),
 ):
+    for_date = clamp_single_date(for_date, current_user.role)
     return await get_dashboard_stats(db, current_user, for_date=for_date)
 
 
@@ -59,6 +61,7 @@ async def today_summary(
     ),
     db: AsyncSession = Depends(get_db),
 ):
+    for_date = clamp_single_date(for_date, current_user.role)
     return await get_today_summary(db, current_user, for_date=for_date)
 
 

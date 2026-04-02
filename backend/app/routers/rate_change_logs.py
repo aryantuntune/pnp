@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_roles
+from app.core.data_cutoff import clamp_date_from, clamp_date_to
 from app.core.rbac import UserRole
 from app.models.user import User
 from app.schemas.rate_change_log import RateChangeLogRead
@@ -41,6 +42,8 @@ async def list_rate_change_logs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_allowed_roles),
 ):
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     if date_from and date_to and date_from > date_to:
         raise HTTPException(status_code=400, detail="date_from must not be after date_to")
 
@@ -73,6 +76,8 @@ async def count_rate_change_logs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_allowed_roles),
 ):
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     if date_from and date_to and date_from > date_to:
         raise HTTPException(status_code=400, detail="date_from must not be after date_to")
 

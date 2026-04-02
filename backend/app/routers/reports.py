@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_roles
 from app.core.rbac import UserRole
+from app.core.data_cutoff import clamp_date_from, clamp_date_to, clamp_single_date
 from app.core.route_scope import get_route_branch_ids, needs_route_scope
 from app.middleware.rate_limit import limiter
 from app.models.user import User
@@ -198,6 +199,8 @@ async def revenue_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_revenue_report(db, date_from, date_to, branch_id, route_id, grouping)
 
 
@@ -219,6 +222,8 @@ async def ticket_count_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_ticket_count_report(db, date_from, date_to, branch_id, route_id, group_by)
 
 
@@ -239,6 +244,8 @@ async def item_breakdown_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_item_breakdown_report(db, date_from, date_to, branch_id, route_id)
 
 
@@ -261,6 +268,8 @@ async def branch_summary_report(
     if needs_route_scope(current_user) and current_user.route_id:
         b1, b2 = await get_route_branch_ids(db, current_user.route_id)
         branch_ids = [b1, b2]
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_branch_summary_report(db, date_from, date_to, branch_ids=branch_ids)
 
 
@@ -281,6 +290,8 @@ async def payment_mode_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_payment_mode_report(db, date_from, date_to, branch_id, route_id)
 
 
@@ -302,6 +313,8 @@ async def date_wise_amount_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_date_wise_amount(db, date_from, date_to, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
 
 
@@ -322,6 +335,7 @@ async def ferry_wise_item_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date = clamp_single_date(date, current_user.role)
     return await report_service.get_ferry_wise_item_summary(db, date, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
 
 
@@ -343,6 +357,8 @@ async def itemwise_levy_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_item_wise_summary(db, date_from, date_to, branch_id, route_id, payment_mode_id)
 
 
@@ -374,6 +390,7 @@ async def user_wise_summary_report(
             user_id = None  # Ignore invalid filter
         elif current_user.route_id and target.route_id != current_user.route_id:
             user_id = None  # Not under this manager's route
+    date = clamp_single_date(date, current_user.role)
     return await report_service.get_user_wise_summary(db, date, branch_id, route_id, user_id, payment_mode_id)
 
 
@@ -394,6 +411,7 @@ async def vehicle_wise_ticket_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date = clamp_single_date(date, current_user.role)
     return await report_service.get_vehicle_wise_tickets(db, date, branch_id, route_id, payment_mode_id)
 
 
@@ -415,6 +433,8 @@ async def branch_item_summary_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_branch_item_summary(db, date_from, date_to, branch_id, route_id, payment_mode_id)
 
 
@@ -440,6 +460,8 @@ async def get_date_wise_amount_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     data = await report_service.get_date_wise_amount(db, date_from, date_to, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
     pdf_buf = pdf_service.generate_date_wise_amount_pdf(data)
     return StreamingResponse(
@@ -465,6 +487,7 @@ async def get_ferry_wise_item_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date = clamp_single_date(date, current_user.role)
     data = await report_service.get_ferry_wise_item_summary(db, date, branch_id, payment_mode_id=payment_mode_id, route_id=route_id)
     pdf_buf = pdf_service.generate_ferry_wise_item_pdf(data)
     return StreamingResponse(
@@ -491,6 +514,8 @@ async def get_itemwise_levy_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     data = await report_service.get_item_wise_summary(db, date_from, date_to, branch_id, route_id, payment_mode_id)
     pdf_buf = pdf_service.generate_item_wise_summary_pdf(data)
     return StreamingResponse(
@@ -516,6 +541,8 @@ async def get_payment_mode_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     data = await report_service.get_payment_mode_report(db, date_from, date_to, branch_id, route_id)
     pdf_buf = pdf_service.generate_payment_mode_pdf(data)
     return StreamingResponse(
@@ -543,6 +570,7 @@ async def ticket_details_report(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date = clamp_single_date(date, current_user.role)
     return await report_service.get_ticket_details_report(db, date, branch_id, route_id, payment_mode_id, boat_id)
 
 
@@ -563,6 +591,7 @@ async def get_ticket_details_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date = clamp_single_date(date, current_user.role)
     data = await report_service.get_ticket_details_report(db, date, branch_id, route_id, payment_mode_id, boat_id)
     pdf_buf = pdf_service.generate_ticket_details_pdf(data)
     return StreamingResponse(
@@ -597,6 +626,7 @@ async def get_user_wise_summary_pdf(
             user_id = None
         elif current_user.route_id and target.route_id != current_user.route_id:
             user_id = None
+    date = clamp_single_date(date, current_user.role)
     data = await report_service.get_user_wise_summary(db, date, branch_id, route_id, user_id, payment_mode_id)
     pdf_buf = pdf_service.generate_user_wise_summary_pdf(data)
     return StreamingResponse(
@@ -622,6 +652,7 @@ async def get_vehicle_wise_tickets_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date = clamp_single_date(date, current_user.role)
     data = await report_service.get_vehicle_wise_tickets(db, date, branch_id, route_id, payment_mode_id)
     pdf_buf = pdf_service.generate_vehicle_wise_tickets_pdf(data)
     return StreamingResponse(
@@ -648,6 +679,8 @@ async def get_branch_summary_pdf(
     if needs_route_scope(current_user) and current_user.route_id:
         b1, b2 = await get_route_branch_ids(db, current_user.route_id)
         branch_ids = [b1, b2]
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     data = await report_service.get_branch_summary_report(db, date_from, date_to, branch_ids=branch_ids)
     pdf_buf = pdf_service.generate_branch_summary_pdf(data)
     return StreamingResponse(
@@ -674,6 +707,8 @@ async def get_branch_item_summary_pdf(
     current_user: User = Depends(_report_roles),
 ):
     route_id, branch_id = await _scope_route_and_branch(db, current_user, route_id, branch_id)
+    date_from = clamp_date_from(date_from, current_user.role)
+    date_to = clamp_date_to(date_to, current_user.role)
     data = await report_service.get_branch_item_summary(db, date_from, date_to, branch_id, route_id, payment_mode_id)
     pdf_buf = pdf_service.generate_branch_item_summary_pdf(data)
     return StreamingResponse(

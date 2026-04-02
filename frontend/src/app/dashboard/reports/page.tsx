@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
+import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import { Boat, Branch, Route, PaymentMode, User } from "@/types";
 import {
   Table,
@@ -739,6 +740,7 @@ export default function ReportsPage() {
                   <Input
                     type="date"
                     value={dateFrom}
+                    min={currentUser?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                     onChange={(e) => setDateFrom(e.target.value)}
                     className="w-full sm:w-[160px]"
                   />
@@ -748,6 +750,7 @@ export default function ReportsPage() {
                   <Input
                     type="date"
                     value={dateTo}
+                    min={currentUser?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                     onChange={(e) => setDateTo(e.target.value)}
                     className="w-full sm:w-[160px]"
                   />
@@ -762,6 +765,7 @@ export default function ReportsPage() {
                 <Input
                   type="date"
                   value={singleDate}
+                  min={currentUser?.role !== "SUPER_ADMIN" ? DATA_CUTOFF_DATE : undefined}
                   onChange={(e) => setSingleDate(e.target.value)}
                   className="w-full sm:w-[160px]"
                 />

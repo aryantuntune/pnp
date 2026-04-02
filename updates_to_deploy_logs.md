@@ -2,6 +2,57 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Data cutoff: hide pre-April 2026 tickets)
+
+### Module
+
+Backend (routers, services, core) + Frontend (date inputs)
+
+### Summary
+
+Client requested all March 2026 (test/pre-production) ticket data be hidden from non-SUPER_ADMIN users. Data is NOT deleted — just invisible to ADMIN, MANAGER, BILLING_OPERATOR, and TICKET_CHECKER roles.
+
+### Changes
+
+**Backend:**
+- New `backend/app/core/data_cutoff.py` — hardcoded cutoff date `2026-04-01` with clamp/check utilities
+- All ticket list, report, dashboard, and rate-change-log endpoints clamp dates at router level
+- Individual ticket fetch (`GET /tickets/{id}`, QR, update) blocks pre-cutoff tickets for non-SUPER_ADMIN
+- Verification service (QR scan, ticket number lookup) blocks pre-cutoff tickets
+
+**Frontend:**
+- All date inputs (`<input type="date">`) set `min="2026-04-01"` for non-SUPER_ADMIN users
+- Affects: dashboard, reports, ticketing, rate-change-logs pages
+
+### Files
+
+| File | Change |
+|---|---|
+| `backend/app/core/data_cutoff.py` | NEW — cutoff constant + clamp/check functions |
+| `backend/app/routers/tickets.py` | Clamp list/count dates, block individual ticket access |
+| `backend/app/routers/reports.py` | Clamp dates on all 12 report + 8 PDF endpoints |
+| `backend/app/routers/dashboard.py` | Clamp for_date on stats + today-summary |
+| `backend/app/routers/rate_change_logs.py` | Clamp date_from/date_to |
+| `backend/app/services/verification_service.py` | Block pre-cutoff tickets in QR/number lookups |
+| `frontend/src/lib/utils.ts` | Export DATA_CUTOFF_DATE constant |
+| `frontend/src/app/dashboard/page.tsx` | Add min to date picker |
+| `frontend/src/app/dashboard/reports/page.tsx` | Add min to 3 date inputs |
+| `frontend/src/app/dashboard/rate-change-logs/page.tsx` | Add min to 2 date inputs + user fetch |
+| `frontend/src/app/dashboard/ticketing/page.tsx` | Add min to 3 date inputs |
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build backend frontend
+```
+
+No database migration needed — this is purely application-level filtering.
+
+---
+
 ## Deployment Update — 2026-04-02 (Nginx fix for /health/backup endpoint)
 
 ### Module
