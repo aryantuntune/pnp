@@ -2,6 +2,53 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Version Update Notification)
+
+### Module
+
+Full Stack — Backend Version Endpoint + Frontend Notification UI
+
+### Summary
+
+Added a real-time version update notification system. When the developer deploys a new version, every active user sees a pulsing red bell icon with a "Reload now" prompt. Covers all edge cases: live sessions, stale browser cache, service worker cached pages, and proxy caching.
+
+### Changes
+
+1. **Backend `GET /api/version`**: Public endpoint returning `build_id` (UTC timestamp generated once at server startup). Response includes `Cache-Control: no-store` to prevent any caching layer from serving stale build IDs. All gunicorn workers share the same ID via `preload_app = True`.
+
+2. **Frontend `useVersionCheck` hook**: Polls `/api/version` every 60 seconds. Detects two scenarios:
+   - **Live deploy**: Server build ID changes while user has the page open (compared against in-memory ref).
+   - **Stale cold-start**: User opens the app after a deploy with cached old JS. Detected by comparing server build ID against `localStorage` value from the previous session.
+
+3. **Dashboard AppHeader**: Bell icon shows a pulsing red dot badge when an update is detected. Dropdown auto-opens with "New update available" message and a "Reload now" button. Supports dark mode.
+
+4. **Customer portal layout**: Same notification bell added to the customer-facing navigation bar.
+
+5. **Bulletproof reload**: Clicking "Reload now" first clears `localStorage` build ID, unregisters all service workers, purges all SW-managed caches, then does a full page reload — guaranteeing fresh HTML/JS/CSS from the server.
+
+### Files Changed
+
+- `backend/app/main.py` — BUILD_ID constant + `/api/version` endpoint
+- `frontend/src/hooks/useVersionCheck.ts` — New polling hook with localStorage persistence
+- `frontend/src/components/dashboard/AppHeader.tsx` — Notification bell with dropdown
+- `frontend/src/components/customer/CustomerLayout.tsx` — Same bell for customer portal
+
+### VPS Deployment Steps
+
+Requires rebuilding both containers (backend for the new endpoint, frontend for the notification UI).
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build backend frontend
+```
+
+No database migrations required.
+
+---
+
 ## Deployment Update — 2026-04-03 (Multi-ticket time — permanent fix)
 
 ### Module
