@@ -46,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Printer, Settings2 } from "lucide-react";
+import { Download, Plus, Printer, Settings2 } from "lucide-react";
 import {
   printReceipt,
   ReceiptData,
@@ -2343,7 +2343,13 @@ export default function TicketingPage() {
             )}
 
           </div>
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 flex justify-between sm:justify-between">
+            <Button variant="ghost" size="sm" asChild>
+              <a href="/setup-direct-printing.bat" download>
+                <Download className="h-4 w-4 mr-1.5" />
+                Download Setup Script
+              </a>
+            </Button>
             <Button variant="outline" onClick={() => setShowPrinterSetup(false)}>
               Close
             </Button>
