@@ -30,6 +30,9 @@ cd /path/to/ssmspl
 git pull origin main
 
 docker compose -f docker-compose.prod.yml up -d --build backend frontend
+
+# CRITICAL: Run database migrations to create the new user_sessions table!
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
 ---
