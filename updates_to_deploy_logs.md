@@ -2,6 +2,77 @@
 
 ---
 
+## Data Migration — 2026-04-03 (Mismatch Filter for Historical Multi-Tickets)
+
+### Module
+
+Database — Historical Record Correction
+
+### Summary
+
+Fixed `departure` timestamps for multi-tickets generated today that were affected by the UTC/IST container time discrepancy. Replaced the fake/erroneous timestamps with their actual `created_at` IST equivalents so legitimate analytics and queries match reality.
+
+### Action Taken
+
+A mismatch filter query identified tickets where the recorded `departure` differed from the actual UTC `created_at` ticket creation time by more than 10 minutes (600 seconds). After verifying legitimate last-ferry tickets were not impacted (since they match within seconds of creation), the affected departure times were updated.
+
+### Execution
+
+```bash
+# Preview tickets with mismatched timestamps
+docker compose -f docker-compose.prod.yml exec -T db psql -U ssmspl_user -d ssmspl_db_prod -c "
+SELECT ticket_no, branch_id, departure,
+       (created_at AT TIME ZONE 'Asia/Kolkata')::time(0) AS actual_time,
+       created_at AT TIME ZONE 'Asia/Kolkata' AS generated_at
+FROM tickets
+WHERE ticket_date = '2026-04-03'
+  AND departure IS NOT NULL
+  AND abs(extract(epoch FROM (departure - (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)))) > 600
+ORDER BY id DESC;
+"
+
+# Fix tickets by overriding departure with the actual creation time
+docker compose -f docker-compose.prod.yml exec -T db psql -U ssmspl_user -d ssmspl_db_prod -c "
+UPDATE tickets
+SET departure = (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)
+WHERE ticket_date = '2026-04-03'
+  AND departure IS NOT NULL
+  AND abs(extract(epoch FROM (departure - (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)))) > 600;
+"
+```
+
+---
+
+## Deployment Update — 2026-04-03 (User Sessions Sidebar Fix)
+
+### Module
+
+Frontend — Sidebar Menu Config
+
+### Summary
+
+"User Sessions" was not visible in the sidebar for SUPER_ADMIN despite the backend correctly returning it in menu_items. The sidebar uses `sidebar-menu-config.ts` (not the old `Sidebar.tsx`), and the entry was missing from that config.
+
+### Fix
+
+Added "User Sessions" entry with Monitor icon under the ADMINISTRATION section in `sidebar-menu-config.ts`. Only visible to SUPER_ADMIN since the sidebar filters entries against server-provided `menu_items`.
+
+### VPS Deployment Steps
+
+Frontend-only rebuild:
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build frontend
+```
+
+No database migrations required.
+
+---
+
 ## Deployment Update — 2026-04-03 (Version Update Notification)
 
 ### Module
