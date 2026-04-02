@@ -2,6 +2,52 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (User Session Monitor Hardening)
+
+### Module
+
+Full Stack — User Session Monitor
+
+### Summary
+
+Audit of the user session monitor found 6 issues (2 critical, 3 high, 1 medium). All fixed in this update. Mobile logins were completely invisible to session tracking, password resets left attacker sessions alive, and `session_id` had no index causing full table scans on every heartbeat.
+
+### Issues Fixed
+
+1. **CRITICAL — Mobile logins invisible**: The `/api/auth/mobile-login` endpoint (used by ticket checkers) never created a row in `user_sessions`. Mobile users were completely invisible to the session monitor. Now mobile login properly closes any previous session and creates a new tracking row.
+
+2. **HIGH — No index on `session_id`**: Every heartbeat update (every 30 seconds per active user) and every session close did a full table scan on `user_sessions`. Added a unique index via migration `c3d4e5f6a7b8`.
+
+3. **HIGH — Duplicate session rows possible**: No unique constraint on `session_id` meant race conditions during concurrent logins could create duplicate rows. Added `unique=True` constraint.
+
+4. **HIGH — Password reset didn't close sessions**: After a password reset, the user's active session stayed open until idle timeout (10 min) or stale cleanup (5 min). An attacker with a stolen session could keep using it. Now `reset_password()` closes the active session, clears session state, and revokes all refresh tokens.
+
+5. **MEDIUM — Geo service silent HTTP errors**: When ip-api.com returned non-200 status (rate limit, server error), the status code was swallowed. Now logged for debugging.
+
+6. **MEDIUM — Frontend user dropdown silent failure**: If the user list API call failed, the filter dropdown showed empty with no explanation. Now shows an error message.
+
+### RBAC Verification
+
+All 4 session monitor endpoints are SUPER_ADMIN-only — verified at every layer:
+- Backend: `require_roles(UserRole.SUPER_ADMIN)` on all endpoints
+- Sidebar: Server-controlled menu, "User Sessions" only in SUPER_ADMIN's list
+- Direct URL: API calls return 403, no data leakage
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build backend frontend
+
+# CRITICAL: Run migration to create unique index on session_id
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Rate Enforcement & Idle Session Timeout)
 
 ### Module
