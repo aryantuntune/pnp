@@ -2,6 +2,78 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Backup Management UI + Backend API)
+
+### Module
+
+Full Stack — Settings Page Redesign + Backup API + Script Enhancements
+
+### Changes
+
+**1. Settings page redesigned with left sidebar tabs**
+- Replaced stacked cards layout with a sidebar navigation: General, Appearance, Notifications, Backups
+- Each section is now its own component for maintainability
+- Backups tab only visible to SUPER_ADMIN role
+
+**2. Backup management API (backend)**
+- `GET /api/settings/backup/status` — returns last backup time, GDrive sync status, retention info
+- `GET /api/settings/backup/history` — lists recent backup files with size and sync status
+- `POST /api/settings/backup/trigger` — triggers manual backup via file-based trigger
+- `GET /api/settings/backup/download/{filename}` — authenticated file download with path traversal protection
+- Full CRUD for backup notification recipients (separate from daily report recipients)
+- All endpoints gated to SUPER_ADMIN only
+
+**3. Backup scripts enhanced**
+- `backup_db.sh` now writes `.last_backup.json` status file after each run
+- `sync_backup_gdrive.sh` now writes `.sync_status.json` and `.sync_log.json` for the API
+- `db-backup` Docker entrypoint now polls for `.trigger` file every 10 seconds (manual backup support)
+
+**4. New database table**
+- `backup_notification_recipients` — stores emails for backup alerts (separate from daily report recipients)
+
+### Files
+
+| File | Change |
+|---|---|
+| `frontend/src/app/dashboard/settings/page.tsx` | Rewritten — sidebar tabs layout |
+| `frontend/src/app/dashboard/settings/components/general-tab.tsx` | New — company info form |
+| `frontend/src/app/dashboard/settings/components/appearance-tab.tsx` | New — theme management |
+| `frontend/src/app/dashboard/settings/components/notifications-tab.tsx` | New — daily report recipients |
+| `frontend/src/app/dashboard/settings/components/backups-tab.tsx` | New — backup management UI |
+| `frontend/src/types/index.ts` | Added BackupFile, BackupStatus, BackupNotificationRecipient |
+| `backend/app/routers/backup.py` | New — backup management API |
+| `backend/app/models/backup_notification_recipient.py` | New — DB model |
+| `backend/app/models/__init__.py` | Added model export |
+| `backend/app/main.py` | Registered backup router |
+| `backend/alembic/versions/a1b2c3d4e5f6_...py` | New — migration for recipients table |
+| `backend/scripts/backup_db.sh` | Writes `.last_backup.json` status |
+| `backend/scripts/sync_backup_gdrive.sh` | Writes `.sync_status.json` + `.sync_log.json` |
+| `docker-compose.prod.yml` | Mounts backups to backend, trigger-aware entrypoint |
+| `docker-compose.yml` | Mounts backups to backend (dev) |
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+
+git pull origin main
+
+# Run migration for new table
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+
+# Restart all services (backend needs new volume mount, db-backup needs new entrypoint)
+cd ..
+docker compose -f docker-compose.prod.yml up -d --build backend db-backup
+
+# Verify
+curl -s https://api.carferry.online/health
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Multi-ticket time fix — frontend + backend)
 
 ### Module

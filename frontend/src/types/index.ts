@@ -453,3 +453,34 @@ export interface RefreshToken {
   created_at?: string;
   updated_at?: string;
 }
+
+// ── Backup types ──
+
+export interface BackupFile {
+  filename: string;
+  size_bytes: number;
+  size_human: string;
+  created_at: string;
+  gdrive_synced: boolean | null;
+}
+
+export interface BackupStatus {
+  last_backup_time: string | null;
+  last_backup_file: string | null;
+  last_backup_size: string | null;
+  last_backup_status: string | null;
+  last_sync_time: string | null;
+  last_synced_file: string | null;
+  last_sync_status: string | null;
+  gdrive_backup_count: number | null;
+  schedule: string;
+  local_retention_days: number;
+  gdrive_retention_days: number;
+}
+
+export interface BackupNotificationRecipient {
+  id: number;
+  email: string;
+  label: string | null;
+  is_active: boolean;
+}

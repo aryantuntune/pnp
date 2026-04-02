@@ -64,6 +64,8 @@ services:
       RATE_LIMIT_STORAGE_URI: redis://:${REDIS_PASSWORD:-ssmspl_redis_prod}@redis:6379/1
       FORWARDED_ALLOW_IPS: "*"  # Docker internal network only — nginx is the sole proxy
     env_file: ./backend/.env.production
+    volumes:
+      - ./backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -137,15 +139,26 @@ services:
     restart: always
     entrypoint: >
       /bin/sh -c '
-      echo "Backup scheduler started — running daily at 2:00 AM";
+      echo "Backup scheduler started — daily at 2:00 AM + manual trigger support";
       while true; do
+        if [ -f /backups/.trigger ]; then
+          rm -f /backups/.trigger;
+          echo "[$(date)] Manual backup triggered via UI";
+          /scripts/backup_db.sh;
+          sleep 5;
+          continue;
+        fi;
         NEXT=$(date -d "tomorrow 02:00" +%s 2>/dev/null || date -v+1d -v2H -v0M -v0S +%s);
         NOW=$(date +%s);
         SLEEP=$((NEXT - NOW));
         if [ $$SLEEP -lt 0 ]; then SLEEP=86400; fi;
-        echo "[$(date)] Next backup in $$SLEEP seconds";
-        sleep $$SLEEP;
-        /scripts/backup_db.sh;
+        if [ $$SLEEP -gt 10 ]; then
+          sleep 10;
+        else
+          echo "[$(date)] Scheduled backup time reached";
+          /scripts/backup_db.sh;
+          sleep 60;
+        fi;
       done'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ssmspl_user}

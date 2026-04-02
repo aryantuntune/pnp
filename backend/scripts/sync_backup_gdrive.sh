@@ -97,14 +97,43 @@ if rclone copy ${DRY_RUN} \
     fi
 else
     echo "[$(date)] ERROR: Upload failed!"
+    cat > "${BACKUP_DIR}/.sync_status.json" <<STATUSEOF
+{"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"${BACKUP_NAME:-unknown}","status":"failed","gdrive_count":0}
+STATUSEOF
     if [[ -x "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" ]]; then
         "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" "FAILED" "rclone upload failed for ${BACKUP_NAME}"
     fi
     exit 1
 fi
 
-# ── Success notification (sent before cleanup so a cleanup failure doesn't block it)
+# ── Write sync status for backend API ───────────────────────────────────
 REMOTE_COUNT=$(rclone ls "${RCLONE_REMOTE}:${GDRIVE_FOLDER}/" --include "*.sql.gz" 2>/dev/null | wc -l)
+
+cat > "${BACKUP_DIR}/.sync_status.json" <<STATUSEOF
+{"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"${BACKUP_NAME}","status":"success","gdrive_count":${REMOTE_COUNT}}
+STATUSEOF
+
+# Append to sync log (keeps track of all synced files for the history API)
+SYNC_LOG="${BACKUP_DIR}/.sync_log.json"
+if [ ! -f "${SYNC_LOG}" ] || [ ! -s "${SYNC_LOG}" ]; then
+    echo "[]" > "${SYNC_LOG}"
+fi
+# Add entry and keep last 60 entries
+python3 -c "
+import json, sys
+log_file = '${SYNC_LOG}'
+try:
+    with open(log_file) as f:
+        log = json.load(f)
+except:
+    log = []
+log.insert(0, {'file': '${BACKUP_NAME}', 'time': '$(date -u +%Y-%m-%dT%H:%M:%SZ)', 'status': 'success'})
+log = log[:60]
+with open(log_file, 'w') as f:
+    json.dump(log, f)
+" 2>/dev/null || echo "[$(date)] WARNING: Could not update sync log"
+
+# ── Success notification (sent before cleanup so a cleanup failure doesn't block it)
 
 if [[ -x "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" ]]; then
     "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" "SUCCESS" "Backup ${BACKUP_NAME} (${BACKUP_SIZE}) uploaded to Google Drive. ${REMOTE_COUNT} backups on GDrive."
