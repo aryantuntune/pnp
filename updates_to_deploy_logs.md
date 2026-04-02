@@ -2,6 +2,45 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Dashboard Loading Fix)
+
+### Module
+
+Frontend — Axios Interceptor + Dashboard User Context
+
+### Summary
+
+Fixed two bugs causing dashboard pages to get stuck on the loading spinner (requiring re-login) and to load slowly due to redundant API calls.
+
+### Root Causes
+
+1. **Stuck loading / must re-login**: The axios interceptor treated `/api/auth/me` as an "auth endpoint" and skipped token refresh on 401. Since access tokens expire every 5 minutes, any navigation after expiry resulted in a silent 401 → infinite spinner. Now `/auth/me` triggers token refresh like any other endpoint, with a `_retried` flag preventing infinite loops.
+
+2. **Slow page loading**: Every dashboard page (ticketing, reports, users, branches, routes, etc.) independently called `GET /api/auth/me` on mount, even though `DashboardShell` already fetched the user. This added a redundant round-trip before each page could load its actual data. Created a `DashboardUserContext` so all 11 pages share the single user fetch from the shell — pages now load their data immediately on mount.
+
+### Files Changed
+
+- `frontend/src/lib/api.ts` — Interceptor fix: removed `/auth/me` from skip list, added `_retried` guard
+- `frontend/src/components/dashboard/DashboardUserContext.tsx` — New React context providing authenticated user
+- `frontend/src/components/dashboard/DashboardShell.tsx` — Provides user context, proper error redirect
+- 11 dashboard pages — Switched from independent `/api/auth/me` calls to `useDashboardUser()` context
+
+### VPS Deployment Steps
+
+Frontend-only change. Rebuild the frontend container.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build frontend
+```
+
+No database migrations required.
+
+---
+
 ## Deployment Update — 2026-04-03 (User Sessions Sidebar Fix)
 
 ### Module
