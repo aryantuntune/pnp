@@ -2,6 +2,36 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Nginx fix for /health/backup endpoint)
+
+### Module
+
+Infrastructure — Nginx Config
+
+### Changes
+
+UptimeRobot was returning 404 for `https://api.carferry.online/health/backup` because the existing `location = /health` is an exact match and doesn't cover `/health/backup`. Added a dedicated `location = /health/backup` block in the API server block — no rate limiting, proxies straight to backend.
+
+### Files
+
+| File | Change |
+|---|---|
+| `nginx/conf.d/default.conf` | Added `location = /health/backup` block (no rate limit) |
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build nginx
+# Verify
+curl -s https://api.carferry.online/health/backup
+# Expected: 503 {"status":"no_backup_data"} until first backup runs
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Backup Management UI + Backend API)
 
 ### Module
