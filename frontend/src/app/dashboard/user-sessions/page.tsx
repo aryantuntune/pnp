@@ -254,7 +254,7 @@ function HistoryTab() {
     api
       .get<SessionUser[]>("/api/user-sessions/users")
       .then((r) => setUsers(r.data))
-      .catch(() => {});
+      .catch(() => setError("Failed to load user list for filters."));
   }, []);
 
   const fetchHistory = useCallback(async () => {

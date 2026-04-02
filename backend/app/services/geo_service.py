@@ -27,6 +27,7 @@ async def resolve_city(ip: str | None) -> str | None:
                 params={"fields": "status,city,regionName,country"},
             )
             if resp.status_code != 200:
+                logger.debug("Geo lookup failed for %s: HTTP %s", ip, resp.status_code)
                 return None
             data = resp.json()
             if data.get("status") != "success":

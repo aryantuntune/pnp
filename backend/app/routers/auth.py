@@ -86,10 +86,22 @@ async def mobile_login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This app is for ticket checkers only. Please use the web dashboard.",
         )
-    # Start new session (overwrites any existing session — old JWTs become invalid)
+    # Close previous session if one exists, then start new one
     from app.services.auth_service import _start_session
+    from app.services import user_session_service
+    if user.active_session_id:
+        await user_session_service.end_session(db, user.active_session_id, "login_elsewhere")
+
     sid = _start_session(user)
     user.last_login = datetime.now(timezone.utc)
+
+    # Track session in user_sessions table
+    await user_session_service.start_session(
+        db, user.id, sid,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     extra = {"role": user.role.value, "sid": sid}
     access_token = create_access_token(subject=str(user.id), extra_claims=extra)
     refresh_token = create_refresh_token(subject=str(user.id))

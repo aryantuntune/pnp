@@ -200,4 +200,13 @@ async def reset_password(db: AsyncSession, token: str, new_password: str) -> Non
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     user.hashed_password = get_password_hash(new_password)
+
+    # Close active session and revoke all tokens — forces re-login with new password
+    if user.active_session_id:
+        from app.services import user_session_service
+        await user_session_service.end_session(db, user.active_session_id, "password_reset")
+    user.active_session_id = None
+    user.session_last_active = None
+    await token_service.revoke_all_for_user(db, user_id=user.id)
+
     await db.commit()

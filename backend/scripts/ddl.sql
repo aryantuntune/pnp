@@ -437,6 +437,8 @@ CREATE INDEX IF NOT EXISTS ix_user_sessions_ended_at
     ON user_sessions (ended_at);
 CREATE INDEX IF NOT EXISTS ix_user_sessions_started_at
     ON user_sessions (started_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_user_sessions_session_id
+    ON user_sessions (session_id);
 
 -- ============================================================
 -- FUNCTIONS & TRIGGERS
