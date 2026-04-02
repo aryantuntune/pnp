@@ -1,0 +1,213 @@
+<h2>Settings Page — Left Sidebar Tabs Layout</h2>
+<p class="subtitle">Full settings page redesign with sidebar navigation. The Backups tab is shown active.</p>
+
+<div class="mockup" style="max-width:960px;margin:0 auto;">
+  <div class="mockup-header">System Settings — /dashboard/settings</div>
+  <div class="mockup-body" style="background:#0a0f1a;color:#e2e8f0;font-family:system-ui;padding:0;min-height:640px;">
+
+    <!-- Page header -->
+    <div style="padding:20px 24px 16px;border-bottom:1px solid #1e293b;">
+      <div style="font-size:20px;font-weight:700;color:#f1f5f9;">System Settings</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px;">Manage company info, appearance, notifications, and backups</div>
+    </div>
+
+    <!-- Sidebar + Content layout -->
+    <div style="display:flex;min-height:560px;">
+
+      <!-- Left Sidebar -->
+      <div style="width:200px;border-right:1px solid #1e293b;padding:12px 0;flex-shrink:0;">
+        <div style="padding:8px 16px;font-size:12px;color:#475569;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;border-left:2px solid transparent;">
+          <span style="font-size:14px;">⚙️</span> General
+        </div>
+        <div style="padding:8px 16px;font-size:12px;color:#475569;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;border-left:2px solid transparent;">
+          <span style="font-size:14px;">🎨</span> Appearance
+        </div>
+        <div style="padding:8px 16px;font-size:12px;color:#475569;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;border-left:2px solid transparent;">
+          <span style="font-size:14px;">📧</span> Notifications
+        </div>
+        <div style="padding:8px 16px;font-size:12px;color:#e2e8f0;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;background:#1e293b;border-left:2px solid #3b82f6;">
+          <span style="font-size:14px;">💾</span> Backups
+        </div>
+      </div>
+
+      <!-- Right Content Area — Backups Tab Active -->
+      <div style="flex:1;padding:24px;overflow-y:auto;">
+
+        <!-- Section title -->
+        <div style="margin-bottom:20px;">
+          <div style="font-size:17px;font-weight:700;color:#f1f5f9;">Database Backups</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">Daily automated backups to Google Drive with email alerts</div>
+        </div>
+
+        <!-- Status Cards Row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+          <!-- Last Backup -->
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Last Backup</div>
+            <div style="font-size:14px;font-weight:600;color:#f1f5f9;">Today, 2:00 AM</div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
+              <span style="width:6px;height:6px;background:#22c55e;border-radius:50%;display:inline-block;"></span>
+              <span style="font-size:11px;color:#22c55e;">4.2 MB — synced to GDrive</span>
+            </div>
+          </div>
+          <!-- Schedule -->
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Schedule</div>
+            <div style="font-size:14px;font-weight:600;color:#f1f5f9;">Daily at 2:00 AM</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Next: Tomorrow, 2:00 AM</div>
+          </div>
+          <!-- Retention -->
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Retention</div>
+            <div style="font-size:14px;font-weight:600;color:#f1f5f9;">7 local / 30 GDrive</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:4px;">12 backups on Google Drive</div>
+          </div>
+        </div>
+
+        <!-- Backup Now -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Manual Backup</div>
+            <div style="font-size:11px;color:#64748b;margin-top:2px;">Trigger a backup + Google Drive upload right now</div>
+          </div>
+          <button style="background:#3b82f6;color:white;border:none;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <span>▶</span> Backup Now
+          </button>
+        </div>
+
+        <!-- Divider -->
+        <div style="border-top:1px solid #1e293b;margin-bottom:20px;"></div>
+
+        <!-- Notification Recipients -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:15px;font-weight:600;color:#f1f5f9;">Backup Notification Recipients</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">Who gets emailed when backups succeed or fail</div>
+        </div>
+
+        <!-- Add recipient form -->
+        <div style="display:flex;gap:8px;align-items:end;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Email *</div>
+            <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:8px 10px;font-size:12px;color:#64748b;">dev@example.com</div>
+          </div>
+          <div style="min-width:130px;">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Label</div>
+            <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:8px 10px;font-size:12px;color:#64748b;">Developer</div>
+          </div>
+          <button style="background:#3b82f6;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">+ Add</button>
+        </div>
+
+        <!-- Recipients table -->
+        <div style="border:1px solid #334155;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="background:#0f172a;">
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Email</th>
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Label</th>
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Status</th>
+                <th style="text-align:right;padding:10px 14px;color:#64748b;font-weight:500;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-top:1px solid #1e293b;">
+                <td style="padding:10px 14px;color:#e2e8f0;font-weight:500;">aryan@ssmspl.dev</td>
+                <td style="padding:10px 14px;color:#94a3b8;">Developer</td>
+                <td style="padding:10px 14px;"><span style="background:#14532d;color:#4ade80;padding:2px 10px;border-radius:10px;font-size:11px;">Active</span></td>
+                <td style="padding:10px 14px;text-align:right;">
+                  <span style="color:#94a3b8;font-size:11px;cursor:pointer;margin-right:12px;">⏻ Deactivate</span>
+                  <span style="color:#ef4444;font-size:11px;cursor:pointer;">🗑 Delete</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Divider -->
+        <div style="border-top:1px solid #1e293b;margin-bottom:20px;"></div>
+
+        <!-- Recent Backups -->
+        <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#f1f5f9;">Recent Backups</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px;">Last 7 days of backups stored locally and on Google Drive</div>
+          </div>
+        </div>
+
+        <div style="border:1px solid #334155;border-radius:8px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="background:#0f172a;">
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Date</th>
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Filename</th>
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Size</th>
+                <th style="text-align:left;padding:10px 14px;color:#64748b;font-weight:500;">Google Drive</th>
+                <th style="text-align:right;padding:10px 14px;color:#64748b;font-weight:500;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-top:1px solid #1e293b;">
+                <td style="padding:8px 14px;color:#e2e8f0;">2 Apr, 2:00 AM</td>
+                <td style="padding:8px 14px;color:#94a3b8;font-family:monospace;font-size:11px;">...020000.sql.gz</td>
+                <td style="padding:8px 14px;color:#94a3b8;">4.2 MB</td>
+                <td style="padding:8px 14px;"><span style="color:#22c55e;display:flex;align-items:center;gap:4px;"><span style="font-size:13px;">✓</span> Synced</span></td>
+                <td style="padding:8px 14px;text-align:right;">
+                  <span style="color:#3b82f6;font-size:11px;cursor:pointer;">⬇ Download</span>
+                </td>
+              </tr>
+              <tr style="border-top:1px solid #1e293b;">
+                <td style="padding:8px 14px;color:#e2e8f0;">1 Apr, 2:00 AM</td>
+                <td style="padding:8px 14px;color:#94a3b8;font-family:monospace;font-size:11px;">...020000.sql.gz</td>
+                <td style="padding:8px 14px;color:#94a3b8;">4.1 MB</td>
+                <td style="padding:8px 14px;"><span style="color:#22c55e;display:flex;align-items:center;gap:4px;"><span style="font-size:13px;">✓</span> Synced</span></td>
+                <td style="padding:8px 14px;text-align:right;">
+                  <span style="color:#3b82f6;font-size:11px;cursor:pointer;">⬇ Download</span>
+                </td>
+              </tr>
+              <tr style="border-top:1px solid #1e293b;">
+                <td style="padding:8px 14px;color:#e2e8f0;">31 Mar, 2:00 AM</td>
+                <td style="padding:8px 14px;color:#94a3b8;font-family:monospace;font-size:11px;">...020000.sql.gz</td>
+                <td style="padding:8px 14px;color:#94a3b8;">4.0 MB</td>
+                <td style="padding:8px 14px;"><span style="color:#22c55e;display:flex;align-items:center;gap:4px;"><span style="font-size:13px;">✓</span> Synced</span></td>
+                <td style="padding:8px 14px;text-align:right;">
+                  <span style="color:#3b82f6;font-size:11px;cursor:pointer;">⬇ Download</span>
+                </td>
+              </tr>
+              <tr style="border-top:1px solid #1e293b;background:#1a0f0f;">
+                <td style="padding:8px 14px;color:#e2e8f0;">30 Mar, 2:00 AM</td>
+                <td style="padding:8px 14px;color:#94a3b8;font-family:monospace;font-size:11px;">...020000.sql.gz</td>
+                <td style="padding:8px 14px;color:#94a3b8;">3.9 MB</td>
+                <td style="padding:8px 14px;"><span style="color:#ef4444;display:flex;align-items:center;gap:4px;"><span style="font-size:13px;">✗</span> Failed</span></td>
+                <td style="padding:8px 14px;text-align:right;">
+                  <span style="color:#3b82f6;font-size:11px;cursor:pointer;">⬇ Download</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>Does this layout and backup section look right?</h3>
+  <p class="subtitle">Check the sidebar tabs, status cards, manual trigger, recipients table, and recent backups with download buttons.</p>
+
+  <div class="options">
+    <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Looks good, proceed to design spec</h3>
+        <p>The layout, sections, and features are what I want. Move forward.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Needs changes</h3>
+        <p>I'll describe what I want different in the terminal.</p>
+      </div>
+    </div>
+  </div>
+</div>
