@@ -2319,7 +2319,8 @@ export default function TicketingPage() {
                   <ol className="space-y-1 list-decimal list-inside text-muted-foreground">
                     <li>Download and install <strong>QZ Tray</strong> from <a href="https://qz.io/download" target="_blank" rel="noreferrer" className="text-blue-600 underline">qz.io/download</a></li>
                     <li>Launch QZ Tray — it appears as an icon in the system tray (bottom-right)</li>
-                    <li>Right-click the tray icon → <strong>Site Manager</strong> → uncheck <strong>Block Unsigned</strong></li>
+                    <li>Download the <a href="/ssmspl-qz.crt" download className="text-blue-600 underline">SSMSPL certificate</a> below</li>
+                    <li>Right-click the QZ Tray icon → <strong>Advanced</strong> → <strong>Site Manager</strong> → click <strong>+</strong> → import the downloaded certificate</li>
                     <li>Click <strong>Refresh</strong> above</li>
                   </ol>
                 </div>
@@ -2345,9 +2346,9 @@ export default function TicketingPage() {
           </div>
           <DialogFooter className="mt-2 flex justify-between sm:justify-between">
             <Button variant="ghost" size="sm" asChild>
-              <a href="/setup-direct-printing.bat" download>
+              <a href="/ssmspl-qz.crt" download>
                 <Download className="h-4 w-4 mr-1.5" />
-                Download Setup Script
+                Download Certificate
               </a>
             </Button>
             <Button variant="outline" onClick={() => setShowPrinterSetup(false)}>
