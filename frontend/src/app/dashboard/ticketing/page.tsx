@@ -1692,7 +1692,7 @@ export default function TicketingPage() {
                 onClick={handleSaveAndPrint}
               >
                 <Printer className="h-4 w-4 mr-2" />
-                {submitting ? "Saving..." : "Save & Print"}
+                {submitting ? "Printing..." : "Print"}
               </Button>
             </div>
           </DialogFooter>
