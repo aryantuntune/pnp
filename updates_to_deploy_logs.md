@@ -2,6 +2,42 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Multi-ticket time — permanent fix)
+
+### Module
+
+Frontend — Multi-Ticketing
+
+### Changes
+
+**Multi-ticket departure time now sourced from client clock, not server**
+- Root cause of recurrence: Backend `datetime.datetime.now()` runs inside a Docker container which defaults to UTC, producing times 5:30 hours behind IST.
+- Fix: Frontend now captures `new Date()` at save time and sends the client's local time as `departure` in the payload. One single `nowSave` timestamp drives all three outputs — DB `departure` column, printed receipt time, and listing page — so they always match exactly.
+- Backend `now_time` fallback retained as safety net but will never fire since frontend always sends the time.
+- Ferry schedule times (`first_ferry_time` / `last_ferry_time`) are only used for the lock/unlock gate, never for the ticket's time field.
+
+### Files Modified
+
+* `frontend/src/app/dashboard/multiticketing/page.tsx` — send client time as departure, unify timestamp source
+
+### VCS
+
+Frontend only. No backend changes. No DB migrations.
+
+### VPS Deployment Steps
+
+Frontend rebuild only.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+cd frontend && npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-03 (User Session Monitor Hardening)
 
 ### Module
