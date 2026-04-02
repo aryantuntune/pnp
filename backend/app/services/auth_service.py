@@ -52,7 +52,10 @@ def _start_session(user: User) -> str:
     return sid
 
 
-async def login(db: AsyncSession, username: str, password: str) -> dict:
+async def login(
+    db: AsyncSession, username: str, password: str,
+    ip_address: str | None = None, user_agent: str | None = None,
+) -> dict:
     from fastapi import HTTPException, status
     user = await authenticate_user(db, username, password)
     if not user:
@@ -61,9 +64,17 @@ async def login(db: AsyncSession, username: str, password: str) -> dict:
             detail="Incorrect username or password",
         )
 
+    # Close previous session if one exists
+    from app.services import user_session_service
+    if user.active_session_id:
+        await user_session_service.end_session(db, user.active_session_id, "login_elsewhere")
+
     # Start new session (overwrites any existing session — old JWTs become invalid)
     sid = _start_session(user)
     user.last_login = datetime.now(timezone.utc)
+
+    # Track session in user_sessions table
+    await user_session_service.start_session(db, user.id, sid, ip_address, user_agent)
 
     extra = {"role": user.role.value, "sid": sid}
     access_token = create_access_token(subject=str(user.id), extra_claims=extra)
@@ -98,6 +109,25 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    # Block refresh if session is already closed (e.g., idle timeout already fired)
+    if not user.active_session_id:
+        await token_service.revoke_token(db, refresh_token)
+        await db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_idle_timeout")
+
+    # Enforce idle timeout during refresh — prevent stale sessions from renewing
+    if user.session_last_active:
+        idle_seconds = (datetime.now(timezone.utc) - user.session_last_active).total_seconds()
+        if idle_seconds > settings.SESSION_IDLE_TIMEOUT_MINUTES * 60:
+            from app.services import user_session_service
+            if user.active_session_id:
+                await user_session_service.end_session(db, user.active_session_id, "idle_timeout")
+            user.active_session_id = None
+            user.session_last_active = None
+            await token_service.revoke_all_for_user(db, user_id=user.id)
+            await db.commit()
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_idle_timeout")
+
     # Revoke the old token
     await token_service.revoke_token(db, refresh_token)
 
@@ -121,6 +151,10 @@ async def logout(db: AsyncSession, refresh_token: str | None, user: User | None 
     if refresh_token:
         await token_service.revoke_token(db, refresh_token)
     if user:
+        # Close session tracking record before clearing the session ID
+        if user.active_session_id:
+            from app.services import user_session_service
+            await user_session_service.end_session(db, user.active_session_id, "logout")
         user.active_session_id = None
         user.session_last_active = None
 

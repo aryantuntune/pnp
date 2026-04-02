@@ -23,6 +23,9 @@ const MENU_ROUTES: Record<string, string> = {
   Reports: "/dashboard/reports",
   "System Settings": "/dashboard/settings",
   "Ticket Verification": "/dashboard/verify",
+  "Rate Change Logs": "/dashboard/rate-change-logs",
+  "Employee Transfer": "/dashboard/transfer",
+  "User Sessions": "/dashboard/user-sessions",
 };
 
 export default function Sidebar({ menuItems }: SidebarProps) {

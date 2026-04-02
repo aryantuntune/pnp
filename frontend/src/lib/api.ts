@@ -49,12 +49,18 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Session was invalidated (logged in from another device) — don't try refresh
+    // Session was invalidated — don't try refresh, redirect immediately
     const detail = (error.response?.data as { detail?: string })?.detail;
     if (detail === "session_expired_elsewhere") {
       const isPortal = isPortalContext(url);
       const loginPath = isPortal ? "/customer/login" : "/login";
       window.location.href = `${loginPath}?reason=session_conflict`;
+      return Promise.reject(error);
+    }
+    if (detail === "session_idle_timeout") {
+      const isPortal = isPortalContext(url);
+      const loginPath = isPortal ? "/customer/login" : "/login";
+      window.location.href = `${loginPath}?reason=idle_timeout`;
       return Promise.reject(error);
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { User } from "@/types";
@@ -29,25 +29,51 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     }).catch(() => {});
   }, [router]);
 
-  // Idle timeout: auto-logout after 30 minutes of inactivity
+  // Heartbeat: ping server periodically while user is active to prevent
+  // server-side idle timeout during long form fills (e.g., multi-ticketing)
+  const userActiveRef = useRef(false);
+  useEffect(() => {
+    const HEARTBEAT_INTERVAL = 3 * 60 * 1000; // 3 minutes
+
+    const markActive = () => { userActiveRef.current = true; };
+    const events = ["mousedown", "keydown", "touchstart", "scroll"];
+    events.forEach((event) => window.addEventListener(event, markActive));
+
+    const heartbeatId = setInterval(() => {
+      if (userActiveRef.current) {
+        userActiveRef.current = false;
+        api.get("/api/auth/me").catch(() => { /* 401 handled by interceptor */ });
+      }
+    }, HEARTBEAT_INTERVAL);
+
+    return () => {
+      clearInterval(heartbeatId);
+      events.forEach((event) => window.removeEventListener(event, markActive));
+    };
+  }, []);
+
+  // Idle timeout: force-logout after 10 minutes of inactivity
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
-    const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+    const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
     const resetTimer = () => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(async () => {
+        // Call proper logout to revoke tokens, clear cookies, and close session
+        const { logout } = await import("@/lib/auth");
+        await logout();
         window.location.href = "/login?reason=idle_timeout";
       }, IDLE_TIMEOUT);
     };
 
-    const events = ["mousedown", "keydown", "touchstart", "scroll"];
-    events.forEach((event) => window.addEventListener(event, resetTimer));
+    const idleEvents = ["mousedown", "keydown", "touchstart", "scroll"];
+    idleEvents.forEach((event) => window.addEventListener(event, resetTimer));
     resetTimer();
 
     return () => {
       clearTimeout(timeoutId);
-      events.forEach((event) => window.removeEventListener(event, resetTimer));
+      idleEvents.forEach((event) => window.removeEventListener(event, resetTimer));
     };
   }, []);
 

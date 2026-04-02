@@ -42,7 +42,11 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 )
 @limiter.limit("10/minute")
 async def login(request: Request, body: LoginRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    tokens = await auth_service.login(db, body.username, body.password)
+    tokens = await auth_service.login(
+        db, body.username, body.password,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     # Probabilistic cleanup (~5% of logins) to avoid expired token buildup
     if random.random() < 0.05:
         background_tasks.add_task(cleanup_expired_background)

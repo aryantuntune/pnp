@@ -30,8 +30,11 @@ function LoginContent() {
   // Show message if redirected due to session conflict
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("reason") === "session_conflict") {
+    const reason = params.get("reason");
+    if (reason === "session_conflict") {
       setError("Your session was ended because this account logged in from another location.");
+    } else if (reason === "idle_timeout") {
+      setError("You were logged out due to inactivity. Please log in again.");
     }
   }, []);
 

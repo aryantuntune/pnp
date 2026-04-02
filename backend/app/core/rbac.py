@@ -28,6 +28,7 @@ ROLE_MENU_ITEMS: dict[UserRole, list[str]] = {
         "Employee Transfer",
         "Ticket Verification",
         "System Settings",
+        "User Sessions",
     ],
     UserRole.ADMIN: [
         "Dashboard",

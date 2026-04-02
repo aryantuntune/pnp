@@ -531,9 +531,28 @@ export default function TicketingPage() {
           )
         );
       } catch {
-        /* rate not found, keep 0 */
+        setFormError("Failed to fetch rate. Please re-select the item or refresh the page.");
       }
     }
+  };
+
+  // Re-fetch rates from server for all form items (used after 409 rate-mismatch)
+  const refreshFormRates = async () => {
+    if (!formRouteId) return;
+    const refreshed = await Promise.all(
+      formItems.map(async (fi) => {
+        if (!fi.item_id || fi.is_cancelled) return fi;
+        try {
+          const res = await api.get<RateLookupResponse>(
+            `/api/tickets/rate-lookup?item_id=${fi.item_id}&route_id=${formRouteId}`
+          );
+          return { ...fi, rate: res.data.rate, levy: res.data.levy };
+        } catch {
+          return fi;
+        }
+      })
+    );
+    setFormItems(refreshed);
   };
 
   // Add item row
@@ -865,6 +884,10 @@ export default function TicketingPage() {
       setFormError("All items must have an item selected.");
       return;
     }
+    if (activeItems.some((fi) => fi.rate <= 0 && fi.levy <= 0)) {
+      setFormError("One or more items have no rate. Please re-select the item or refresh the page.");
+      return;
+    }
 
     if (editingTicket) {
       // Edit mode: save directly
@@ -894,9 +917,14 @@ export default function TicketingPage() {
         closeModal();
         await fetchTickets();
       } catch (err: unknown) {
-        const msg =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data
-            ?.detail || "Operation failed.";
+        const errObj = err as { response?: { status?: number; data?: { detail?: string } } };
+        const statusCode = errObj?.response?.status;
+        const msg = errObj?.response?.data?.detail || "Operation failed.";
+
+        if (statusCode === 409) {
+          await refreshFormRates();
+        }
+
         setFormError(msg);
       } finally {
         setSubmitting(false);
@@ -1038,9 +1066,15 @@ export default function TicketingPage() {
 
       fetchTickets();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail || "Failed to save ticket. Please try again.";
+      const errObj = err as { response?: { status?: number; data?: { detail?: string } } };
+      const statusCode = errObj?.response?.status;
+      const msg = errObj?.response?.data?.detail || "Failed to save ticket. Please try again.";
+
+      if (statusCode === 409) {
+        await refreshFormRates();
+        setShowPaymentModal(false);
+      }
+
       setPaymentError(msg);
     } finally {
       setSubmitting(false);
@@ -1762,6 +1796,7 @@ export default function TicketingPage() {
                                 );
                                 return { ...fi, rate: res.data.rate, levy: res.data.levy };
                               } catch {
+                                setFormError("Failed to fetch rate for one or more items. Please refresh the page.");
                                 return { ...fi, rate: 0, levy: 0 };
                               }
                             })

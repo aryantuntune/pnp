@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.core.security import decode_token
 from app.core.rbac import UserRole
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.portal_user import PortalUser
@@ -75,10 +76,36 @@ async def get_current_user(
             detail="session_expired_elsewhere",
         )
 
-    # Update session activity (throttle to every 30s to reduce DB writes)
+    # Server-side idle timeout: force-logout if no activity for configured duration
     now = datetime.now(timezone.utc)
+    idle_limit = settings.SESSION_IDLE_TIMEOUT_MINUTES * 60  # seconds
+    if user.session_last_active:
+        idle_seconds = (now - user.session_last_active).total_seconds()
+        if idle_seconds > idle_limit:
+            # Full session teardown — revoke all tokens so session cannot resume
+            from app.services import user_session_service, token_service
+            from app.services.token_blacklist import blacklist_token
+            if user.active_session_id:
+                await user_session_service.end_session(db, user.active_session_id, "idle_timeout")
+            await token_service.revoke_all_for_user(db, user_id=user.id)
+            if jti:
+                exp = payload.get("exp", 0)
+                await blacklist_token(jti, exp)
+            user.active_session_id = None
+            user.session_last_active = None
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="session_idle_timeout",
+            )
+
+    # Update session activity (throttle to every 30s to reduce DB writes)
     if not user.session_last_active or (now - user.session_last_active).total_seconds() > 30:
         user.session_last_active = now
+        # Also update heartbeat in user_sessions table
+        if user.active_session_id:
+            from app.services.user_session_service import update_heartbeat
+            await update_heartbeat(db, user.active_session_id)
 
     return user
 

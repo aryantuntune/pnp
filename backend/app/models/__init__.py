@@ -18,6 +18,7 @@ from app.models.payment_transaction import PaymentTransaction
 from app.models.daily_report_recipient import DailyReportRecipient
 from app.models.rate_change_log import RateChangeLog
 from app.models.backup_notification_recipient import BackupNotificationRecipient
+from app.models.user_session import UserSession
 
 __all__ = [
     "User",
@@ -41,4 +42,5 @@ __all__ = [
     "DailyReportRecipient",
     "RateChangeLog",
     "BackupNotificationRecipient",
+    "UserSession",
 ]

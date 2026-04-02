@@ -165,6 +165,68 @@ async def _validate_items(db: AsyncSession, items: list) -> None:
             )
 
 
+async def _enforce_db_rates(
+    db: AsyncSession, items: list, route_id: int, exclude_item_ids: set[int] | None = None,
+) -> None:
+    """Fetch current rates from DB and reject if client-submitted rates don't match.
+
+    This prevents tickets being created with stale, zero, or manipulated rates.
+    Items in exclude_item_ids are skipped (used for SF items split across batch tickets).
+    """
+    # Collect unique item IDs (skip cancelled items and excluded items)
+    active_items = [i for i in items if not getattr(i, "is_cancelled", False)]
+    if exclude_item_ids:
+        active_items = [i for i in active_items if i.item_id not in exclude_item_ids]
+    if not active_items:
+        return
+
+    item_ids = list({i.item_id for i in active_items})
+
+    # Batch-fetch all active rates for this route
+    result = await db.execute(
+        select(ItemRate.item_id, ItemRate.rate, ItemRate.levy)
+        .where(
+            ItemRate.item_id.in_(item_ids),
+            ItemRate.route_id == route_id,
+            ItemRate.is_active == True,
+        )
+    )
+    db_rates = {row.item_id: (float(row.rate) if row.rate is not None else 0,
+                               float(row.levy) if row.levy is not None else 0)
+                for row in result.all()}
+
+    # Validate each item's rate against the DB
+    mismatches = []
+    missing = []
+    for item in active_items:
+        db_entry = db_rates.get(item.item_id)
+        if db_entry is None:
+            missing.append(item.item_id)
+            continue
+
+        db_rate, db_levy = db_entry
+        submitted_rate = float(getattr(item, "rate", 0))
+        submitted_levy = float(getattr(item, "levy", 0))
+
+        if abs(submitted_rate - db_rate) > 0.01 or abs(submitted_levy - db_levy) > 0.01:
+            mismatches.append(
+                f"Item {item.item_id}: submitted rate={submitted_rate}/levy={submitted_levy}, "
+                f"current rate={db_rate}/levy={db_levy}"
+            )
+
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active rate found for item(s) {missing} on route {route_id}",
+        )
+
+    if mismatches:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Rate has changed. Please refresh and try again. " + "; ".join(mismatches),
+        )
+
+
 def _compute_amounts(items: list, discount: float | None) -> tuple[float, float]:
     total = 0.0
     for item in items:
@@ -404,6 +466,50 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
     # Validate off-hours
     await _validate_off_hours(db, branch_id)
 
+    # Check if SF (Special Ferry) item is configured — its rate is split across tickets
+    sf_item_id = None
+    exclude_rate_items: set[int] = set()
+    company_result = await db.execute(select(Company).limit(1))
+    company = company_result.scalar_one_or_none()
+    if company and company.sf_item_id:
+        sf_item_id = company.sf_item_id
+
+        # Validate: sum of SF rates across all tickets must equal the DB rate
+        sf_rate_result = await db.execute(
+            select(ItemRate.rate, ItemRate.levy)
+            .where(
+                ItemRate.item_id == sf_item_id,
+                ItemRate.route_id == user.route_id,
+                ItemRate.is_active == True,
+            )
+            .limit(1)
+        )
+        sf_db = sf_rate_result.one_or_none()
+        if sf_db:
+            db_sf_rate = float(sf_db.rate) if sf_db.rate is not None else 0
+            db_sf_levy = float(sf_db.levy) if sf_db.levy is not None else 0
+
+            # Sum SF rates across all tickets in the batch
+            total_sf_rate = 0.0
+            total_sf_levy = 0.0
+            for ticket_data in data.tickets:
+                for item in ticket_data.items:
+                    if item.item_id == sf_item_id and not getattr(item, "is_cancelled", False):
+                        total_sf_rate += float(item.rate)
+                        total_sf_levy += float(item.levy)
+
+            if total_sf_rate > 0 or total_sf_levy > 0:
+                if abs(total_sf_rate - db_sf_rate) > 0.01 or abs(total_sf_levy - db_sf_levy) > 0.01:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            f"SF item rate has changed. Total submitted: rate={total_sf_rate}/levy={total_sf_levy}, "
+                            f"current: rate={db_sf_rate}/levy={db_sf_levy}. Please refresh and try again."
+                        ),
+                    )
+                # SF rates validated at batch level — exclude from per-ticket enforcement
+                exclude_rate_items.add(sf_item_id)
+
     # Stamp current time as departure for off-hours tickets (no ferry schedule running)
     now_time = datetime.datetime.now().strftime("%H:%M")
     for ticket_data in data.tickets:
@@ -414,7 +520,10 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
     # create_ticket() uses flush(), not commit(), so if any fails, ALL roll back.
     created_tickets = []
     for ticket_data in data.tickets:
-        result = await create_ticket(db, ticket_data, user_id=user.id)
+        result = await create_ticket(
+            db, ticket_data, user_id=user.id,
+            _exclude_rate_items=exclude_rate_items or None,
+        )
         created_tickets.append(result)
 
     return created_tickets
@@ -532,11 +641,14 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: int) -> dict:
     return await _enrich_ticket(db, ticket, include_items=True)
 
 
-async def create_ticket(db: AsyncSession, data: TicketCreate, user_id=None) -> dict:
+async def create_ticket(
+    db: AsyncSession, data: TicketCreate, user_id=None, _exclude_rate_items: set[int] | None = None,
+) -> dict:
     effective_payment_mode_id = data.payment_mode_id
 
     await _validate_references(db, data.branch_id, data.route_id, effective_payment_mode_id)
     await _validate_items(db, data.items)
+    await _enforce_db_rates(db, data.items, data.route_id, exclude_item_ids=_exclude_rate_items)
 
     computed_amount, computed_net = _compute_amounts(data.items, data.discount)
     _cross_check_amounts(computed_amount, computed_net, data.amount, data.net_amount)
@@ -639,7 +751,10 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
             setattr(ticket, field, update_data[field])
 
     if "items" in update_data and data.items is not None:
-        await _validate_items(db, [i for i in data.items if not i.is_cancelled])
+        active_update_items = [i for i in data.items if not i.is_cancelled]
+        await _validate_items(db, active_update_items)
+        effective_route = update_data.get("route_id", ticket.route_id)
+        await _enforce_db_rates(db, active_update_items, effective_route)
 
         existing_result = await db.execute(
             select(TicketItem).where(TicketItem.ticket_id == ticket_id)

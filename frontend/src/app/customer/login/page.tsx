@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -32,6 +32,17 @@ function CustomerLoginContent() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [unverifiedEmail, setUnverifiedEmail] = useState("");
+
+  // Show message if redirected due to session issue
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get("reason");
+    if (reason === "idle_timeout") {
+      setError("You were logged out due to inactivity. Please log in again.");
+    } else if (reason === "session_conflict") {
+      setError("Your session was ended because this account logged in from another location.");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

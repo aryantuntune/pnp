@@ -444,6 +444,64 @@ export default function MultiTicketingPage() {
 
     if (!initData) return;
 
+    // Re-fetch fresh rates from server before submission to prevent stale-rate tickets
+    let freshInit: MultiTicketInit;
+    try {
+      const branchParam = selectedBranchId ? `?branch_id=${selectedBranchId}` : "";
+      const { data } = await api.get<MultiTicketInit>(
+        `/api/tickets/multi-ticket-init${branchParam}`
+      );
+      freshInit = data;
+    } catch {
+      alert("Failed to verify current rates. Please refresh the page and try again.");
+      return;
+    }
+
+    // Build a lookup of fresh rates
+    const freshRateMap = new Map(freshInit.items.map((i) => [i.id, { rate: i.rate, levy: i.levy }]));
+
+    // Check all ticket items against fresh rates and update if stale
+    // SF items are checked separately: compare total SF rate/levy in fresh vs initData
+    let hasStaleRates = false;
+    const updatedTickets = tickets.map((t) => ({
+      ...t,
+      items: t.items.map((it) => {
+        if (it.isSfItem || it.itemId <= 0) return it;
+        const fresh = freshRateMap.get(it.itemId);
+        if (!fresh) return it;
+        if (Math.abs(it.rate - fresh.rate) > 0.01 || Math.abs(it.levy - fresh.levy) > 0.01) {
+          hasStaleRates = true;
+          return { ...it, rate: fresh.rate, levy: fresh.levy };
+        }
+        return it;
+      }),
+    }));
+
+    // Check if SF rate itself has changed
+    if (
+      initData?.sf_item_id &&
+      freshInit.sf_rate != null &&
+      freshInit.sf_levy != null &&
+      initData.sf_rate != null &&
+      initData.sf_levy != null &&
+      (Math.abs(freshInit.sf_rate - initData.sf_rate) > 0.01 ||
+        Math.abs(freshInit.sf_levy - initData.sf_levy) > 0.01)
+    ) {
+      hasStaleRates = true;
+    }
+
+    if (hasStaleRates) {
+      setTickets(
+        hasSf && freshInit.sf_rate != null && freshInit.sf_levy != null
+          ? recalcSfSplit(updatedTickets, freshInit.sf_rate, freshInit.sf_levy)
+          : updatedTickets
+      );
+      // Update initData with full fresh response (items + SF rate/levy)
+      setInitData(freshInit);
+      alert("Rates have been updated since you loaded this page. Amounts have been refreshed — please review and submit again.");
+      return;
+    }
+
     const today = formatDateYYYYMMDD(new Date());
 
     const payload: TicketCreate[] = tickets.map((t) => {
@@ -483,12 +541,17 @@ export default function MultiTicketingPage() {
       setPrintData(data);
       setShowPrint(true);
     } catch (e: unknown) {
-      const msg =
-        e && typeof e === "object" && "response" in e
-          ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
-            "Failed to save tickets."
-          : "Failed to save tickets.";
-      alert(msg);
+      const errObj = e as { response?: { status?: number; data?: { detail?: string } } };
+      const statusCode = errObj?.response?.status;
+      const msg = errObj?.response?.data?.detail || "Failed to save tickets.";
+
+      if (statusCode === 409) {
+        // Server rejected due to rate mismatch — refresh init data
+        fetchInit(selectedBranchId);
+        alert("Rates have changed. Page has been refreshed — please review and submit again.");
+      } else {
+        alert(msg);
+      }
     } finally {
       setSubmitting(false);
     }
