@@ -2,6 +2,51 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (QZ Tray Certificate Setup Fix)
+
+### Module
+
+Frontend — Ticket Management / POS Printing
+
+### Summary
+
+Replaced the `.bat` setup script with a `.crt` certificate download for QZ Tray integration, as the `.bat` script was incompatible with QZ Tray 2.2.5.
+
+### Changes
+
+- Removed `setup-direct-printing.bat` from `public/`
+- Added `ssmspl-qz.crt` to `public/` for direct download
+- Updated the download button text to "Download Certificate" which now downloads the `.crt` file
+- Updated the Printer Setup dialog instructions to match the new flow:
+  1. Install QZ Tray
+  2. Launch it
+  3. Download the SSMSPL certificate
+  4. Import via Advanced → Site Manager → + → browse to the `.crt`
+  5. Refresh
+
+### Files Added / Modified
+
+| File | Change |
+|---|---|
+| `frontend/public/setup-direct-printing.bat` | **DELETED** |
+| `frontend/public/ssmspl-qz.crt` | **NEW** — Served as static file |
+| `frontend/src/app/dashboard/ticketing/page.tsx` | Updated instructions and download link |
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migrations or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+# Rebuild frontend container
+docker compose -f docker-compose.prod.yml up --build -d frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Backup System Hardening)
 
 ### Module
