@@ -502,7 +502,10 @@ export default function MultiTicketingPage() {
       return;
     }
 
-    const today = formatDateYYYYMMDD(new Date());
+    const nowSave = new Date();
+    const today = formatDateYYYYMMDD(nowSave);
+    // Use actual client time as departure — client always knows correct local time
+    const currentTime = `${String(nowSave.getHours()).padStart(2, "0")}:${String(nowSave.getMinutes()).padStart(2, "0")}`;
 
     const payload: TicketCreate[] = tickets.map((t) => {
       const total = ticketTotal(t);
@@ -519,7 +522,7 @@ export default function MultiTicketingPage() {
       return {
         branch_id: initData.branch_id,
         ticket_date: today,
-        departure: null,
+        departure: currentTime,
         route_id: initData.route_id,
         payment_mode_id: t.paymentModeId,
         ref_no: t.refNo.trim() || null,
@@ -536,8 +539,8 @@ export default function MultiTicketingPage() {
       const { data } = await api.post<Ticket[]>(`/api/tickets/batch${branchParam}`, {
         tickets: payload,
       });
-      const now = new Date();
-      printTimeRef.current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      // Reuse the same timestamp captured above — DB departure, print receipt, and listing all match
+      printTimeRef.current = currentTime;
       setPrintData(data);
       setShowPrint(true);
     } catch (e: unknown) {
