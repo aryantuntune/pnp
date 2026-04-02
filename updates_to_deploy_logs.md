@@ -2,6 +2,36 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (User Sessions Sidebar Fix)
+
+### Module
+
+Frontend — Sidebar Menu Config
+
+### Summary
+
+"User Sessions" was not visible in the sidebar for SUPER_ADMIN despite the backend correctly returning it in menu_items. The sidebar uses `sidebar-menu-config.ts` (not the old `Sidebar.tsx`), and the entry was missing from that config.
+
+### Fix
+
+Added "User Sessions" entry with Monitor icon under the ADMINISTRATION section in `sidebar-menu-config.ts`. Only visible to SUPER_ADMIN since the sidebar filters entries against server-provided `menu_items`.
+
+### VPS Deployment Steps
+
+Frontend-only rebuild:
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build frontend
+```
+
+No database migrations required.
+
+---
+
 ## Data Migration — 2026-04-03 (Mismatch Filter for Historical Multi-Tickets)
 
 ### Module
