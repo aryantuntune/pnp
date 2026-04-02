@@ -310,13 +310,18 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
   const { getStoredPrinterName, qzPrint, qzConnect } = await import("./qz-service");
   const printerName = getStoredPrinterName();
   if (printerName) {
+    let qzConnected = false;
     try {
       await qzConnect();
+      qzConnected = true;
       const html = buildQzReceiptHtml(data, logoBase64, qrBase64);
       await qzPrint(printerName, html, widthMm);
       return; // done — no dialog shown
     } catch {
-      // QZ Tray unavailable or failed → fall through to window.print()
+      // If QZ Tray connected, the print job likely went through even if
+      // the promise rejected (e.g. WebSocket closed after spooling).
+      // Only fall through to window.print() if connection itself failed.
+      if (qzConnected) return;
     }
   }
 
