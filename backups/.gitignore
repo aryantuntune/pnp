@@ -7,4 +7,6 @@
 .notify_emails
 .notify_emails.tmp
 .trigger
+.sync_needed
+.sync_needed.tmp
 .schedule_done_*

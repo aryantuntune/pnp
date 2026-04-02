@@ -2,6 +2,92 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Backup System Hardening)
+
+### Module
+
+Full Stack — Backup Scripts + Backend API + Frontend UX
+
+### What Changed
+
+**1. `backup_db.sh` — Error handling hardened**
+- Added EXIT trap: if pg_dump crashes mid-stream, the partial .sql.gz file is deleted and a `"status":"failed"` entry is written to `.last_backup.json` so the API/UI knows something went wrong
+- Added `gzip -t` integrity check after dump completes — catches corrupt/truncated archives before they get synced to Google Drive
+
+**2. `sync_backup_gdrive.sh` — Major reliability improvements**
+- **Lock file**: Uses `flock` to prevent concurrent sync runs (two crons firing at once)
+- **Trigger-based sync**: Only runs when `.sync_needed` file exists (created by db-backup after successful backup), or with `--force` flag. This means cron can run every 5 minutes cheaply — it exits immediately if there's nothing to do
+- **Status-file guard replaces 5-minute age guard**: Instead of guessing if a backup is still writing (the old 300-second age check), it now reads `.last_backup.json` to confirm the backup completed successfully. No more race conditions, no more skipped backups
+- **python3 dependency removed**: JSON log now uses `jq` (preferred) → `python3` (fallback) → simple overwrite (last resort). Shell injection risk eliminated by using env vars instead of string interpolation
+- **Notify failures are non-fatal**: All calls to `notify_backup.sh` now have `|| true` so a notification failure doesn't kill the sync
+
+**3. `notify_backup.sh` — Graceful degradation**
+- Checks if `msmtp` is installed before trying to send. If missing, logs a warning instead of crashing the sync pipeline
+- Individual email send failures are caught and logged (no longer crashes on first failure)
+
+**4. `docker-compose.prod.yml` — Sync trigger integration**
+- After every successful backup (both manual and scheduled), the db-backup container creates `.sync_needed` in the backups directory
+- This allows the host sync cron to pick up new backups within minutes instead of waiting for the daily 2:15 AM run
+
+**5. Backend API — Progress tracking**
+- Added `backup_in_progress` boolean to `GET /api/settings/backup/status`
+- Returns `true` when a `.trigger` file exists (backup queued/running)
+
+**6. Frontend — Smart polling after trigger**
+- After triggering a manual backup, the UI now polls every 3 seconds (up to 90s) until the backup completes
+- Shows "Backup in progress..." with spinner during the entire operation
+- Displays final result with file size on completion
+- No more missed updates from the old single 5-second refresh
+
+### Files
+
+| File | Change |
+|---|---|
+| `backend/scripts/backup_db.sh` | EXIT trap + gzip validation |
+| `backend/scripts/sync_backup_gdrive.sh` | Lock, trigger-based, status-file guard, jq fallback |
+| `backend/scripts/notify_backup.sh` | msmtp check, graceful send failures |
+| `docker-compose.prod.yml` | .sync_needed after backup success |
+| `backend/app/routers/backup.py` | backup_in_progress field |
+| `frontend/src/types/index.ts` | Added backup_in_progress to BackupStatus |
+| `frontend/src/app/dashboard/settings/components/backups-tab.tsx` | Polling trigger UX |
+| `backups/.gitignore` | Added .sync_needed |
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+# Rebuild containers
+docker compose -f docker-compose.prod.yml up -d --build backend db-backup
+
+# Install jq on HOST for sync log (recommended)
+sudo apt install -y jq
+
+# Update cron: replace the single 2:15 AM entry with trigger-based sync
+crontab -e
+```
+
+**New crontab entries** (replace old 2:15 AM entry):
+```cron
+# Check for new backups to sync (every 5 minutes — exits instantly if nothing to do)
+*/5 * * * * cd /path/to/ssmspl && BACKUP_DIR=/path/to/ssmspl/backups ./backend/scripts/sync_backup_gdrive.sh >> /var/log/ssmspl-backup-sync.log 2>&1
+
+# Daily safety-net sync (catches anything the trigger might have missed)
+15 2 * * * cd /path/to/ssmspl && BACKUP_DIR=/path/to/ssmspl/backups ./backend/scripts/sync_backup_gdrive.sh --force >> /var/log/ssmspl-backup-sync.log 2>&1
+```
+
+### Verification
+
+After deploying, test the manual trigger:
+1. Go to Settings → Backups → click "Trigger Backup Now"
+2. The button should show "Backup in progress..." with a spinner
+3. After 10-20 seconds, it should show "Backup completed successfully (size)"
+4. Within 5 minutes, the backup should appear as "Synced" in the GDrive column
+
+---
+
 ## Deployment Update — 2026-04-02 (Direct Printing Setup Download)
 
 ### Module

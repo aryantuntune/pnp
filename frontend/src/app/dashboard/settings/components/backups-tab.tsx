@@ -136,24 +136,60 @@ export default function BackupsTab() {
     setTriggering(true);
     setTriggerMessage("");
     setTriggerError("");
+
+    // Capture current backup time so we know when a new one completes
+    const prevBackupTime = status?.last_backup_time ?? null;
+
     try {
       const { data } = await api.post<{ message: string; status: string }>(
         "/api/settings/backup/trigger"
       );
-      setTriggerMessage(data.message || "Backup triggered successfully.");
-      // Auto-refresh status and history after 5 seconds
-      setTimeout(() => {
-        fetchStatus();
-        fetchHistory();
-        setTriggerMessage("");
-      }, 5000);
+      setTriggerMessage(data.message || "Backup triggered. Waiting for completion...");
+
+      // Poll every 3 seconds until status changes or 90 seconds timeout
+      let elapsed = 0;
+      const POLL_INTERVAL = 3000;
+      const POLL_TIMEOUT = 90000;
+
+      const pollTimer = setInterval(async () => {
+        elapsed += POLL_INTERVAL;
+        try {
+          const { data: newStatus } = await api.get<BackupStatus>(
+            "/api/settings/backup/status"
+          );
+          const done =
+            newStatus.last_backup_time !== prevBackupTime && !newStatus.backup_in_progress;
+
+          if (done || elapsed >= POLL_TIMEOUT) {
+            clearInterval(pollTimer);
+            setStatus(newStatus);
+            fetchHistory();
+            setTriggering(false);
+
+            if (done) {
+              const ok = newStatus.last_backup_status === "success";
+              setTriggerMessage(
+                ok
+                  ? `Backup completed successfully (${newStatus.last_backup_size ?? ""})`
+                  : "Backup finished with errors. Check status above."
+              );
+            } else {
+              setTriggerMessage(
+                "Backup is taking longer than expected. Check status manually."
+              );
+            }
+            setTimeout(() => setTriggerMessage(""), 8000);
+          }
+        } catch {
+          // Polling failure — just wait for next tick
+        }
+      }, POLL_INTERVAL);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
         "Failed to trigger backup.";
       setTriggerError(msg);
       setTimeout(() => setTriggerError(""), 5000);
-    } finally {
       setTriggering(false);
     }
   };
@@ -371,7 +407,7 @@ export default function BackupsTab() {
             {triggering ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Running Backup...
+                Backup in progress...
               </>
             ) : (
               <>

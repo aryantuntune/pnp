@@ -145,7 +145,10 @@ services:
         if [ -f /backups/.trigger ]; then
           rm -f /backups/.trigger;
           echo "[$(date)] Manual backup triggered via UI";
-          /scripts/backup_db.sh;
+          if /scripts/backup_db.sh; then
+            touch /backups/.sync_needed;
+            echo "[$(date)] Marked .sync_needed for GDrive sync";
+          fi;
           sleep 5;
           continue;
         fi;
@@ -154,7 +157,10 @@ services:
         TODAY=$(date +%Y%m%d);
         if [ "$$HOUR" = "02" ] && [ "$$MINUTE" -lt 5 ] && [ ! -f "/backups/.schedule_done_$${TODAY}" ]; then
           echo "[$(date)] Scheduled backup time reached";
-          /scripts/backup_db.sh;
+          if /scripts/backup_db.sh; then
+            touch /backups/.sync_needed;
+            echo "[$(date)] Marked .sync_needed for GDrive sync";
+          fi;
           touch "/backups/.schedule_done_$${TODAY}";
           find /backups -name ".schedule_done_*" -mtime +1 -delete 2>/dev/null || true;
         fi;

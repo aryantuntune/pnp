@@ -45,6 +45,7 @@ class BackupStatusOut(BaseModel):
     schedule: str = "Daily at 2:00 AM"
     local_retention_days: int = 7
     gdrive_retention_days: int = 30
+    backup_in_progress: bool = False
 
 class BackupTriggerOut(BaseModel):
     message: str
@@ -129,6 +130,9 @@ async def get_backup_status(current_user=Depends(_super_admin_only)):
         result.last_synced_file = sync_status.get("file")
         result.last_sync_status = sync_status.get("status")
         result.gdrive_backup_count = sync_status.get("gdrive_count")
+
+    # Check if a backup trigger is pending (UI triggered but not yet started/completed)
+    result.backup_in_progress = (BACKUP_DIR / ".trigger").exists()
 
     # If no status files, try to infer from directory listing
     if not backup_status:

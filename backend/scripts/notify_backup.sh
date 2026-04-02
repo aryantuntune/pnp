@@ -17,7 +17,15 @@ BACKUP_DIR="${BACKUP_DIR:-/var/www/ssmspl/backups}"
 SERVER_HOSTNAME=$(hostname)
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 
-# Build recipient list: env var first, then .notify_emails file from backend DB
+# ── Check msmtp is installed ──────────────────────────────────────────────
+if ! command -v msmtp &>/dev/null; then
+    echo "[$(date)] NOTIFY: msmtp not installed — cannot send email"
+    echo "[$(date)] NOTIFY: Status=${STATUS} Message=${MESSAGE}"
+    echo "[$(date)] NOTIFY: Install msmtp: apt install msmtp msmtp-mta"
+    exit 0
+fi
+
+# ── Build recipient list: env var + .notify_emails file from backend DB ───
 RECIPIENTS=""
 if [[ -n "${BACKUP_NOTIFY_EMAIL:-}" ]]; then
     RECIPIENTS="${BACKUP_NOTIFY_EMAIL}"
@@ -53,7 +61,7 @@ SUBJECT="${SUBJECT_PREFIX} SSMSPL Backup — ${STATUS} — ${TIMESTAMP}"
 
 # Send to each recipient
 for RECIPIENT in ${RECIPIENTS}; do
-    cat <<EOF | msmtp "${RECIPIENT}"
+    if cat <<EOF | msmtp "${RECIPIENT}"; then
 To: ${RECIPIENT}
 Subject: ${SUBJECT}
 MIME-Version: 1.0
@@ -69,5 +77,8 @@ Details:   ${MESSAGE}
 ---
 This is an automated notification from the SSMSPL backup system.
 EOF
-    echo "[$(date)] NOTIFY: Email sent to ${RECIPIENT} — ${STATUS}"
+        echo "[$(date)] NOTIFY: Email sent to ${RECIPIENT} — ${STATUS}"
+    else
+        echo "[$(date)] NOTIFY: WARNING — Failed to send email to ${RECIPIENT} (msmtp returned $?)"
+    fi
 done

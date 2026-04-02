@@ -1,8 +1,8 @@
 #!/bin/bash
 # Daily PostgreSQL backup script for SSMSPL
-# Runs inside the db container or with access to pg_dump
+# Runs inside the db-backup container (postgres:16-alpine)
 #
-# Keeps last 7 daily backups, rotating out older ones.
+# Keeps last N daily backups, rotating out older ones.
 # Backups are gzip-compressed pg_dump files.
 
 set -euo pipefail
@@ -23,6 +23,25 @@ BACKUP_FILE="${BACKUP_DIR}/${PGDATABASE}_${TIMESTAMP}.sql.gz"
 # Ensure backup directory exists
 mkdir -p "${BACKUP_DIR}"
 
+# ── Trap: clean up partial file + write failure status on ANY error ──
+cleanup_on_failure() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo "[$(date)] ERROR: Backup failed with exit code ${exit_code}"
+        # Remove partial/corrupt backup file
+        if [[ -n "${BACKUP_FILE:-}" && -f "${BACKUP_FILE}" ]]; then
+            rm -f "${BACKUP_FILE}"
+            echo "[$(date)] Cleaned up partial backup file"
+        fi
+        # Write failure status so the API knows something went wrong
+        cat > "${BACKUP_DIR}/.last_backup.json.tmp" <<STATUSEOF
+{"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"","size_bytes":0,"size_human":"0","status":"failed","error":"exit code ${exit_code}"}
+STATUSEOF
+        mv "${BACKUP_DIR}/.last_backup.json.tmp" "${BACKUP_DIR}/.last_backup.json"
+    fi
+}
+trap cleanup_on_failure EXIT
+
 echo "[$(date)] Starting backup of ${PGDATABASE}..."
 
 # Run pg_dump with compression
@@ -33,11 +52,12 @@ pg_dump -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
 # Verify backup is not empty
 if [ ! -s "${BACKUP_FILE}" ]; then
     echo "[$(date)] ERROR: Backup file is empty!"
-    cat > "${BACKUP_DIR}/.last_backup.json.tmp" <<STATUSEOF
-{"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"","size_bytes":0,"size_human":"0","status":"failed"}
-STATUSEOF
-    mv "${BACKUP_DIR}/.last_backup.json.tmp" "${BACKUP_DIR}/.last_backup.json"
-    rm -f "${BACKUP_FILE}"
+    exit 1
+fi
+
+# Verify gzip integrity (catches truncated/corrupt archives)
+if ! gzip -t "${BACKUP_FILE}" 2>/dev/null; then
+    echo "[$(date)] ERROR: Backup file failed gzip integrity check!"
     exit 1
 fi
 

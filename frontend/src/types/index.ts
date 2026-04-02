@@ -476,6 +476,7 @@ export interface BackupStatus {
   schedule: string;
   local_retention_days: number;
   gdrive_retention_days: number;
+  backup_in_progress: boolean;
 }
 
 export interface BackupNotificationRecipient {
