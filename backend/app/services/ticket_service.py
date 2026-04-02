@@ -404,6 +404,12 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
     # Validate off-hours
     await _validate_off_hours(db, branch_id)
 
+    # Stamp current time as departure for off-hours tickets (no ferry schedule running)
+    now_time = datetime.datetime.now().strftime("%H:%M")
+    for ticket_data in data.tickets:
+        if not ticket_data.departure:
+            ticket_data.departure = now_time
+
     # All tickets are created within the same DB transaction (get_db session).
     # create_ticket() uses flush(), not commit(), so if any fails, ALL roll back.
     created_tickets = []

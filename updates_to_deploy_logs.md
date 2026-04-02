@@ -2,46 +2,58 @@
 
 ---
 
-## Deployment Update — 2026-04-02 (Multi-ticket print time fix)
+## Deployment Update — 2026-04-02 (Multi-ticket time fix — frontend + backend)
 
 ### Module
 
-Frontend — Multi-Ticketing
+Frontend — Multi-Ticketing + Backend — Ticket Service
 
 ### Changes
 
-**Multi-ticket print now shows actual generation time, not first ferry time**
-- Root cause: Tailwind `print:hidden` CSS wasn't reliably hiding the main content div (which contains the First Ferry / Last Ferry schedule header) during `window.print()`. The ferry schedule times leaked into the printed output.
-- Fix: Replaced CSS-based print hiding with **conditional rendering** — when printing, the main content is completely unmounted from the DOM. If it's not in the DOM, it cannot print.
-- Replaced `printTime` React state with a synchronous `useRef` to eliminate any React batching race condition on the time value.
-- Removed dependency on Tailwind `print:hidden` / `print:block` variants entirely.
+**1. Frontend: Print now shows actual generation time, not first ferry time**
+- Root cause: Tailwind `print:hidden` CSS wasn't reliably hiding the main content div (First Ferry / Last Ferry schedule header) during `window.print()`.
+- Fix: Replaced CSS-based print hiding with conditional rendering — main content is unmounted from DOM when printing.
+- Replaced `printTime` React state with a synchronous `useRef` to eliminate batching race conditions.
 
-### Note on previously printed tickets
+**2. Backend: Multi-tickets now store actual generation time as departure**
+- In `create_multi_tickets()`, if a ticket has no departure, the current server time is stamped as the departure before calling `create_ticket()`.
+- Ensures listing page, reprints, and reports all show the correct generation time for off-hours tickets.
 
-5 multi-tickets were printed with the incorrect (first ferry) time. The actual generation timestamps are stored in the `created_at` column of the `tickets` table and can be queried:
+**3. DB fix for 5 historical tickets (applied on VPS 2026-04-02)**
+- 5 multi-tickets had fake first-ferry departure times despite being generated between 00:25–04:18 AM.
+- Fixed via:
 ```sql
-SELECT ticket_no, ticket_date, created_at AT TIME ZONE 'Asia/Kolkata' AS generated_at
-FROM tickets ORDER BY id DESC LIMIT 10;
+UPDATE tickets
+SET departure = (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)
+WHERE ticket_date = '2026-04-02'
+  AND (
+       (created_at AT TIME ZONE 'Asia/Kolkata')::time >= '23:00:00'::time
+       OR
+       (created_at AT TIME ZONE 'Asia/Kolkata')::time <= '06:15:00'::time
+  );
+-- UPDATE 5
 ```
 
 ### Files Modified
 
 * `frontend/src/app/dashboard/multiticketing/page.tsx` — conditional rendering, ref-based print time
+* `backend/app/services/ticket_service.py` — auto-stamp current time as departure for multi-tickets
 
 ### VCS
 
-Frontend only. No backend changes. No DB migrations.
+Frontend + Backend changes. No DB migrations.
 
 ### VPS Deployment Steps
 
-Frontend rebuild only.
+Frontend rebuild + backend restart.
 
 ```bash
 ssh user@your-vps-ip
 cd /path/to/ssmspl
 git pull origin main
-cd frontend
-npm run build
+cd backend && source .venv/bin/activate
+sudo systemctl restart ssmspl-backend
+cd ../frontend && npm run build
 sudo systemctl restart ssmspl-frontend
 ```
 
