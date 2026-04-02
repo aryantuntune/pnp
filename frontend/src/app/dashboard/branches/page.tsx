@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -65,10 +66,10 @@ export default function BranchesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [viewBranch, setViewBranch] = useState<Branch | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const currentUser = useDashboardUser();
 
-  const canAdd = currentUser?.role === "SUPER_ADMIN";
-  const canEdit = currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN";
+  const canAdd = currentUser.role === "SUPER_ADMIN";
+  const canEdit = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
 
   const fetchBranches = useCallback(async () => {
     abortRef.current?.abort();
@@ -116,9 +117,6 @@ export default function BranchesPage() {
     fetchBranches();
   }, [fetchBranches]);
 
-  useEffect(() => {
-    api.get<User>("/api/auth/me").then((r) => setCurrentUser(r.data)).catch(() => {});
-  }, []);
 
   const openCreateModal = () => {
     setEditingBranch(null);

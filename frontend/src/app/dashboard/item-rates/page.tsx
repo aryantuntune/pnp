@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { Item, Route, ItemRate, ItemRateCreate, ItemRateUpdate, User } from "@/types";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,7 +53,7 @@ export default function ItemRatesPage() {
   const [itemRates, setItemRates] = useState<ItemRate[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const currentUser = useDashboardUser();
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
@@ -79,15 +80,6 @@ export default function ItemRatesPage() {
   const [viewRate, setViewRate] = useState<ItemRate | null>(null);
 
   const isManager = currentUser?.role === "MANAGER";
-
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const resp = await api.get<User>("/api/auth/me");
-      setCurrentUser(resp.data);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -147,10 +139,9 @@ export default function ItemRatesPage() {
   }, [page, pageSize, sortBy, sortOrder, itemFilter, routeFilter, statusFilter]);
 
   useEffect(() => {
-    fetchCurrentUser();
     fetchItems();
     fetchRoutes();
-  }, [fetchCurrentUser, fetchItems, fetchRoutes]);
+  }, [fetchItems, fetchRoutes]);
 
   useEffect(() => {
     fetchItemRates();

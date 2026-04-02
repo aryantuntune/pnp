@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { getSelectedBranchId, getSelectedBranchName } from "@/lib/auth";
 import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import {
@@ -225,8 +226,8 @@ function ItemSearchSelect({
 }
 
 export default function TicketingPage() {
-  // Current user (needed for role checks and route restrictions)
-  const [user, setUser] = useState<User | null>(null);
+  // Current user from DashboardShell context (already authenticated)
+  const user = useDashboardUser();
 
   // Data
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -428,31 +429,22 @@ export default function TicketingPage() {
     idFilterEnd,
   ]);
 
+  // Fetch dropdown data + tickets on mount (user already available from DashboardShell)
   useEffect(() => {
-    api
-      .get<User>("/api/auth/me")
-      .then(async ({ data }) => {
-        setUser(data);
-        // Fetch dropdown data in parallel
-        try {
-          const [branchRes, routeRes, itemRes, pmRes, schedRes] = await Promise.all([
-            api.get<Branch[]>("/api/branches?limit=200&status=active"),
-            api.get<Route[]>("/api/routes?limit=200&status=active"),
-            api.get<Item[]>("/api/items?limit=200&status=active"),
-            api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active&show_at_pos=true"),
-            api.get<FerrySchedule[]>("/api/ferry-schedules?limit=200"),
-          ]);
-          setBranches(branchRes.data);
-          setAllRoutes(routeRes.data);
-          setItems(itemRes.data);
-          setPaymentModes(pmRes.data);
-          setFerrySchedules(schedRes.data);
-        } catch {
-          /* dropdown load failure is non-fatal */
-        }
-        return fetchTickets();
-      })
-      .catch(() => { /* handled by layout auth */ });
+    Promise.all([
+      api.get<Branch[]>("/api/branches?limit=200&status=active"),
+      api.get<Route[]>("/api/routes?limit=200&status=active"),
+      api.get<Item[]>("/api/items?limit=200&status=active"),
+      api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active&show_at_pos=true"),
+      api.get<FerrySchedule[]>("/api/ferry-schedules?limit=200"),
+    ]).then(([branchRes, routeRes, itemRes, pmRes, schedRes]) => {
+      setBranches(branchRes.data);
+      setAllRoutes(routeRes.data);
+      setItems(itemRes.data);
+      setPaymentModes(pmRes.data);
+      setFerrySchedules(schedRes.data);
+    }).catch(() => { /* dropdown load failure is non-fatal */ });
+    fetchTickets();
   }, [fetchTickets]);
 
   // Whether the user is locked to their assigned route

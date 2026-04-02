@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import { Route, User } from "@/types";
 import {
@@ -101,7 +102,7 @@ export default function RateChangeLogsPage() {
   const limit = 50;
 
   // Current user (for data cutoff)
-  const [user, setUser] = useState<User | null>(null);
+  const user = useDashboardUser();
 
   // Dropdown data
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -110,14 +111,12 @@ export default function RateChangeLogsPage() {
   // Fetch dropdown data
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [routeResp, itemResp, meResp] = await Promise.all([
+      const [routeResp, itemResp] = await Promise.all([
         api.get<Route[]>("/api/routes?limit=200&status=active"),
         api.get<{ id: number; name: string }[]>("/api/items?limit=200&status=active"),
-        api.get<User>("/api/auth/me"),
       ]);
       setRoutes(routeResp.data);
       setItems(itemResp.data);
-      setUser(meResp.data);
     } catch {
       // non-critical
     }

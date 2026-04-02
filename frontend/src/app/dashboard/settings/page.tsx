@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { Company, User } from "@/types";
 import { Settings, Palette, Mail, HardDrive } from "lucide-react";
 import GeneralTab from "./components/general-tab";
@@ -21,18 +22,12 @@ type TabId = (typeof TABS)[number]["id"];
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [company, setCompany] = useState<Company | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const user = useDashboardUser();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Company>("/api/company"),
-      api.get<User>("/api/auth/me"),
-    ])
-      .then(([compRes, userRes]) => {
-        setCompany(compRes.data);
-        setUser(userRes.data);
-      })
+    api.get<Company>("/api/company")
+      .then((res) => setCompany(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { User } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,7 @@ const formatCurrency = (amount: number) =>
 
 export default function VerifyPage() {
   const router = useRouter();
+  const dashboardUser = useDashboardUser();
   const [authorized, setAuthorized] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("qr_scan");
   const [searchValue, setSearchValue] = useState("");
@@ -115,14 +117,12 @@ export default function VerifyPage() {
 
   // Check if user has permission to access this page
   useEffect(() => {
-    api.get<User>("/api/auth/me").then(({ data }) => {
-      if (data.menu_items?.includes("Ticket Verification")) {
-        setAuthorized(true);
-      } else {
-        router.replace("/dashboard");
-      }
-    }).catch(() => {});
-  }, [router]);
+    if (dashboardUser.menu_items?.includes("Ticket Verification")) {
+      setAuthorized(true);
+    } else {
+      router.replace("/dashboard");
+    }
+  }, [dashboardUser, router]);
 
   // QR scanner state
   const [scannerActive, setScannerActive] = useState(false);

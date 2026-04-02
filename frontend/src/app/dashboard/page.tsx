@@ -5,6 +5,7 @@ import Link from "next/link";
 import api from "@/lib/api";
 import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import { User } from "@/types";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { useDashboardWS } from "@/hooks/useDashboardWS";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -105,7 +106,7 @@ interface PaymentTrendRow {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const user = useDashboardUser();
   const [stats, setStats] = useState({
     ticketCount: 0,
     revenue: 0,
@@ -301,54 +302,51 @@ export default function DashboardPage() {
     []
   );
 
+  // Fetch dashboard data on mount (user already available from DashboardShell)
   useEffect(() => {
-    api.get<User>("/api/auth/me").then(({ data }) => {
-      setUser(data);
+    const menu = user.menu_items || [];
+    const canSeeTickets = menu.includes("Ticketing");
 
-      const menu = data.menu_items || [];
-      const canSeeTickets = menu.includes("Ticketing");
+    // Fetch initial stats via HTTP (fallback / first paint)
+    api
+      .get<{ ticket_count: number; today_revenue: number; active_ferries: number; active_branches: number }>(
+        "/api/dashboard/stats",
+        { params: { date: toISODate(new Date()) } }
+      )
+      .then(({ data: s }) => {
+        setStats({
+          ticketCount: s.ticket_count,
+          revenue: s.today_revenue,
+          activeFerries: s.active_ferries,
+          activeBranches: s.active_branches,
+        });
+      })
+      .catch(() => {
+        /* non-fatal -- WS will provide updates */
+      });
 
-      // Fetch initial stats via HTTP (fallback / first paint)
+    // Fetch recent tickets separately
+    if (canSeeTickets) {
       api
-        .get<{ ticket_count: number; today_revenue: number; active_ferries: number; active_branches: number }>(
-          "/api/dashboard/stats",
-          { params: { date: toISODate(new Date()) } }
-        )
-        .then(({ data: s }) => {
-          setStats({
-            ticketCount: s.ticket_count,
-            revenue: s.today_revenue,
-            activeFerries: s.active_ferries,
-            activeBranches: s.active_branches,
-          });
+        .get("/api/tickets", {
+          params: { limit: 5, sort_by: "id", sort_order: "desc" },
+        })
+        .then(({ data: d }) => {
+          const ticketData = d as { data?: TicketRow[] };
+          setRecentTickets(ticketData.data || []);
         })
         .catch(() => {
-          /* non-fatal -- WS will provide updates */
+          /* non-fatal */
         });
+    }
 
-      // Fetch recent tickets separately
-      if (canSeeTickets) {
-        api
-          .get("/api/tickets", {
-            params: { limit: 5, sort_by: "id", sort_order: "desc" },
-          })
-          .then(({ data: d }) => {
-            const ticketData = d as { data?: TicketRow[] };
-            setRecentTickets(ticketData.data || []);
-          })
-          .catch(() => {
-            /* non-fatal */
-          });
-      }
-
-      // Fetch enhanced dashboard sections for users with Reports permission
-      if (menu.includes("Reports")) {
-        fetchEnhancedSections(7, toISODate(new Date()));
-      } else {
-        setSectionsLoading(false);
-      }
-    });
-  }, [fetchEnhancedSections]);
+    // Fetch enhanced dashboard sections for users with Reports permission
+    if (menu.includes("Reports")) {
+      fetchEnhancedSections(7, toISODate(new Date()));
+    } else {
+      setSectionsLoading(false);
+    }
+  }, [user, fetchEnhancedSections]);
 
   // Re-fetch all sections when the selected date changes (date picker interaction)
   useEffect(() => {

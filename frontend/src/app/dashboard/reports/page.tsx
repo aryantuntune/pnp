@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { DATA_CUTOFF_DATE } from "@/lib/utils";
 import { Boat, Branch, Route, PaymentMode, User } from "@/types";
 import {
@@ -279,8 +280,8 @@ export default function ReportsPage() {
   const [boats, setBoats] = useState<Boat[]>([]);
 
   // Current user for role-based scoping
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const isBillingOperator = currentUser?.role === "BILLING_OPERATOR";
+  const currentUser = useDashboardUser();
+  const isBillingOperator = currentUser.role === "BILLING_OPERATOR";
   const isManager = currentUser?.role === "MANAGER";
   const isRouteDisabled = isBillingOperator || isManager;
   const isBranchDisabled = isBillingOperator;
@@ -310,20 +311,18 @@ export default function ReportsPage() {
   // Fetch dropdown data once on mount
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [branchResp, routeResp, pmResp, meResp, reportUsersResp, boatResp] = await Promise.all([
+      const [branchResp, routeResp, pmResp, reportUsersResp, boatResp] = await Promise.all([
         api.get<Branch[]>(
           "/api/branches?limit=200&status=active&sort_by=name&sort_order=asc"
         ),
         api.get<Route[]>("/api/routes?limit=200&status=active"),
         api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active"),
-        api.get<User>("/api/auth/me"),
         api.get<{ id: string; full_name: string }[]>("/api/reports/report-users"),
         api.get<Boat[]>("/api/boats?limit=200&status=active"),
       ]);
       setBranches(branchResp.data);
       setRoutes(routeResp.data);
       setPaymentModes(pmResp.data);
-      setCurrentUser(meResp.data);
       // Map report-users to User-shaped objects for the dropdown
       setUsers(reportUsersResp.data.map((u) => ({ ...u, id: u.id } as unknown as User)));
       setBoats(boatResp.data);

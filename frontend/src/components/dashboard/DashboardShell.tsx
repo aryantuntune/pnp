@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { User } from "@/types";
 import ThemeProvider from "@/components/ThemeProvider";
 import AppSidebar from "@/components/dashboard/AppSidebar";
 import AppHeader from "@/components/dashboard/AppHeader";
+import { DashboardUserProvider } from "@/components/dashboard/DashboardUserContext";
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -19,7 +18,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     api.get("/api/auth/me").then((res) => {
       setUser(res.data);
     }).catch(() => {
-      // 401 interceptor handles redirect to login
+      // 401 → interceptor refreshes token and retries, or redirects to login
+      // Non-401 (500, network) → redirect since dashboard requires auth
+      window.location.href = "/login";
     });
 
     api.get("/api/company").then((res) => {
@@ -27,7 +28,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         setActiveTheme(res.data.active_theme);
       }
     }).catch(() => {});
-  }, [router]);
+  }, []);
 
   // Heartbeat: ping server periodically while user is active to prevent
   // server-side idle timeout during long form fills (e.g., multi-ticketing)
@@ -86,25 +87,27 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   }
 
   return (
-    <ThemeProvider initialThemeName={activeTheme}>
-      <div className="min-h-screen flex bg-background text-foreground">
-        <AppSidebar
-          user={user}
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          mobileOpen={mobileSidebarOpen}
-          onMobileClose={() => setMobileSidebarOpen(false)}
-        />
-        <div className="flex-1 flex flex-col min-h-screen min-w-0">
-          <AppHeader
+    <DashboardUserProvider user={user}>
+      <ThemeProvider initialThemeName={activeTheme}>
+        <div className="min-h-screen flex bg-background text-foreground">
+          <AppSidebar
             user={user}
-            onMobileMenuToggle={() => setMobileSidebarOpen(true)}
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
           />
-          <main className="flex-1 p-4 lg:p-6 overflow-auto">
-            {children}
-          </main>
+          <div className="flex-1 flex flex-col min-h-screen min-w-0">
+            <AppHeader
+              user={user}
+              onMobileMenuToggle={() => setMobileSidebarOpen(true)}
+            />
+            <main className="flex-1 p-4 lg:p-6 overflow-auto">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
-    </ThemeProvider>
+      </ThemeProvider>
+    </DashboardUserProvider>
   );
 }

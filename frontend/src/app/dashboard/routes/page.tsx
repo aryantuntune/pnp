@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { Branch, Route, RouteCreate, RouteUpdate, User } from "@/types";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,10 +53,10 @@ export default function RoutesPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [branchFilter, setBranchFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const isScoped = currentUser?.route_id != null;
-  const canAdd = currentUser?.role === "SUPER_ADMIN";
-  const canEdit = currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "ADMIN";
+  const currentUser = useDashboardUser();
+  const isScoped = currentUser.route_id != null;
+  const canAdd = currentUser.role === "SUPER_ADMIN";
+  const canEdit = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -68,14 +69,10 @@ export default function RoutesPage() {
 
   const fetchBranches = useCallback(async () => {
     try {
-      const [resp, meResp] = await Promise.all([
-        api.get<Branch[]>(
-          "/api/branches?skip=0&limit=200&status=active&sort_by=name&sort_order=asc"
-        ),
-        api.get<User>("/api/auth/me"),
-      ]);
+      const resp = await api.get<Branch[]>(
+        "/api/branches?skip=0&limit=200&status=active&sort_by=name&sort_order=asc"
+      );
       setBranches(resp.data);
-      setCurrentUser(meResp.data);
     } catch {
       // branches dropdown will be empty
     }

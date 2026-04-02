@@ -39,15 +39,24 @@ api.interceptors.response.use(
     if (!originalRequest) return Promise.reject(error);
 
     const url = originalRequest.url || "";
-    const isAuthEndpoint =
+    // Only skip refresh for login/register/refresh endpoints (would cause loops)
+    // /auth/me IS allowed to trigger refresh — it's the main session-check call
+    const skipRefresh =
       url.includes("/auth/login") ||
       url.includes("/auth/register") ||
-      url.includes("/auth/refresh") ||
-      url.includes("/auth/me");
+      url.includes("/auth/refresh");
 
-    if (error.response?.status !== 401 || isAuthEndpoint) {
+    if (error.response?.status !== 401 || skipRefresh) {
       return Promise.reject(error);
     }
+
+    // Prevent infinite retry: if we already refreshed and retried this request, give up
+    if ((originalRequest as unknown as Record<string, unknown>)._retried) {
+      const isPortal = isPortalContext(url);
+      window.location.href = isPortal ? "/customer/login" : "/login";
+      return Promise.reject(error);
+    }
+    (originalRequest as unknown as Record<string, unknown>)._retried = true;
 
     // Session was invalidated — don't try refresh, redirect immediately
     const detail = (error.response?.data as { detail?: string })?.detail;

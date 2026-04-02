@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { User, UserCreate, UserUpdate, UserRole, Route } from "@/types";
 import { validatePasswordComplexity } from "@/lib/password-validation";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
@@ -71,7 +72,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function UsersPage() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const currentUser = useDashboardUser();
   const [users, setUsers] = useState<User[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState("");
@@ -104,15 +105,6 @@ export default function UsersPage() {
   const [resetPasswordError, setResetPasswordError] = useState("");
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
-
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const resp = await api.get<User>("/api/auth/me");
-      setCurrentUser(resp.data);
-    } catch {
-      // non-critical
-    }
-  }, []);
 
   const fetchRoutes = useCallback(async () => {
     try {
@@ -173,10 +165,9 @@ export default function UsersPage() {
     : BASE_ROLE_OPTIONS;
 
   useEffect(() => {
-    fetchCurrentUser();
     fetchUsers();
     fetchRoutes();
-  }, [fetchCurrentUser, fetchUsers, fetchRoutes]);
+  }, [fetchUsers, fetchRoutes]);
 
   const openCreateModal = () => {
     setEditingUser(null);
