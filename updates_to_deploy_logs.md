@@ -2,6 +2,42 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Direct Printing Setup Download)
+
+### Module
+
+Frontend — Ticket Management / POS Printing
+
+### Summary
+
+Added a download button for the direct printing setup script directly from the Printer Setup dialog.
+
+### Changes
+
+- Served `setup-direct-printing.bat` as a static file located at `/setup-direct-printing.bat`
+- Added a Download button in the printer setup dialog footer (always visible) with a download icon
+
+### Files Added / Modified
+
+| File | Change |
+|---|---|
+| `frontend/public/setup-direct-printing.bat` | **NEW** — Served as static file |
+| `frontend/src/app/dashboard/ticketing/page.tsx` | Added download button to Printer Setup dialog footer |
+
+### VPS Deployment Steps
+
+Frontend-only change. No DB migrations or backend restart needed.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up --build -d frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Data cutoff: hide pre-April 2026 tickets)
 
 ### Module
