@@ -2,6 +2,45 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Nginx DNS Resolution Fix)
+
+### Module
+
+Infrastructure — Nginx Reverse Proxy
+
+### Summary
+
+Fixed nginx caching stale Docker container IPs at startup, which caused `api.carferry.online` (mobile checker app, health endpoints, dashboard WebSocket) to return 502/503 whenever the backend container restarted. The web dashboard ticketing was unaffected because those requests route through the Next.js frontend, which resolves DNS dynamically.
+
+### Root Cause
+
+Nginx resolves `upstream` hostnames once at startup and caches the IP permanently. When the backend container was recreated (getting a new Docker IP), nginx kept connecting to the old dead IP → "Connection refused" → 502.
+
+### Changes
+
+- Removed static `upstream backend` and `upstream frontend` blocks
+- Added `resolver 127.0.0.11 valid=10s ipv6=off` to use Docker's internal DNS with 10-second TTL
+- Replaced all `proxy_pass http://backend` / `http://frontend` with variable-based `proxy_pass $backend_up` / `$frontend_up` (nginx only re-resolves when proxy_pass uses a variable)
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `nginx/conf.d/default.conf` | Dynamic DNS resolution via Docker resolver |
+
+### Deployment Steps
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml restart nginx
+```
+
+### Impact
+
+No downtime. Nginx restart takes 1-2 seconds. Prevents future outages when any container restarts.
+
+---
+
 ## Deployment Update — 2026-04-02 (QZ Tray Certificate Setup Fix)
 
 ### Module
