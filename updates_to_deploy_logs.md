@@ -2,6 +2,38 @@
 
 ---
 
+## Deployment Update — 2026-04-02 (Rate Enforcement & Idle Session Timeout)
+
+### Module
+
+Full Stack — Ticket Service + Auth Security
+
+### Summary
+
+Hardened the backend to automatically reject tickets with modified rates, and implemented a strict idle session timeout to fully kill inactive sessions.
+
+### Changes
+
+1. **Server rejects wrong rates**: Even if the frontend sends stale/zero rates, `_enforce_db_rates` catches it and returns 409.
+2. **10-min idle timeout kills sessions completely**: All tokens revoked, access blacklisted, session closed, cookies cleared. No way to resume.
+3. **Frontend heartbeat keeps sessions alive**: Heartbeat pings happen during real use (every 3 min while active), so operators filling in multi-ticket forms won't get false timeouts.
+
+The only way an operator could ever print a wrong-rate ticket now is if the rate was actually wrong in the database itself.
+
+### VPS Deployment Steps
+
+This requires rebuilding both the frontend and backend containers.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build backend frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-02 (Nginx DNS Resolution Fix)
 
 ### Module
