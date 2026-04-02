@@ -9,6 +9,7 @@ from app.dependencies import require_roles
 from app.core.rbac import UserRole
 from app.core.data_cutoff import clamp_date_from, clamp_date_to, is_before_cutoff
 from app.core.route_scope import needs_route_scope, get_route_branch_ids
+from app.core.timezone import today_ist
 from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.ticket import (
@@ -61,7 +62,7 @@ async def list_tickets(
         route_filter = current_user.route_id
     # Billing operators: force branch to active session branch + today only
     if current_user.role == UserRole.BILLING_OPERATOR:
-        today = date.today()
+        today = today_ist()
         date_from = today
         date_to = today
         if current_user.active_branch_id:
@@ -105,7 +106,7 @@ async def count_tickets(
         route_filter = current_user.route_id
     # Billing operators: force branch to active session branch + today only
     if current_user.role == UserRole.BILLING_OPERATOR:
-        today = date.today()
+        today = today_ist()
         date_from = today
         date_to = today
         if current_user.active_branch_id:

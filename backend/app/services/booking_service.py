@@ -7,6 +7,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.timezone import today_ist
+
 from app.models.booking import Booking
 from app.models.booking_item import BookingItem
 from app.models.branch import Branch
@@ -391,7 +393,7 @@ async def create_booking(
     route = await _find_route(db, data.from_branch_id, data.to_branch_id)
 
     # 3. Validate travel_date >= today and departure not in the past
-    today = datetime.date.today()
+    today = today_ist()
     if data.travel_date < today:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

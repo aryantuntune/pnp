@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from app.core.timezone import today_ist
+
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +31,7 @@ async def get_dashboard_stats(
     are filtered to the branches belonging to the user's route.
     Accepts an optional for_date; defaults to today.
     """
-    target_date = for_date or date.today()
+    target_date = for_date or today_ist()
 
     # Determine branch scope
     branch_ids: tuple[int, int] | None = None
@@ -89,7 +91,7 @@ async def get_today_summary(
     For route-scoped users, results are filtered to their route's branches.
     Accepts an optional for_date; defaults to today.
     """
-    today = for_date or date.today()
+    today = for_date or today_ist()
 
     # Determine branch scope
     branch_ids: tuple[int, int] | None = None
