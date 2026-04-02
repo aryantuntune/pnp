@@ -59,6 +59,9 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be at least 32 characters")
         return v
 
+    # QZ Tray signing key (PEM-encoded private key for QZ Tray certificate)
+    QZ_PRIVATE_KEY_PEM: str = ""
+
     # Payment simulation — hard override toggle.
     # When true, ALL payments use the simulator regardless of CCAvenue credentials.
     # Use as a fallback if CCAvenue is down. Set back to false to resume real payments.

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
-BACKUP_DIR="${BACKUP_DIR:-/opt/ssmspl/backups}"
+BACKUP_DIR="${BACKUP_DIR:-/var/www/ssmspl/backups}"
 RCLONE_REMOTE="${RCLONE_REMOTE:-gdrive}"
 GDRIVE_FOLDER="${GDRIVE_FOLDER:-SSMSPL-Backups}"
 GDRIVE_RETENTION_DAYS="${GDRIVE_RETENTION_DAYS:-30}"

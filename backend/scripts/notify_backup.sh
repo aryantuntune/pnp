@@ -13,7 +13,7 @@ set -euo pipefail
 
 STATUS="${1:-UNKNOWN}"
 MESSAGE="${2:-No details provided}"
-BACKUP_DIR="${BACKUP_DIR:-/opt/ssmspl/backups}"
+BACKUP_DIR="${BACKUP_DIR:-/var/www/ssmspl/backups}"
 SERVER_HOSTNAME=$(hostname)
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 
