@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,6 +17,9 @@ from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import auth, users, boats, branches, routes, items, item_rates, ferry_schedules, payment_modes, tickets, portal_auth, company, booking, portal_bookings, reports, verification, contact, dashboard, portal_payment, portal_theme, settings as settings_router, rate_change_logs, qz, backup, user_sessions
 
 logger = logging.getLogger("ssmspl")
+
+# Generated once at server startup — changes on every deploy/restart
+BUILD_ID = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
 
 
 @asynccontextmanager
@@ -256,6 +260,16 @@ app.include_router(user_sessions.router)
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/version", tags=["Health"])
+async def get_version():
+    """Public endpoint returning the current build ID.
+    Frontend polls this to detect new deployments."""
+    return JSONResponse(
+        content={"build_id": BUILD_ID},
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 
 @app.get("/health/backup", tags=["Health"])

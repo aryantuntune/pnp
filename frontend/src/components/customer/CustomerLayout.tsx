@@ -14,7 +14,10 @@ import {
   Home,
   LogOut,
   ChevronDown,
+  Bell,
+  RefreshCw,
 } from "lucide-react";
+import useVersionCheck from "@/hooks/useVersionCheck";
 
 interface CustomerInfo {
   id: number;
@@ -41,6 +44,9 @@ export default function CustomerLayout({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [customer, setCustomer] = useState<CustomerInfo | null>(null);
+  const { hasUpdate, reload } = useVersionCheck();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api
@@ -109,6 +115,23 @@ export default function CustomerLayout({
     return () => document.removeEventListener("click", handler);
   }, [isProfileOpen]);
 
+  // Auto-open notification dropdown when update detected
+  useEffect(() => {
+    if (hasUpdate) setNotifOpen(true);
+  }, [hasUpdate]);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
+
   const handleLogout = async () => {
     await portalLogout();
     router.push("/customer/login");
@@ -160,6 +183,54 @@ export default function CustomerLayout({
                 );
               })}
             </nav>
+
+            {/* Notification Bell (Desktop) */}
+            <div className="hidden md:flex items-center">
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => setNotifOpen((prev) => !prev)}
+                  className="relative p-2 rounded-xl text-slate-600 hover:bg-sky-50 transition-colors"
+                >
+                  <Bell className="w-5 h-5" />
+                  {hasUpdate && (
+                    <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
+                  )}
+                </button>
+                {notifOpen && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-sky-100 bg-white shadow-xl z-50">
+                    <div className="px-4 py-3 border-b border-sky-100">
+                      <p className="text-sm font-semibold text-slate-800">Notifications</p>
+                    </div>
+                    <div className="p-4">
+                      {hasUpdate ? (
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                            <RefreshCw className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800">New update available</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              A new version has been deployed. Please reload to get the latest changes.
+                            </p>
+                            <button
+                              onClick={reload}
+                              className="mt-2.5 px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-medium hover:bg-sky-700 transition-colors inline-flex items-center gap-1.5"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              Reload now
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500 text-center py-2">
+                          No new notifications
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* User Menu (Desktop) */}
             <div className="hidden md:flex items-center gap-4">
