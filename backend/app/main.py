@@ -2,6 +2,7 @@ import asyncio
 import html
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -254,3 +255,36 @@ app.include_router(backup.router)
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/health/backup", tags=["Health"])
+async def health_backup():
+    """Public endpoint for external uptime monitors.
+    Returns 200 if a backup ran in the last 26 hours, 503 if stale/missing.
+    No auth required — returns no sensitive data."""
+    import json
+    from pathlib import Path
+
+    backup_dir = Path(os.environ.get("BACKUP_DIR", "/app/backups"))
+    status_file = backup_dir / ".last_backup.json"
+
+    try:
+        if status_file.exists():
+            data = json.loads(status_file.read_text())
+            last_time = data.get("time")
+            last_status = data.get("status")
+            if last_time and last_status == "success":
+                from datetime import datetime, timezone, timedelta
+                last_dt = datetime.fromisoformat(last_time.replace("Z", "+00:00"))
+                age = datetime.now(timezone.utc) - last_dt
+                if age < timedelta(hours=26):
+                    return {"status": "ok", "age_hours": round(age.total_seconds() / 3600, 1)}
+                return JSONResponse(
+                    status_code=503,
+                    content={"status": "stale", "age_hours": round(age.total_seconds() / 3600, 1)},
+                )
+            return JSONResponse(status_code=503, content={"status": "last_backup_failed"})
+    except (json.JSONDecodeError, OSError, ValueError):
+        pass
+
+    return JSONResponse(status_code=503, content={"status": "no_backup_data"})
