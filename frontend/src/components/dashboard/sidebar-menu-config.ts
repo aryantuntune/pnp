@@ -2,6 +2,7 @@ import {
   LayoutDashboard, Ticket, TicketCheck, BarChart3,
   Ship, MapPin, Route as RouteIcon, Clock, Package, DollarSign,
   CreditCard, Users, ArrowLeftRight, Settings, Shield, FileText,
+  Monitor,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -71,6 +72,7 @@ export const SIDEBAR_CONFIG: SidebarSection[] = [
           { label: "Users", icon: Users, href: "/dashboard/users" },
         ],
       },
+      { label: "User Sessions", icon: Monitor, href: "/dashboard/user-sessions" },
       { label: "System Settings", icon: Settings, href: "/dashboard/settings" },
     ],
   },
