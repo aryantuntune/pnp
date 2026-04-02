@@ -33,7 +33,7 @@ echo "[$(date)] Starting Google Drive backup sync"
 echo "================================================================"
 
 # ── Find latest backup ──────────────────────────────────────────────────────
-LATEST_BACKUP=$(find "${BACKUP_DIR}" -maxdepth 1 -name '*.sql.gz' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+LATEST_BACKUP=$(ls -t "${BACKUP_DIR}"/*.sql.gz 2>/dev/null | head -1)
 
 if [[ -z "${LATEST_BACKUP}" ]]; then
     echo "[$(date)] ERROR: No backup files found in ${BACKUP_DIR}"
@@ -44,7 +44,8 @@ if [[ -z "${LATEST_BACKUP}" ]]; then
 fi
 
 # ── Guard against partially-written backups (backup_db.sh may still be running)
-BACKUP_AGE_SECS=$(( $(date +%s) - $(stat -c%Y "${LATEST_BACKUP}") ))
+BACKUP_MTIME=$(stat -c%Y "${LATEST_BACKUP}" 2>/dev/null || date -r "${LATEST_BACKUP}" +%s)
+BACKUP_AGE_SECS=$(( $(date +%s) - BACKUP_MTIME ))
 if [[ ${BACKUP_AGE_SECS} -lt 300 ]]; then
     echo "[$(date)] WARNING: Latest backup is only ${BACKUP_AGE_SECS}s old — may still be in progress. Aborting."
     if [[ -x "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" ]]; then
@@ -97,9 +98,10 @@ if rclone copy ${DRY_RUN} \
     fi
 else
     echo "[$(date)] ERROR: Upload failed!"
-    cat > "${BACKUP_DIR}/.sync_status.json" <<STATUSEOF
+    cat > "${BACKUP_DIR}/.sync_status.json.tmp" <<STATUSEOF
 {"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"${BACKUP_NAME:-unknown}","status":"failed","gdrive_count":0}
 STATUSEOF
+    mv "${BACKUP_DIR}/.sync_status.json.tmp" "${BACKUP_DIR}/.sync_status.json"
     if [[ -x "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" ]]; then
         "${NOTIFY_SCRIPT_DIR}/notify_backup.sh" "FAILED" "rclone upload failed for ${BACKUP_NAME}"
     fi
@@ -109,9 +111,10 @@ fi
 # ── Write sync status for backend API ───────────────────────────────────
 REMOTE_COUNT=$(rclone ls "${RCLONE_REMOTE}:${GDRIVE_FOLDER}/" --include "*.sql.gz" 2>/dev/null | wc -l)
 
-cat > "${BACKUP_DIR}/.sync_status.json" <<STATUSEOF
+cat > "${BACKUP_DIR}/.sync_status.json.tmp" <<STATUSEOF
 {"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"${BACKUP_NAME}","status":"success","gdrive_count":${REMOTE_COUNT}}
 STATUSEOF
+mv "${BACKUP_DIR}/.sync_status.json.tmp" "${BACKUP_DIR}/.sync_status.json"
 
 # Append to sync log (keeps track of all synced files for the history API)
 SYNC_LOG="${BACKUP_DIR}/.sync_log.json"

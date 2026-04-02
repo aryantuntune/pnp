@@ -33,9 +33,10 @@ pg_dump -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" \
 # Verify backup is not empty
 if [ ! -s "${BACKUP_FILE}" ]; then
     echo "[$(date)] ERROR: Backup file is empty!"
-    cat > "${BACKUP_DIR}/.last_backup.json" <<STATUSEOF
+    cat > "${BACKUP_DIR}/.last_backup.json.tmp" <<STATUSEOF
 {"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"","size_bytes":0,"size_human":"0","status":"failed"}
 STATUSEOF
+    mv "${BACKUP_DIR}/.last_backup.json.tmp" "${BACKUP_DIR}/.last_backup.json"
     rm -f "${BACKUP_FILE}"
     exit 1
 fi
@@ -43,11 +44,12 @@ fi
 BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
 echo "[$(date)] Backup complete: ${BACKUP_FILE} (${BACKUP_SIZE})"
 
-# Write status file for backend API
-BACKUP_SIZE_BYTES=$(stat -c%s "${BACKUP_FILE}" 2>/dev/null || stat -f%z "${BACKUP_FILE}")
-cat > "${BACKUP_DIR}/.last_backup.json" <<STATUSEOF
+# Write status file for backend API (atomic via tmp+mv)
+BACKUP_SIZE_BYTES=$(wc -c < "${BACKUP_FILE}")
+cat > "${BACKUP_DIR}/.last_backup.json.tmp" <<STATUSEOF
 {"time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","file":"$(basename "${BACKUP_FILE}")","size_bytes":${BACKUP_SIZE_BYTES},"size_human":"${BACKUP_SIZE}","status":"success"}
 STATUSEOF
+mv "${BACKUP_DIR}/.last_backup.json.tmp" "${BACKUP_DIR}/.last_backup.json"
 
 # Rotate old backups — keep last N days
 find "${BACKUP_DIR}" -name "${PGDATABASE}_*.sql.gz" -mtime +${RETENTION_DAYS} -delete

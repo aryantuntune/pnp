@@ -1,1 +1,10 @@
 *.sql.gz
+.last_backup.json
+.last_backup.json.tmp
+.sync_status.json
+.sync_status.json.tmp
+.sync_log.json
+.notify_emails
+.notify_emails.tmp
+.trigger
+.schedule_done_*

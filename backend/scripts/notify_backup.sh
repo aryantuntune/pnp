@@ -13,12 +13,30 @@ set -euo pipefail
 
 STATUS="${1:-UNKNOWN}"
 MESSAGE="${2:-No details provided}"
-RECIPIENT="${BACKUP_NOTIFY_EMAIL:-}"
+BACKUP_DIR="${BACKUP_DIR:-/opt/ssmspl/backups}"
 SERVER_HOSTNAME=$(hostname)
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 
-if [[ -z "${RECIPIENT}" ]]; then
-    echo "[$(date)] NOTIFY: No BACKUP_NOTIFY_EMAIL set — skipping email"
+# Build recipient list: env var first, then .notify_emails file from backend DB
+RECIPIENTS=""
+if [[ -n "${BACKUP_NOTIFY_EMAIL:-}" ]]; then
+    RECIPIENTS="${BACKUP_NOTIFY_EMAIL}"
+fi
+NOTIFY_FILE="${BACKUP_DIR}/.notify_emails"
+if [[ -f "${NOTIFY_FILE}" ]]; then
+    while IFS= read -r email; do
+        [[ -z "${email}" ]] && continue
+        if [[ -z "${RECIPIENTS}" ]]; then
+            RECIPIENTS="${email}"
+        else
+            # Avoid duplicates
+            echo "${RECIPIENTS}" | grep -qF "${email}" || RECIPIENTS="${RECIPIENTS} ${email}"
+        fi
+    done < "${NOTIFY_FILE}"
+fi
+
+if [[ -z "${RECIPIENTS}" ]]; then
+    echo "[$(date)] NOTIFY: No recipients configured — skipping email"
     echo "[$(date)] NOTIFY: Status=${STATUS} Message=${MESSAGE}"
     exit 0
 fi
@@ -33,8 +51,9 @@ esac
 
 SUBJECT="${SUBJECT_PREFIX} SSMSPL Backup — ${STATUS} — ${TIMESTAMP}"
 
-# Send via msmtp
-cat <<EOF | msmtp "${RECIPIENT}"
+# Send to each recipient
+for RECIPIENT in ${RECIPIENTS}; do
+    cat <<EOF | msmtp "${RECIPIENT}"
 To: ${RECIPIENT}
 Subject: ${SUBJECT}
 MIME-Version: 1.0
@@ -50,5 +69,5 @@ Details:   ${MESSAGE}
 ---
 This is an automated notification from the SSMSPL backup system.
 EOF
-
-echo "[$(date)] NOTIFY: Email sent to ${RECIPIENT} — ${STATUS}"
+    echo "[$(date)] NOTIFY: Email sent to ${RECIPIENT} — ${STATUS}"
+done

@@ -140,6 +140,7 @@ services:
     entrypoint: >
       /bin/sh -c '
       echo "Backup scheduler started — daily at 2:00 AM + manual trigger support";
+      chmod 1777 /backups 2>/dev/null || true;
       while true; do
         if [ -f /backups/.trigger ]; then
           rm -f /backups/.trigger;
@@ -148,17 +149,16 @@ services:
           sleep 5;
           continue;
         fi;
-        NEXT=$(date -d "tomorrow 02:00" +%s 2>/dev/null || date -v+1d -v2H -v0M -v0S +%s);
-        NOW=$(date +%s);
-        SLEEP=$((NEXT - NOW));
-        if [ $$SLEEP -lt 0 ]; then SLEEP=86400; fi;
-        if [ $$SLEEP -gt 10 ]; then
-          sleep 10;
-        else
+        HOUR=$(date +%H);
+        MINUTE=$(date +%M);
+        TODAY=$(date +%Y%m%d);
+        if [ "$$HOUR" = "02" ] && [ "$$MINUTE" -lt 5 ] && [ ! -f "/backups/.schedule_done_$${TODAY}" ]; then
           echo "[$(date)] Scheduled backup time reached";
           /scripts/backup_db.sh;
-          sleep 60;
+          touch "/backups/.schedule_done_$${TODAY}";
+          find /backups -name ".schedule_done_*" -mtime +1 -delete 2>/dev/null || true;
         fi;
+        sleep 10;
       done'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ssmspl_user}

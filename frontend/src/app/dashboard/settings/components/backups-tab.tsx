@@ -28,7 +28,6 @@ import {
   Power,
   RefreshCw,
   CheckCircle,
-  XCircle,
   CloudOff,
   Loader2,
 } from "lucide-react";
@@ -585,9 +584,9 @@ export default function BackupsTab() {
                             Synced
                           </span>
                         ) : file.gdrive_synced === false ? (
-                          <span className="flex items-center gap-1 text-sm text-destructive">
-                            <XCircle className="h-4 w-4" />
-                            Failed
+                          <span className="flex items-center gap-1 text-sm text-yellow-600">
+                            <Clock className="h-4 w-4" />
+                            Pending
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-sm text-muted-foreground">

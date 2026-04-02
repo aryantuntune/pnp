@@ -71,6 +71,23 @@ def _human_size(size_bytes: int) -> str:
         size_bytes /= 1024
     return f"{size_bytes:.1f} TB"
 
+async def _sync_recipients_file(db: AsyncSession) -> None:
+    """Write active recipient emails to a flat file for the shell notify script."""
+    try:
+        result = await db.execute(
+            select(BackupNotificationRecipient)
+            .where(BackupNotificationRecipient.is_active == True)
+            .order_by(BackupNotificationRecipient.email)
+        )
+        emails = [r.email for r in result.scalars().all()]
+        notify_file = BACKUP_DIR / ".notify_emails"
+        tmp_file = BACKUP_DIR / ".notify_emails.tmp"
+        tmp_file.write_text("\n".join(emails) + "\n" if emails else "")
+        tmp_file.rename(notify_file)
+    except OSError:
+        pass  # Non-fatal — cron env var is the fallback
+
+
 def _read_json_file(path: Path) -> dict | None:
     try:
         if path.exists():
@@ -170,12 +187,13 @@ async def get_backup_history(current_user=Depends(_super_admin_only)):
 async def trigger_backup(current_user=Depends(_super_admin_only)):
     trigger_file = BACKUP_DIR / ".trigger"
 
-    # Check if a backup is already in progress
-    if trigger_file.exists():
-        raise HTTPException(status_code=409, detail="A backup is already in progress")
-
+    # Atomic create-if-not-exists to prevent race conditions
     try:
-        trigger_file.write_text(datetime.now(timezone.utc).isoformat())
+        fd = os.open(str(trigger_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, datetime.now(timezone.utc).isoformat().encode())
+        os.close(fd)
+    except FileExistsError:
+        raise HTTPException(status_code=409, detail="A backup is already in progress")
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"Failed to trigger backup: {e}")
 
@@ -192,7 +210,9 @@ async def download_backup(filename: str, current_user=Depends(_super_admin_only)
     if not filename.endswith(".sql.gz"):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
-    filepath = BACKUP_DIR / filename
+    filepath = (BACKUP_DIR / filename).resolve()
+    if not str(filepath).startswith(str(BACKUP_DIR.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid filename")
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="Backup file not found")
 
@@ -230,6 +250,7 @@ async def add_recipient(
     db.add(recipient)
     await db.flush()
     await db.refresh(recipient)
+    await _sync_recipients_file(db)
     return recipient
 
 @router.patch("/recipients/{recipient_id}", response_model=RecipientOut, summary="Toggle backup recipient active status")
@@ -247,6 +268,7 @@ async def toggle_recipient(
     recipient.is_active = not recipient.is_active
     await db.flush()
     await db.refresh(recipient)
+    await _sync_recipients_file(db)
     return recipient
 
 @router.delete("/recipients/{recipient_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Remove backup notification recipient")
@@ -262,3 +284,5 @@ async def delete_recipient(
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
     await db.delete(recipient)
+    await db.flush()
+    await _sync_recipients_file(db)
