@@ -2,6 +2,68 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Single ticketing off-hours lockout)
+
+### Module
+
+Frontend — Ticketing (single ticket page)
+
+### Changes
+
+**Root cause**: The single ticketing page's `getNextDeparture()` function wrapped to the first ferry schedule when all ferries had passed. At 23:00, it auto-filled "06:30" (next morning's first ferry) as the departure time. There was no distinction between single and multi-ticketing — operators could create single tickets during off-hours with wrong departure times.
+
+**Fixes applied**:
+1. **Off-hours detection added** — `isOffHoursForBranch()` checks if current time is before first ferry or after last ferry for the operator's branch.
+2. **"New Ticket" button disabled during off-hours** — with tooltip explaining to use multi-ticketing.
+3. **Warning banner** — amber banner with link to multi-ticketing page during off-hours.
+4. **`getNextDeparture()` fixed** — returns empty string during off-hours instead of wrapping to first ferry.
+5. **Safety net** — if departure is still empty at submission time, stamps current client time (never sends null).
+
+**Solid distinction between ticketing modes**:
+- **Single ticketing**: ferry hours only, departure = selected ferry schedule time
+- **Multi-ticketing**: off-hours only, departure = current generation time
+
+### Files Modified
+
+* `frontend/src/app/dashboard/ticketing/page.tsx` — off-hours lockout, getNextDeparture fix, departure safety net
+
+### VCS
+
+Frontend only. No backend changes. No DB migrations.
+
+### VPS Deployment Steps
+
+Frontend rebuild only.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+cd frontend && npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### DB fix for today's affected tickets
+
+```sql
+-- Preview
+SELECT ticket_no, branch_id, departure,
+       (created_at AT TIME ZONE 'Asia/Kolkata')::time(0) AS actual_time
+FROM tickets WHERE ticket_date = '2026-04-03'
+  AND departure IS NOT NULL
+  AND abs(extract(epoch FROM (departure - (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)))) > 600
+ORDER BY id DESC;
+
+-- Fix
+UPDATE tickets
+SET departure = (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)
+WHERE ticket_date = '2026-04-03'
+  AND departure IS NOT NULL
+  AND abs(extract(epoch FROM (departure - (created_at AT TIME ZONE 'Asia/Kolkata')::time(0)))) > 600;
+```
+
+---
+
 ## Deployment Update — 2026-04-03 (Backup: timezone fix + sync all unsynced files)
 
 ### Module
@@ -4286,3 +4348,64 @@ WHERE ticket_date = '2026-04-02'
        (created_at AT TIME ZONE 'Asia/Kolkata')::time <= '06:15:00'::time
   );
 ```
+
+---
+
+## Deployment Update — 2026-04-03
+
+### Module
+
+Reports / Tickets — Security Hardening
+
+### Commit ID
+
+1dacca4
+
+### Changes
+
+* **CRITICAL FIX**: Billing operators could see reports for ALL branches when `active_branch_id` was NULL in the database. Root cause: `if user.active_branch_id:` evaluated to False when NULL, silently skipping the entire branch-forcing block.
+* `_scope_route_and_branch()` now returns **403 Forbidden** if billing operator has no `active_branch_id`, instead of silently allowing all-branch access
+* `_scope_branch_only()` — same fix applied
+* `/branch-summary` and `/branch-summary/pdf` — billing operators now scoped to their single active branch (was showing both route branches)
+* Scoped users (MANAGER/BILLING_OPERATOR) with no `route_id` assigned now get 403 instead of silent pass-through
+* `tickets.py` — list/count/create endpoints all deny billing operators missing active branch with clear error message
+* Frontend: "Generate Report" button is disabled with error text when billing operator has no branch context
+
+### Files Modified
+
+* `backend/app/routers/reports.py`
+* `backend/app/routers/tickets.py`
+* `frontend/src/app/dashboard/reports/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+cd frontend
+rm -rf .next
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Important Notes
+
+* After deploying, billing operators whose `active_branch_id` is NULL will immediately get a 403 error on reports, tickets, and ticket creation. They must **log out and log back in** to select their operating branch.
+* To check which users have NULL `active_branch_id`:
+  ```sql
+  SELECT username, role, active_branch_id FROM users WHERE role = 'BILLING_OPERATOR' AND active_branch_id IS NULL;
+  ```
+* To manually fix without requiring re-login:
+  ```sql
+  UPDATE users SET active_branch_id = <branch_id> WHERE username = '<username>';
+  ```

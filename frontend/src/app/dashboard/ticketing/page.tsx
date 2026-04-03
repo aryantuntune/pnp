@@ -647,8 +647,23 @@ export default function TicketingPage() {
     );
   };
 
-  // Find the next departure time relative to now; wraps to first if past all
+  // Check if current time is outside ferry schedule hours for a branch
+  const isOffHoursForBranch = useCallback((branchId: number): boolean => {
+    const branchSchedules = ferrySchedules
+      .filter((fs) => fs.branch_id === branchId)
+      .map((fs) => fs.departure)
+      .sort();
+    if (branchSchedules.length === 0) return true;
+    const now = new Date();
+    const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const firstFerry = branchSchedules[0];
+    const lastFerry = branchSchedules[branchSchedules.length - 1];
+    return nowStr < firstFerry || nowStr > lastFerry;
+  }, [ferrySchedules]);
+
+  // Find the next departure time relative to now — returns "" during off-hours (no wrap)
   const getNextDeparture = (branchId: number): string => {
+    if (isOffHoursForBranch(branchId)) return "";
     const branchSchedules = ferrySchedules
       .filter((fs) => fs.branch_id === branchId)
       .map((fs) => fs.departure)
@@ -657,7 +672,7 @@ export default function TicketingPage() {
     const now = new Date();
     const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     const next = branchSchedules.find((d) => d >= nowStr);
-    return next || branchSchedules[0];
+    return next || "";
   };
 
   // Open create modal
@@ -958,10 +973,12 @@ export default function TicketingPage() {
     setSubmitting(true);
     try {
       const activeItems = formItems.filter((fi) => !fi.is_cancelled);
+      // Safety net: if departure is empty (off-hours edge case), stamp current time
+      const effectiveDeparture = formDeparture || `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`;
       const create: TicketCreate = {
         branch_id: formBranchId,
         ticket_date: formTicketDate,
-        departure: formDeparture || null,
+        departure: effectiveDeparture,
         route_id: formRouteId,
         payment_mode_id: formConfirmPaymentModeId,
         ref_no: formRefNo.trim() || null,
@@ -1005,7 +1022,7 @@ export default function TicketingPage() {
         fromTo,
         ticketDate: formTicketDate,
         createdAt: savedTicket.created_at || null,
-        departure: formDeparture || null,
+        departure: effectiveDeparture,
         items: activeItems.map((fi) => ({
           name: items.find((i) => i.id === fi.item_id)?.name || `Item #${fi.item_id}`,
           quantity: fi.quantity,
@@ -1236,11 +1253,33 @@ export default function TicketingPage() {
           >
             <Settings2 className="h-4 w-4 mr-1.5" /> Printer Setup
           </Button>
-          <Button onClick={openCreateModal}>
+          <Button
+            onClick={openCreateModal}
+            disabled={(() => {
+              const branchId = user?.active_branch_id || getSelectedBranchId() || 0;
+              return branchId > 0 && isOffHoursForBranch(branchId);
+            })()}
+            title={(() => {
+              const branchId = user?.active_branch_id || getSelectedBranchId() || 0;
+              return branchId > 0 && isOffHoursForBranch(branchId)
+                ? "Ferry hours have ended. Use Multi-Ticketing for off-hours tickets."
+                : "";
+            })()}
+          >
             <Plus className="h-4 w-4 mr-2" /> New Ticket
           </Button>
         </div>
       </div>
+
+      {/* Off-hours banner */}
+      {(() => {
+        const branchId = user?.active_branch_id || getSelectedBranchId() || 0;
+        return branchId > 0 && isOffHoursForBranch(branchId) ? (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm font-medium">
+            Ferry hours have ended for your branch. Please use <a href="/dashboard/multiticketing" className="underline font-bold">Multi-Ticketing</a> for off-hours ticket generation.
+          </div>
+        ) : null;
+      })()}
 
       {/* Error Banner */}
       {error && (
