@@ -2,6 +2,46 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Dashboard UTC→IST Date Fix)
+
+### Module
+
+Backend — Dashboard Stats, Ticket Listing, Booking Validation
+
+### Summary
+
+The dashboard Overview cards showed previous-day data between midnight and 5:30 AM IST because the backend used `date.today()` which returns UTC date. At midnight IST, UTC is still the previous day. The WebSocket (which broadcasts stats every 5 seconds with no date parameter) was querying for the UTC "today" (yesterday in IST) and overwriting the correct HTTP stats in the Overview cards.
+
+### Root Cause
+
+`date.today()` returns the date in the server's timezone (UTC in Docker). IST is UTC+5:30, so between 12:00 AM IST and 5:30 AM IST, `date.today()` returns yesterday's date. This affected:
+
+1. **Dashboard WebSocket** — sent previous-day stats to Overview cards
+2. **Dashboard stats fallback** — `get_dashboard_stats()` defaulted to UTC today
+3. **Today's summary** — `get_today_summary()` same issue
+4. **Billing operator date lock** — operators were locked to UTC "today" not IST
+5. **Booking date validation** — "travel date cannot be in the past" checked against UTC
+
+### Fix
+
+Created `app.core.timezone.today_ist()` using `datetime.now(IST).date()` and replaced all 5 occurrences of `date.today()` across `dashboard_service.py`, `routers/tickets.py`, and `booking_service.py`.
+
+### VPS Deployment Steps
+
+Backend-only change. Rebuild the backend container.
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+docker compose -f docker-compose.prod.yml up -d --build backend
+```
+
+No database migrations required.
+
+---
+
 ## Deployment Update — 2026-04-03 (Dashboard Loading Fix)
 
 ### Module
