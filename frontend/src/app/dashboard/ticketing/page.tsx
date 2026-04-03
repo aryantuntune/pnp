@@ -1905,7 +1905,8 @@ export default function TicketingPage() {
                     ref={departureRef}
                     value={formDeparture}
                     onChange={(e) => setFormDeparture(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    disabled={formBranchId > 0 && isOffHoursForBranch(formBranchId)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">-- Select Departure --</option>
                     {ferrySchedules
@@ -1916,6 +1917,9 @@ export default function TicketingPage() {
                         </option>
                       ))}
                   </select>
+                  {formBranchId > 0 && isOffHoursForBranch(formBranchId) && (
+                    <p className="text-xs text-amber-600 mt-1">Off-hours — departure locked to current time</p>
+                  )}
                 </div>
 
                 {/* Payment Mode hidden for now */}
