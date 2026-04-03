@@ -2,6 +2,69 @@
 
 ---
 
+## Deployment Update — 2026-04-04 (Items Sr. No. fix + Ticket daily reset)
+
+### Module
+
+Frontend — Items Master Screen, Backend — Ticketing
+
+### Changes
+
+**Issue 1 — Items master screen: serial number jump (21 → 155)**
+
+**Root cause**: The "ID" column displayed the database primary key (`item.id`). The V1→V2 item rates migration (`scripts/migrate_v1_to_v2_items.py`) deactivated legacy items with IDs up to 154. New items created after migration received IDs 155, 156, 157 via `MAX(id) + 1`, causing the visible gap.
+
+**Fix**: Replaced the database ID column with a computed sequential "Sr. No." based on pagination position: `(page - 1) * pageSize + rowIndex + 1`. The DataTable `render` callback was updated to pass the row index as a second argument (backward compatible — existing single-arg callbacks are unaffected). The View modal still shows the real database ID.
+
+**Issue 2 — Ticket number not resetting daily per branch**
+
+**Root cause**: `Branch.last_ticket_no` incremented forever across days. Day 1 tickets: 1–150, day 2: 151–300, etc. There was no date-awareness in the counter.
+
+**Fix**: On ticket creation, the system now queries `MAX(ticket_no) FROM tickets WHERE branch_id = ? AND ticket_date = ?` to determine the next ticket number. This ensures:
+- Ticket numbers reset to 1 at the start of each new day per branch.
+- Backdated tickets (admin-created) don't corrupt the counter — each date is independently queried.
+- Concurrent requests are safe — the branch row `FOR UPDATE` lock serializes access.
+- Multi-ticket batches work correctly — `flush()` makes each ticket visible within the same transaction.
+- Existing index `idx_tickets_date_branch_route(ticket_date, branch_id, route_id)` covers the query.
+
+A new `last_ticket_date` (DATE, nullable) column was added to the `branches` table for reference tracking.
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `frontend/src/components/dashboard/DataTable.tsx` | `render` callback now passes row index as second arg |
+| `frontend/src/app/dashboard/items/page.tsx` | ID column → computed Sr. No. (not sortable) |
+| `backend/app/models/branch.py` | Added `last_ticket_date` column |
+| `backend/app/services/ticket_service.py` | `ticket_no` from `MAX(ticket_no)` per branch+date |
+| `backend/scripts/ddl.sql` | Added `last_ticket_date DATE` to branches |
+| `backend/alembic/versions/d4e5f6a7b8c9_add_last_ticket_date_to_branches.py` | Migration |
+
+### VCS
+
+Frontend + Backend. DB migration required.
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+# Backend: run migration
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+sudo systemctl restart ssmspl-backend
+
+# Frontend: rebuild
+cd ../frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+---
+
 ## Deployment Update — 2026-04-03 (Single ticketing off-hours lockout)
 
 ### Module

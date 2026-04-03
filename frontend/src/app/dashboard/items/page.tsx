@@ -189,7 +189,11 @@ export default function ItemsPage() {
   };
 
   const columns: Column<Item>[] = [
-    { key: "id", label: "ID", sortable: true },
+    {
+      key: "id",
+      label: "Sr. No.",
+      render: (_, idx) => (page - 1) * pageSize + idx + 1,
+    },
     {
       key: "name",
       label: "Name",

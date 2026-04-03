@@ -24,7 +24,7 @@ export interface Column<T> {
   key: string;
   label: string;
   sortable?: boolean;
-  render?: (row: T) => React.ReactNode;
+  render?: (row: T, index: number) => React.ReactNode;
   className?: string;
 }
 
@@ -115,7 +115,7 @@ export default function DataTable<T extends Record<string, any>>({
                 <TableRow key={idx} className="hover:bg-muted/30">
                   {columns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
-                      {col.render ? col.render(row) : (row[col.key] as React.ReactNode) ?? "\u2014"}
+                      {col.render ? col.render(row, idx) : (row[col.key] as React.ReactNode) ?? "\u2014"}
                     </TableCell>
                   ))}
                 </TableRow>

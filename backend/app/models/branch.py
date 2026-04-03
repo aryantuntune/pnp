@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Numeric, String, Time, func
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Integer, Numeric, String, Time, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,6 +20,7 @@ class Branch(Base):
     sf_after: Mapped[object | None] = mapped_column(Time, nullable=True)
     sf_before: Mapped[object | None] = mapped_column(Time, nullable=True)
     last_ticket_no: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_ticket_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     last_booking_no: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     is_active: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 

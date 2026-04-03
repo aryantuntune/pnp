@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS branches (
     sf_after            TIME WITH TIME ZONE,
     sf_before           TIME WITH TIME ZONE,
     last_ticket_no      BIGINT NOT NULL DEFAULT 0,
+    last_ticket_date    DATE,
     last_booking_no     BIGINT NOT NULL DEFAULT 0,
     is_active           BOOLEAN DEFAULT TRUE,
     created_at          TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
