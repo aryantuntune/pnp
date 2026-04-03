@@ -1,6 +1,9 @@
 import datetime
 import uuid as uuid_mod
 from decimal import Decimal, ROUND_HALF_UP
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -279,7 +282,7 @@ async def get_current_rate(db: AsyncSession, item_id: int, route_id: int) -> dic
 
 
 async def get_departure_options(db: AsyncSession, branch_id: int) -> list[dict]:
-    now = datetime.datetime.now().time()
+    now = datetime.datetime.now(IST).time()
     result = await db.execute(
         select(FerrySchedule)
         .where(
@@ -334,7 +337,7 @@ async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = 
     last_ferry = last_result.scalar_one_or_none()
 
     # Determine if off-hours
-    now = datetime.datetime.now().time()
+    now = datetime.datetime.now(IST).time()
     if first_ferry and last_ferry:
         is_off_hours = now < first_ferry or now > last_ferry
     else:
@@ -432,7 +435,7 @@ async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
     last_ferry = last_result.scalar_one_or_none()
 
     if first_ferry and last_ferry:
-        now = datetime.datetime.now().time()
+        now = datetime.datetime.now(IST).time()
         if first_ferry <= now <= last_ferry:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -511,7 +514,7 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
                 exclude_rate_items.add(sf_item_id)
 
     # Stamp current time as departure for off-hours tickets (no ferry schedule running)
-    now_time = datetime.datetime.now().strftime("%H:%M")
+    now_time = datetime.datetime.now(IST).strftime("%H:%M")
     for ticket_data in data.tickets:
         if not ticket_data.departure:
             ticket_data.departure = now_time
@@ -657,13 +660,49 @@ async def create_ticket(
         select(Branch).where(Branch.id == data.branch_id).with_for_update()
     )
     branch = result.scalar_one()
-    next_ticket_no = (branch.last_ticket_no or 0) + 1
+
+    # Daily ticket_no per branch: query actual max for this branch+date
+    # (safe against backdated tickets and out-of-order date changes)
+    max_result = await db.execute(
+        select(func.coalesce(func.max(Ticket.ticket_no), 0))
+        .where(Ticket.branch_id == data.branch_id, Ticket.ticket_date == data.ticket_date)
+    )
+    next_ticket_no = max_result.scalar() + 1
+    branch.last_ticket_date = data.ticket_date
 
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('tickets_id'))"))
     id_result = await db.execute(select(func.coalesce(func.max(Ticket.id), 0)))
     next_ticket_id = id_result.scalar() + 1
 
     departure_time = _parse_time(data.departure) if data.departure else None
+
+    # ── FAIL-SAFE: guarantee departure is never a stale ferry schedule time ──
+    # If no departure was provided, always stamp current IST time.
+    # If off-hours and the provided departure matches a ferry schedule (auto-filled
+    # by a stale frontend), override it with current IST time.
+    now_ist = datetime.datetime.now(IST).time().replace(microsecond=0)
+    if departure_time is None:
+        departure_time = now_ist
+    else:
+        # Check if off-hours for this branch
+        fs_result = await db.execute(
+            select(func.min(FerrySchedule.departure), func.max(FerrySchedule.departure))
+            .where(FerrySchedule.branch_id == data.branch_id)
+        )
+        fs_row = fs_result.one_or_none()
+        if fs_row and fs_row[0] and fs_row[1]:
+            first_ferry, last_ferry = fs_row[0], fs_row[1]
+            is_off_hours = now_ist < first_ferry or now_ist > last_ferry
+            if is_off_hours:
+                # Check if departure matches a scheduled ferry time (i.e. stale auto-fill)
+                sched_result = await db.execute(
+                    select(FerrySchedule.departure)
+                    .where(FerrySchedule.branch_id == data.branch_id,
+                           FerrySchedule.departure == departure_time)
+                )
+                if sched_result.scalar_one_or_none() is not None:
+                    # Departure matches a ferry schedule during off-hours → override
+                    departure_time = now_ist
 
     ticket = Ticket(
         id=next_ticket_id,
