@@ -285,6 +285,7 @@ export default function ReportsPage() {
   const isManager = currentUser?.role === "MANAGER";
   const isRouteDisabled = isBillingOperator || isManager;
   const isBranchDisabled = isBillingOperator;
+  const isMissingBranchContext = isBillingOperator && !currentUser?.active_branch_id;
 
   // Report results
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
@@ -889,9 +890,14 @@ export default function ReportsPage() {
             )}
 
             {/* Generate Button */}
+            {isMissingBranchContext && (
+              <p className="text-destructive text-sm">
+                No branch selected. Please log out and log back in to select your branch.
+              </p>
+            )}
             <Button
               onClick={generateReport}
-              disabled={loading}
+              disabled={loading || isMissingBranchContext}
               className="bg-blue-600 text-white hover:bg-blue-700"
             >
               {loading ? (

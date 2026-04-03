@@ -56,6 +56,20 @@ async def _scope_route_and_branch(
                 )
         return route_id, branch_id
 
+    # Scoped users must have route_id assigned
+    if not user.route_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No route assigned. Contact admin to set your route.",
+        )
+
+    # BILLING_OPERATOR must have active_branch_id (set at login)
+    if user.role == UserRole.BILLING_OPERATOR and not user.active_branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No branch selected. Please log out and log back in to select your branch.",
+        )
+
     # Force route to user's assigned route
     if route_id is None:
         route_id = user.route_id
@@ -68,7 +82,7 @@ async def _scope_route_and_branch(
         )
 
     # BILLING_OPERATOR: force branch to their active_branch_id (set at login)
-    if user.role == UserRole.BILLING_OPERATOR and user.active_branch_id:
+    if user.role == UserRole.BILLING_OPERATOR:
         if branch_id is not None and branch_id != user.active_branch_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -103,8 +117,15 @@ async def _scope_branch_only(
     if not needs_route_scope(user):
         return branch_id
 
+    # BILLING_OPERATOR must have active_branch_id (set at login)
+    if user.role == UserRole.BILLING_OPERATOR and not user.active_branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No branch selected. Please log out and log back in to select your branch.",
+        )
+
     # BILLING_OPERATOR: force branch to their active_branch_id (set at login)
-    if user.role == UserRole.BILLING_OPERATOR and user.active_branch_id:
+    if user.role == UserRole.BILLING_OPERATOR:
         if branch_id is not None and branch_id != user.active_branch_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -263,11 +284,25 @@ async def branch_summary_report(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_report_roles),
 ):
-    # For MANAGER, scope to their route's branches
+    # Scoped users must have route_id assigned
     branch_ids: list[int] | None = None
-    if needs_route_scope(current_user) and current_user.route_id:
+    if needs_route_scope(current_user):
+        if not current_user.route_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No route assigned. Contact admin to set your route.",
+            )
         b1, b2 = await get_route_branch_ids(db, current_user.route_id)
-        branch_ids = [b1, b2]
+        # BILLING_OPERATOR: scope to only their active branch
+        if current_user.role == UserRole.BILLING_OPERATOR:
+            if not current_user.active_branch_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No branch selected. Please log out and log back in to select your branch.",
+                )
+            branch_ids = [current_user.active_branch_id]
+        else:
+            branch_ids = [b1, b2]
     date_from = clamp_date_from(date_from, current_user.role)
     date_to = clamp_date_to(date_to, current_user.role)
     return await report_service.get_branch_summary_report(db, date_from, date_to, branch_ids=branch_ids)
@@ -676,9 +711,22 @@ async def get_branch_summary_pdf(
     current_user: User = Depends(_report_roles),
 ):
     branch_ids: list[int] | None = None
-    if needs_route_scope(current_user) and current_user.route_id:
+    if needs_route_scope(current_user):
+        if not current_user.route_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No route assigned. Contact admin to set your route.",
+            )
         b1, b2 = await get_route_branch_ids(db, current_user.route_id)
-        branch_ids = [b1, b2]
+        if current_user.role == UserRole.BILLING_OPERATOR:
+            if not current_user.active_branch_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No branch selected. Please log out and log back in to select your branch.",
+                )
+            branch_ids = [current_user.active_branch_id]
+        else:
+            branch_ids = [b1, b2]
     date_from = clamp_date_from(date_from, current_user.role)
     date_to = clamp_date_to(date_to, current_user.role)
     data = await report_service.get_branch_summary_report(db, date_from, date_to, branch_ids=branch_ids)

@@ -62,11 +62,15 @@ async def list_tickets(
         route_filter = current_user.route_id
     # Billing operators: force branch to active session branch + today only
     if current_user.role == UserRole.BILLING_OPERATOR:
+        if not current_user.active_branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No branch selected. Please log out and log back in to select your branch.",
+            )
         today = today_ist()
         date_from = today
         date_to = today
-        if current_user.active_branch_id:
-            branch_filter = current_user.active_branch_id
+        branch_filter = current_user.active_branch_id
     # Data cutoff: clamp dates for non-SUPER_ADMIN
     date_from = clamp_date_from(date_from, current_user.role)
     date_to = clamp_date_to(date_to, current_user.role)
@@ -106,11 +110,15 @@ async def count_tickets(
         route_filter = current_user.route_id
     # Billing operators: force branch to active session branch + today only
     if current_user.role == UserRole.BILLING_OPERATOR:
+        if not current_user.active_branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No branch selected. Please log out and log back in to select your branch.",
+            )
         today = today_ist()
         date_from = today
         date_to = today
-        if current_user.active_branch_id:
-            branch_filter = current_user.active_branch_id
+        branch_filter = current_user.active_branch_id
     # Data cutoff: clamp dates for non-SUPER_ADMIN
     date_from = clamp_date_from(date_from, current_user.role)
     date_to = clamp_date_to(date_to, current_user.role)
@@ -225,9 +233,13 @@ async def create_ticket(
     current_user: User = Depends(_ticket_roles),
 ):
     # BILLING_OPERATOR: force branch_id to their active session branch
-    if current_user.role == UserRole.BILLING_OPERATOR and current_user.active_branch_id:
-        if body.branch_id != current_user.active_branch_id:
-            body.branch_id = current_user.active_branch_id
+    if current_user.role == UserRole.BILLING_OPERATOR:
+        if not current_user.active_branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No branch selected. Please log out and log back in to select your branch.",
+            )
+        body.branch_id = current_user.active_branch_id
     # Scoped users: validate branch belongs to their route
     if needs_route_scope(current_user) and current_user.route_id:
         b1, b2 = await get_route_branch_ids(db, current_user.route_id)
