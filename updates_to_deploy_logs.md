@@ -2,6 +2,51 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Backup: timezone fix + sync all unsynced files)
+
+### Module
+
+Infrastructure — Backup System
+
+### Problem
+
+1. **Backups running at 7:30 AM IST instead of 2:00 AM** — The db-backup container used UTC. `HOUR == 02` UTC = 07:30 IST.
+2. **Older backups stuck as "Pending" forever** — The sync script only uploaded the LATEST file. If a manual backup was followed by a scheduled one before sync ran, the manual backup was never synced.
+
+### Fix
+
+1. **Timezone**: Added `TZ: Asia/Kolkata` + mounted `/etc/localtime` on the db-backup container. Backup now fires at 2:00 AM IST.
+2. **Sync all unsynced files**: Rewrote sync script to fetch the remote file list once, then upload ALL local files not already on GDrive. No more permanently "Pending" files.
+
+### Files
+
+| File | Change |
+|---|---|
+| `docker-compose.prod.yml` | Added `TZ: Asia/Kolkata` + `/etc/localtime` mount to db-backup |
+| `backend/scripts/sync_backup_gdrive.sh` | Rewritten to upload all unsynced files, not just latest |
+
+### VPS Deployment Steps
+
+```bash
+ssh user@your-vps-ip
+cd /path/to/ssmspl
+git pull origin main
+
+# Rebuild db-backup container (picks up timezone + new entrypoint)
+docker compose -f docker-compose.prod.yml up -d --build db-backup
+
+# Run a manual sync to upload the pending files right now
+BACKUP_DIR=/path/to/ssmspl/backups ./backend/scripts/sync_backup_gdrive.sh --force
+
+# Verify: check that Pending files are now Synced in the UI
+```
+
+### Google Drive
+
+Backups are stored in folder: **`SSMSPL-Backups`** (configurable via `GDRIVE_FOLDER` env var in the sync script). Each file is a `.sql.gz` compressed database dump. Retention: 30 days on GDrive, 7 days local.
+
+---
+
 ## Deployment Update — 2026-04-03 (Dashboard UTC→IST Date Fix)
 
 ### Module
