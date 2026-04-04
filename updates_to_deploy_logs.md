@@ -140,14 +140,14 @@ Infrastructure — Backup System
 
 ### Fix
 
-1. **Timezone**: Added `TZ: Asia/Kolkata` + mounted `/etc/localtime` on the db-backup container. Backup now fires at 2:00 AM IST.
+1. **Timezone**: Changed to `TZ: IST-5:30` (POSIX format). Alpine Linux doesn't include `tzdata`, so `TZ: Asia/Kolkata` was silently ignored. The POSIX format works on bare Alpine/BusyBox without any timezone database. Backup now fires at 2:00 AM IST.
 2. **Sync all unsynced files**: Rewrote sync script to fetch the remote file list once, then upload ALL local files not already on GDrive. No more permanently "Pending" files.
 
 ### Files
 
 | File | Change |
 |---|---|
-| `docker-compose.prod.yml` | Added `TZ: Asia/Kolkata` + `/etc/localtime` mount to db-backup |
+| `docker-compose.prod.yml` | Changed to `TZ: IST-5:30` (POSIX format, works on Alpine) |
 | `backend/scripts/sync_backup_gdrive.sh` | Rewritten to upload all unsynced files, not just latest |
 
 ### VPS Deployment Steps

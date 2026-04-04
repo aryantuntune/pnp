@@ -167,7 +167,7 @@ services:
         sleep 10;
       done'
     environment:
-      TZ: Asia/Kolkata
+      TZ: IST-5:30
       POSTGRES_USER: ${POSTGRES_USER:-ssmspl_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ssmspl_prod_pass}
       POSTGRES_DB: ${POSTGRES_DB:-ssmspl_db_prod}
@@ -177,7 +177,6 @@ services:
     volumes:
       - ./backend/scripts/backup_db.sh:/scripts/backup_db.sh:ro
       - ./backups:/backups
-      - /usr/share/zoneinfo/Asia/Kolkata:/etc/localtime:ro
     depends_on:
       db:
         condition: service_healthy
