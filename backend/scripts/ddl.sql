@@ -211,6 +211,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     verification_code   UUID DEFAULT uuid_generate_v4(),
     boat_id             INTEGER REFERENCES boats(id),
     ref_no              VARCHAR(30),
+    is_multi_ticket     BOOLEAN NOT NULL DEFAULT FALSE,
+    generated_at        TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ,
     created_by          UUID DEFAULT uuid_generate_v4(),

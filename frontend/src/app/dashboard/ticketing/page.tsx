@@ -384,6 +384,7 @@ export default function TicketingPage() {
         params.set("id_op", idOp);
         if (idOp === "between" && idFilterEnd) params.set("id_filter_end", idFilterEnd);
       }
+      params.set("is_multi_ticket", "false");
 
       const filterKeys = [
         "branch_filter",
@@ -395,6 +396,7 @@ export default function TicketingPage() {
         "id_filter",
         "id_op",
         "id_filter_end",
+        "is_multi_ticket",
       ];
       const countParams = new URLSearchParams(
         Object.fromEntries([...params].filter(([k]) => filterKeys.includes(k)))

@@ -289,6 +289,8 @@ export interface Ticket {
   created_at?: string;
   updated_at?: string;
   created_by_username?: string | null;
+  is_multi_ticket?: boolean;
+  generated_at?: string | null;
 }
 
 export interface TicketCreate {

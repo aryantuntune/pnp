@@ -1,6 +1,6 @@
 import uuid as uuid_mod
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +27,8 @@ class Ticket(AuditMixin, Base):
     verification_code: Mapped[uuid_mod.UUID | None] = mapped_column(UUID(as_uuid=True), default=uuid_mod.uuid4, nullable=True, unique=True)
     boat_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("boats.id"), nullable=True)
     ref_no: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    is_multi_ticket: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    generated_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Ticket id={self.id} ticket_no={self.ticket_no} branch_id={self.branch_id}>"

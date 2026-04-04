@@ -54,6 +54,7 @@ async def list_tickets(
     id_op: str = Query("eq", description="ID comparison operator: eq, lt, gt, or between"),
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     ticket_no_filter: int | None = Query(None, description="Filter by ticket number"),
+    is_multi_ticket: bool | None = Query(None, description="Filter: true=multi-tickets only, false=normal only, omit=all"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
@@ -78,6 +79,7 @@ async def list_tickets(
         db, skip, limit, sort_by, sort_order,
         status, branch_filter, route_filter, date_from, date_to,
         id_filter, id_op, id_filter_end, ticket_no_filter,
+        is_multi_ticket,
     )
 
 
@@ -102,6 +104,7 @@ async def count_tickets(
     id_op: str = Query("eq", description="ID comparison operator"),
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     ticket_no_filter: int | None = Query(None, description="Filter by ticket number"),
+    is_multi_ticket: bool | None = Query(None, description="Filter: true=multi-tickets only, false=normal only, omit=all"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
@@ -125,6 +128,7 @@ async def count_tickets(
     return await ticket_service.count_tickets(
         db, status, branch_filter, route_filter, date_from, date_to,
         id_filter, id_op, id_filter_end, ticket_no_filter,
+        is_multi_ticket,
     )
 
 

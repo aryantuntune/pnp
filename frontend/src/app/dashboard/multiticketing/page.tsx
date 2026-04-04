@@ -22,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw } from "lucide-react";
+import DataTable, { Column } from "@/components/dashboard/DataTable";
 
 /* ── Local grid types ── */
 
@@ -139,6 +140,40 @@ function isRowInvalid(
   return false;
 }
 
+/* ── Multi-ticket listing columns ── */
+
+const multiTicketColumns: Column<Ticket>[] = [
+  { key: "id", label: "ID", sortable: true },
+  { key: "ticket_no", label: "Ticket No", sortable: true },
+  { key: "departure", label: "Departure", sortable: true },
+  {
+    key: "net_amount",
+    label: "Net Amount",
+    sortable: true,
+    className: "text-right",
+    render: (row) => `${Number(row.net_amount).toFixed(2)}`,
+  },
+  { key: "payment_mode_name", label: "Payment Mode" },
+  {
+    key: "status",
+    label: "Status",
+    render: (row) =>
+      row.is_cancelled
+        ? "\u274C Cancelled"
+        : "\u2705 Confirmed",
+  },
+  {
+    key: "created_at",
+    label: "Created At",
+    sortable: true,
+    render: (row) => {
+      if (!row.created_at) return "\u2014";
+      const d = new Date(row.created_at);
+      return d.toLocaleTimeString("en-IN", { hour12: false });
+    },
+  },
+];
+
 /* ── Page Component ── */
 
 export default function MultiTicketingPage() {
@@ -160,6 +195,15 @@ export default function MultiTicketingPage() {
 
   // Save state
   const [submitting, setSubmitting] = useState(false);
+
+  // Multi-ticket listing state
+  const [listTickets, setListTickets] = useState<Ticket[]>([]);
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(10);
+  const [listTotal, setListTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(false);
+  const [listSortBy, setListSortBy] = useState("id");
+  const [listSortOrder, setListSortOrder] = useState<"asc" | "desc">("desc");
 
   // Print state
   const [printData, setPrintData] = useState<Ticket[] | null>(null);
@@ -201,6 +245,42 @@ export default function MultiTicketingPage() {
   useEffect(() => {
     fetchInit();
   }, [fetchInit]);
+
+  /* ── Fetch multi-ticket listing ── */
+  const fetchMultiTickets = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const today = formatDateYYYYMMDD(new Date());
+      const skip = (listPage - 1) * listPageSize;
+      const params = new URLSearchParams({
+        skip: String(skip),
+        limit: String(listPageSize),
+        sort_by: listSortBy,
+        sort_order: listSortOrder,
+        is_multi_ticket: "true",
+        date_from: today,
+        date_to: today,
+      });
+      const [pageResp, countResp] = await Promise.all([
+        api.get<Ticket[]>(`/api/tickets?${params}`),
+        api.get<number>(`/api/tickets/count?${new URLSearchParams({
+          is_multi_ticket: "true",
+          date_from: today,
+          date_to: today,
+        })}`),
+      ]);
+      setListTickets(pageResp.data);
+      setListTotal(countResp.data as unknown as number);
+    } catch {
+      /* ignore — listing is supplementary */
+    } finally {
+      setListLoading(false);
+    }
+  }, [listPage, listPageSize, listSortBy, listSortOrder]);
+
+  useEffect(() => {
+    fetchMultiTickets();
+  }, [fetchMultiTickets]);
 
   /* ── Fetch route info for branch switcher ── */
   useEffect(() => {
@@ -543,6 +623,7 @@ export default function MultiTicketingPage() {
       printTimeRef.current = currentTime;
       setPrintData(data);
       setShowPrint(true);
+      fetchMultiTickets();
     } catch (e: unknown) {
       const errObj = e as { response?: { status?: number; data?: { detail?: string } } };
       const statusCode = errObj?.response?.status;
@@ -923,6 +1004,38 @@ export default function MultiTicketingPage() {
             </div>
           </div>
         )}
+
+        {/* ── Today's Multi-Tickets listing ── */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Today&apos;s Multi-Tickets</h2>
+            <Button variant="outline" size="sm" onClick={fetchMultiTickets} disabled={listLoading}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${listLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+          <DataTable<Ticket>
+            columns={multiTicketColumns}
+            data={listTickets}
+            totalCount={listTotal}
+            page={listPage}
+            pageSize={listPageSize}
+            sortBy={listSortBy}
+            sortOrder={listSortOrder}
+            onPageChange={setListPage}
+            onPageSizeChange={(size) => { setListPageSize(size); setListPage(1); }}
+            onSort={(col) => {
+              if (col === listSortBy) {
+                setListSortOrder(listSortOrder === "asc" ? "desc" : "asc");
+              } else {
+                setListSortBy(col);
+                setListSortOrder("desc");
+              }
+            }}
+            loading={listLoading}
+            emptyMessage="No multi-tickets generated today."
+          />
+        </div>
       </div>
       )}
 

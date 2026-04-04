@@ -127,6 +127,8 @@ class TicketRead(BaseModel):
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
     created_by_username: str | None = Field(None, description="Username of the operator who created the ticket")
+    is_multi_ticket: bool = Field(False, description="Whether created from multi-ticketing")
+    generated_at: datetime | None = Field(None, description="Timestamp when ticket was generated")
 
     model_config = {"from_attributes": True}
 

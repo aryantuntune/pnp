@@ -130,6 +130,8 @@ async def _enrich_ticket(db: AsyncSession, ticket: Ticket, include_items: bool =
         "verification_code": str(ticket.verification_code) if ticket.verification_code else None,
         "created_at": ticket.created_at,
         "created_by_username": created_by_username,
+        "is_multi_ticket": ticket.is_multi_ticket,
+        "generated_at": ticket.generated_at,
     }
 
     if include_items:
@@ -526,6 +528,7 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
         result = await create_ticket(
             db, ticket_data, user_id=user.id,
             _exclude_rate_items=exclude_rate_items or None,
+            is_multi_ticket=True,
         )
         created_tickets.append(result)
 
@@ -543,6 +546,7 @@ def _apply_filters(
     id_op: str = "eq",
     id_filter_end: int | None = None,
     ticket_no_filter: int | None = None,
+    is_multi_ticket: bool | None = None,
 ):
     if id_filter is not None:
         if id_op == "between" and id_filter_end is not None:
@@ -574,6 +578,9 @@ def _apply_filters(
     elif status_filter == "cancelled":
         query = query.where(Ticket.is_cancelled == True)
 
+    if is_multi_ticket is not None:
+        query = query.where(Ticket.is_multi_ticket == is_multi_ticket)
+
     return query
 
 
@@ -588,9 +595,10 @@ async def count_tickets(
     id_op: str = "eq",
     id_filter_end: int | None = None,
     ticket_no_filter: int | None = None,
+    is_multi_ticket: bool | None = None,
 ) -> int:
     query = select(func.count()).select_from(Ticket)
-    query = _apply_filters(query, status_filter, branch_filter, route_filter, date_from, date_to, id_filter, id_op, id_filter_end, ticket_no_filter)
+    query = _apply_filters(query, status_filter, branch_filter, route_filter, date_from, date_to, id_filter, id_op, id_filter_end, ticket_no_filter, is_multi_ticket)
     result = await db.execute(query)
     return result.scalar()
 
@@ -624,12 +632,13 @@ async def get_all_tickets(
     id_op: str = "eq",
     id_filter_end: int | None = None,
     ticket_no_filter: int | None = None,
+    is_multi_ticket: bool | None = None,
 ) -> list[dict]:
     column = SORTABLE_COLUMNS.get(sort_by, Ticket.id)
     order = column.desc() if sort_order == "desc" else column.asc()
 
     query = select(Ticket)
-    query = _apply_filters(query, status_filter, branch_filter, route_filter, date_from, date_to, id_filter, id_op, id_filter_end, ticket_no_filter)
+    query = _apply_filters(query, status_filter, branch_filter, route_filter, date_from, date_to, id_filter, id_op, id_filter_end, ticket_no_filter, is_multi_ticket)
     result = await db.execute(query.order_by(order).offset(skip).limit(limit))
     tickets = result.scalars().all()
 
@@ -645,7 +654,9 @@ async def get_ticket_by_id(db: AsyncSession, ticket_id: int) -> dict:
 
 
 async def create_ticket(
-    db: AsyncSession, data: TicketCreate, user_id=None, _exclude_rate_items: set[int] | None = None,
+    db: AsyncSession, data: TicketCreate, user_id=None,
+    _exclude_rate_items: set[int] | None = None,
+    is_multi_ticket: bool = False,
 ) -> dict:
     effective_payment_mode_id = data.payment_mode_id
 
@@ -720,6 +731,8 @@ async def create_ticket(
         boat_id=data.boat_id,
         ref_no=data.ref_no,
         created_by=user_id,
+        is_multi_ticket=is_multi_ticket,
+        generated_at=datetime.datetime.now(IST),
     )
     db.add(ticket)
 

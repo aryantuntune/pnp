@@ -86,3 +86,6 @@ analysis_issues/
 *.key
 *.crt
 !frontend/public/ssmspl-qz.crt
+
+# Vital secrets backup for AI and admin eyes only
+SECRETS_VITAL_DO_NOT_COMMIT.md
