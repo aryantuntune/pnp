@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, create_password_reset_token, decode_token
-from app.core.rbac import ROLE_MENU_ITEMS
+from app.core.rbac import ROLE_MENU_ITEMS, UserRole
 from app.models.user import User
 from app.services import token_service
 
@@ -116,7 +116,8 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="session_idle_timeout")
 
     # Enforce idle timeout during refresh — prevent stale sessions from renewing
-    if user.session_last_active:
+    # Skip for TICKET_CHECKER — mobile checker app has no heartbeat mechanism
+    if user.session_last_active and user.role != UserRole.TICKET_CHECKER:
         idle_seconds = (datetime.now(timezone.utc) - user.session_last_active).total_seconds()
         if idle_seconds > settings.SESSION_IDLE_TIMEOUT_MINUTES * 60:
             from app.services import user_session_service

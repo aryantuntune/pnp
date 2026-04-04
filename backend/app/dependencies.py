@@ -77,9 +77,10 @@ async def get_current_user(
         )
 
     # Server-side idle timeout: force-logout if no activity for configured duration
+    # Skip for TICKET_CHECKER — mobile checker app has no heartbeat mechanism
     now = datetime.now(timezone.utc)
     idle_limit = settings.SESSION_IDLE_TIMEOUT_MINUTES * 60  # seconds
-    if user.session_last_active:
+    if user.session_last_active and user.role != UserRole.TICKET_CHECKER:
         idle_seconds = (now - user.session_last_active).total_seconds()
         if idle_seconds > idle_limit:
             # Full session teardown — revoke all tokens so session cannot resume
