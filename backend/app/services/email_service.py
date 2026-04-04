@@ -1,4 +1,5 @@
 import logging
+from email.mime.application import MIMEApplication
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -283,20 +284,33 @@ async def send_booking_confirmation(booking: dict, to_email: str) -> None:
         logger.error(f"Failed to send booking confirmation email to {to_email}: {e}")
 
 
-async def send_daily_report_email(to_emails: list[str], subject: str, html_body: str) -> None:
-    """Send daily report to multiple recipients. Fire-and-forget, logs errors."""
+async def send_daily_report_email(
+    to_emails: list[str],
+    subject: str,
+    html_body: str,
+    pdf_bytes: bytes | None = None,
+    pdf_filename: str = "report.pdf",
+) -> None:
+    """Send daily report to multiple recipients with optional PDF attachment."""
     if not settings.SMTP_HOST:
         logger.info("SMTP not configured, skipping daily report email")
         return
 
     for to_email in to_emails:
         try:
-            msg = MIMEMultipart("alternative")
+            msg = MIMEMultipart("mixed")
             msg["Subject"] = subject
             msg["From"] = settings.SMTP_FROM_EMAIL
             msg["To"] = to_email
 
             msg.attach(MIMEText(html_body, "html"))
+
+            if pdf_bytes:
+                pdf_part = MIMEApplication(pdf_bytes, _subtype="pdf")
+                pdf_part.add_header(
+                    "Content-Disposition", "attachment", filename=pdf_filename,
+                )
+                msg.attach(pdf_part)
 
             await aiosmtplib.send(
                 msg,

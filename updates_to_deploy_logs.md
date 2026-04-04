@@ -2,6 +2,76 @@
 
 ---
 
+## Deployment Update — 2026-04-03 (Daily report: fix duplicate emails + PDF attachment)
+
+### Module
+
+Backend — Daily Report Service, Email Service
+
+### Changes
+
+**Bug 1 — Receiving 4 duplicate daily report emails per day**
+
+**Root cause**: `gunicorn.conf.py` runs `workers = cpu_count * 2 + 1` (e.g. 5 workers on a 2-core VPS). Each worker independently starts its own `daily_report_loop()` background task. The dedup guard `_last_sent_date` was an in-memory variable — each worker had its own copy. All workers fired at 23:59 IST simultaneously, each sending the full report email.
+
+**Fix**: Added a `daily_report_log` database table with a `UNIQUE` constraint on `report_date`. Before sending, each worker attempts to INSERT a row for today's date. Only the first worker succeeds (commits immediately); all others hit `IntegrityError` and skip. The status column tracks the lifecycle: `sending` → `sent` / `failed` / `no_data`.
+
+On startup, the loop now:
+- Cleans up stale `"sending"` rows (from crashed workers) so the day can be retried.
+- Seeds `_last_sent_date` from the last `"sent"` or `"no_data"` DB entry to survive restarts.
+
+Also changed the time check from exact-minute match (`== 23:59`) to `>= 23:59` to prevent missed sends due to asyncio sleep drift.
+
+**Bug 2 — No emails sent after adding client's email**
+
+**Root cause**: Combination of the in-memory `_last_sent_date` resetting to `None` on every server restart, and the fragile exact-minute time check. If the server restarted or the loop crashed, emails silently stopped. No DB record existed to track what was sent.
+
+**Fix**: Same DB-level tracking as Bug 1. The `daily_report_log` table now provides a persistent, cross-restart, cross-worker record of every send attempt with status tracking.
+
+**Feature — Daily report now sent as PDF attachment**
+
+**What changed**: Client requested a single PDF with all 12 branches' item-wise collection summary instead of inline HTML. The email now contains:
+- **Email body**: Brief HTML summary table (branch name + total per branch + grand total) with a note to "see attached PDF".
+- **Attachment**: Professional A4 PDF built with ReportLab containing:
+  - Company header + report date
+  - Per-branch sections: item table (Item, Rate, Qty, Net Amount) + payment mode breakdown (only modes with transactions)
+  - Overall grand total bar at the bottom
+- **Filename**: `SSMSPL_Daily_Report_DD_MM_YYYY.pdf`
+
+### Files Changed
+
+* `backend/app/models/daily_report_log.py` *(new — dedup tracking model)*
+* `backend/app/models/__init__.py` *(registered DailyReportLog)*
+* `backend/app/services/daily_report_service.py` *(rewritten — DB dedup + PDF generation)*
+* `backend/app/services/email_service.py` *(added PDF attachment support to send_daily_report_email)*
+* `backend/alembic/versions/f8a9b0c1d2e3_create_daily_report_log_table.py` *(new migration)*
+
+### Database Migrations
+
+* `f8a9b0c1d2e3` — Creates `daily_report_log` table (id, report_date UNIQUE, sent_at, recipient_count, status)
+
+### Deployment Steps (VPS)
+
+```bash
+# 1. Rebuild and restart
+docker compose up --build -d
+
+# 2. Run migration
+docker exec -it ssmspl-backend alembic upgrade head
+```
+
+### Important Notes
+
+* The daily report email format has changed from inline HTML tables to a PDF attachment. Recipients should expect an email with a brief summary in the body and the detailed report as `SSMSPL_Daily_Report_DD_MM_YYYY.pdf`.
+* To verify the fix is working, check the `daily_report_log` table after 23:59 IST:
+  ```sql
+  SELECT * FROM daily_report_log ORDER BY report_date DESC LIMIT 5;
+  ```
+  There should be exactly **one** row per date with status `sent`.
+* If a report appears stuck in `sending` status, it means the worker crashed mid-send. The next server restart will clean it up and retry automatically.
+
+---
+
 ## Deployment Update — 2026-04-04 (Items Sr. No. fix + Ticket daily reset)
 
 ### Module

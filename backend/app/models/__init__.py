@@ -19,6 +19,7 @@ from app.models.daily_report_recipient import DailyReportRecipient
 from app.models.rate_change_log import RateChangeLog
 from app.models.backup_notification_recipient import BackupNotificationRecipient
 from app.models.user_session import UserSession
+from app.models.daily_report_log import DailyReportLog
 
 __all__ = [
     "User",
@@ -43,4 +44,5 @@ __all__ = [
     "RateChangeLog",
     "BackupNotificationRecipient",
     "UserSession",
+    "DailyReportLog",
 ]
