@@ -4586,3 +4586,45 @@ rm -rf .next
 npm run build
 sudo systemctl restart ssmspl-frontend
 ```
+
+---
+
+## Deployment Update — 2026-04-05
+
+### Module
+
+Reports — Payment Mode Breakdown Calculation Fix
+
+### Commit ID
+
+c34bf80
+
+### Changes
+
+* **CRITICAL FIX**: Payment mode breakdown (Cash Memo / G-Pay shares) did not add up to the grand total in Item Wise Summary and Branch Item Summary reports.
+* **Root cause**: Grand total was calculated from **item-level** data (`(TicketItem.rate + levy) * quantity`, excluding cancelled items), but the payment breakdown was calculated from **ticket-level** data (`Ticket.net_amount`). When individual ticket items were cancelled but the parent ticket was not, `Ticket.net_amount` still included the cancelled items' amounts while the grand total excluded them — causing a mismatch.
+* **Fix**: Payment breakdown now uses the same item-level calculation as the grand total: `sum((TicketItem.rate + TicketItem.levy) * TicketItem.quantity)` with `TicketItem.is_cancelled = false` AND `Ticket.is_cancelled = false` filters.
+* Affected reports: `get_item_wise_summary` (Item Wise Summary) and `get_branch_item_summary` (Branch Item Summary).
+
+### Files Modified
+
+* `backend/app/services/report_service.py`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+### Verification
+
+After deploying, generate an Item Wise Summary report and verify that:
+1. The sum of all payment mode amounts equals the grand total exactly
+2. Check for dates where individual ticket items were cancelled (not full ticket cancellations) — these were the cases that triggered the mismatch
