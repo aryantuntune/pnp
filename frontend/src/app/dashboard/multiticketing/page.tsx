@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import {
   MultiTicketInit,
   MultiTicketInitItem,
@@ -10,6 +11,7 @@ import {
   TicketItemCreate,
   Ticket,
   Route,
+  TicketingStatus,
 } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, X, Trash2, RefreshCw } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw, Lock } from "lucide-react";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 
 /* ── Local grid types ── */
@@ -178,6 +180,16 @@ const multiTicketColumns: Column<Ticket>[] = [
 
 export default function MultiTicketingPage() {
   const router = useRouter();
+  const user = useDashboardUser();
+  const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const needsRouteSelector = isAdmin && !user.route_id;
+
+  // Admin route selector state
+  const [allRoutes, setAllRoutes] = useState<Route[]>([]);
+  const [adminRouteId, setAdminRouteId] = useState<number | null>(null);
+
+  // Time-lock state (non-admin only)
+  const [lockStatus, setLockStatus] = useState<TicketingStatus | null>(null);
 
   // Init data from backend
   const [initData, setInitData] = useState<MultiTicketInit | null>(null);
@@ -212,6 +224,8 @@ export default function MultiTicketingPage() {
   const printTimeRef = useRef("");
   const printTriggered = useRef(false);
   const saveRef = useRef<HTMLButtonElement>(null);
+  // Synchronous guard to prevent double-submission (rapid Alt+S / button double-click)
+  const isSubmittingRef = useRef(false);
 
   /* ── Live clock ── */
   useEffect(() => {
@@ -219,11 +233,42 @@ export default function MultiTicketingPage() {
     return () => clearInterval(timer);
   }, []);
 
+  /* ── Fetch all routes for admin selector ── */
+  useEffect(() => {
+    if (!needsRouteSelector) return;
+    api.get<Route[]>("/api/routes").then(({ data }) => {
+      setAllRoutes(data);
+    }).catch(() => { /* ignore */ });
+  }, [needsRouteSelector]);
+
+  /* ── Time-lock polling (non-admin) ── */
+  useEffect(() => {
+    if (isAdmin) return;
+    if (!initData?.branch_id) return;
+
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const { data } = await api.get<TicketingStatus>(
+          `/api/tickets/ticketing-status?branch_id=${initData.branch_id}`
+        );
+        if (!cancelled) setLockStatus(data);
+      } catch { /* ignore */ }
+    };
+
+    check();
+    const interval = setInterval(check, 30_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isAdmin, initData?.branch_id]);
+
   /* ── Fetch init data ── */
-  const fetchInit = useCallback(async (branchId?: number | null) => {
+  const fetchInit = useCallback(async (branchId?: number | null, routeIdOverride?: number | null) => {
     try {
-      const branchParam = branchId ? `?branch_id=${branchId}` : "";
-      const { data } = await api.get<MultiTicketInit>(`/api/tickets/multi-ticket-init${branchParam}`);
+      const params = new URLSearchParams();
+      if (branchId) params.set("branch_id", String(branchId));
+      if (routeIdOverride) params.set("route_id", String(routeIdOverride));
+      const qs = params.toString();
+      const { data } = await api.get<MultiTicketInit>(`/api/tickets/multi-ticket-init${qs ? `?${qs}` : ""}`);
       setInitData(data);
       setInitError("");
       // Initialize tickets with SF item if configured
@@ -241,10 +286,11 @@ export default function MultiTicketingPage() {
     }
   }, []);
 
-  /* ── Load init data on mount ── */
+  /* ── Load init data on mount (skip if admin needs route selector first) ── */
   useEffect(() => {
-    fetchInit();
-  }, [fetchInit]);
+    if (needsRouteSelector && !adminRouteId) return;
+    fetchInit(undefined, adminRouteId);
+  }, [fetchInit, needsRouteSelector, adminRouteId]);
 
   /* ── Fetch multi-ticket listing ── */
   const fetchMultiTickets = useCallback(async () => {
@@ -293,7 +339,7 @@ export default function MultiTicketingPage() {
   /* ── Branch switch handler ── */
   const handleBranchSwitch = (branchId: number) => {
     setSelectedBranchId(branchId);
-    fetchInit(branchId);
+    fetchInit(branchId, adminRouteId);
   };
 
   /* ── Form reset ── */
@@ -486,8 +532,8 @@ export default function MultiTicketingPage() {
 
   const validate = (): string | null => {
     if (!initData) return "Ticketing configuration not loaded.";
-    if (!initData.is_off_hours)
-      return "Ticketing is disabled during ferry operating hours. Multi-ticketing is only available during off-hours.";
+    if (!isAdmin && !initData.is_off_hours)
+      return "Multi-ticketing is disabled during ferry operating hours. Please wait until the scheduled ferries are over.";
     if (tickets.length === 0) return "At least one ticket is required.";
 
     for (let ti = 0; ti < tickets.length; ti++) {
@@ -516,23 +562,32 @@ export default function MultiTicketingPage() {
   /* ── Save & Print ── */
 
   const handleSaveAndPrint = async () => {
+    // Synchronous guard: prevent duplicate batch creation from rapid presses
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     const err = validate();
     if (err) {
+      isSubmittingRef.current = false;
       alert(err);
       return;
     }
 
-    if (!initData) return;
+    if (!initData) { isSubmittingRef.current = false; return; }
 
     // Re-fetch fresh rates from server before submission to prevent stale-rate tickets
     let freshInit: MultiTicketInit;
     try {
-      const branchParam = selectedBranchId ? `?branch_id=${selectedBranchId}` : "";
+      const freshParams = new URLSearchParams();
+      if (selectedBranchId) freshParams.set("branch_id", String(selectedBranchId));
+      if (adminRouteId) freshParams.set("route_id", String(adminRouteId));
+      const freshQs = freshParams.toString();
       const { data } = await api.get<MultiTicketInit>(
-        `/api/tickets/multi-ticket-init${branchParam}`
+        `/api/tickets/multi-ticket-init${freshQs ? `?${freshQs}` : ""}`
       );
       freshInit = data;
     } catch {
+      isSubmittingRef.current = false;
       alert("Failed to verify current rates. Please refresh the page and try again.");
       return;
     }
@@ -578,6 +633,7 @@ export default function MultiTicketingPage() {
       );
       // Update initData with full fresh response (items + SF rate/levy)
       setInitData(freshInit);
+      isSubmittingRef.current = false;
       alert("Rates have been updated since you loaded this page. Amounts have been refreshed — please review and submit again.");
       return;
     }
@@ -615,8 +671,11 @@ export default function MultiTicketingPage() {
 
     setSubmitting(true);
     try {
-      const branchParam = selectedBranchId ? `?branch_id=${selectedBranchId}` : "";
-      const { data } = await api.post<Ticket[]>(`/api/tickets/batch${branchParam}`, {
+      const batchParams = new URLSearchParams();
+      if (selectedBranchId) batchParams.set("branch_id", String(selectedBranchId));
+      if (adminRouteId) batchParams.set("route_id", String(adminRouteId));
+      const batchQs = batchParams.toString();
+      const { data } = await api.post<Ticket[]>(`/api/tickets/batch${batchQs ? `?${batchQs}` : ""}`, {
         tickets: payload,
       });
       // Reuse the same timestamp captured above — DB departure, print receipt, and listing all match
@@ -631,19 +690,79 @@ export default function MultiTicketingPage() {
 
       if (statusCode === 409) {
         // Server rejected due to rate mismatch — refresh init data
-        fetchInit(selectedBranchId);
+        fetchInit(selectedBranchId, adminRouteId);
         alert("Rates have changed. Page has been refreshed — please review and submit again.");
       } else {
         alert(msg);
       }
     } finally {
       setSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   /* ── Loading / error states ── */
 
+  // Lock screen for non-admin users
+  const isLocked = !isAdmin && lockStatus && !lockStatus.multi_ticketing_open;
+
   /* ── Render ── */
+
+  // Admin route selector (shown when admin has no assigned route)
+  if (needsRouteSelector && !adminRouteId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <h1 className="text-2xl font-bold mb-4">Multi-Ticketing</h1>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          You don&apos;t have an assigned route. Please select a route to use multi-ticketing.
+        </p>
+        <select
+          value=""
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            if (id) setAdminRouteId(id);
+          }}
+          className="border border-input rounded-lg px-4 py-2 text-sm bg-background text-foreground w-72"
+        >
+          <option value="">-- Select Route --</option>
+          {allRoutes.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.branch_one_name} - {r.branch_two_name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  // Lock screen for non-admin users when multi-ticketing is locked
+  if (isLocked && lockStatus) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="rounded-full bg-muted p-6 mb-6">
+          <Lock className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Multi-Ticketing is Locked</h1>
+        <p className="text-muted-foreground max-w-md mb-4">
+          Multi-ticketing is only available outside scheduled ferry hours.
+          {lockStatus.multi_opens_at && (
+            <> It will open at <span className="font-semibold text-foreground">{lockStatus.multi_opens_at}</span> (after the last ferry + 30 min buffer).</>
+          )}
+        </p>
+        {lockStatus.first_ferry_time && lockStatus.last_ferry_time && (
+          <p className="text-sm text-muted-foreground mb-2">
+            Ferry schedule: {lockStatus.first_ferry_time} &ndash; {lockStatus.last_ferry_time}
+          </p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          Current server time: <span className="font-mono">{lockStatus.current_time}</span>
+        </p>
+        <p className="text-sm text-muted-foreground mt-4">
+          This page checks automatically every 30 seconds and will unlock when the time comes.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -653,18 +772,29 @@ export default function MultiTicketingPage() {
         {/* ── Page header ── */}
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h1 className="text-2xl font-bold">Multi-Ticketing</h1>
-          {initData && (
-            <Button onClick={addTicket}>
-              <Plus className="h-4 w-4 mr-2" /> Add Ticket
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {needsRouteSelector && adminRouteId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setAdminRouteId(null); setInitData(null); setInitError(""); }}
+              >
+                Change Route
+              </Button>
+            )}
+            {initData && (
+              <Button onClick={addTicket}>
+                <Plus className="h-4 w-4 mr-2" /> Add Ticket
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* ── Error banner ── */}
         {initError && (
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm mb-4">
             {initError}
-            <Button variant="link" onClick={() => fetchInit(selectedBranchId)} className="ml-2 h-auto p-0 text-sm">
+            <Button variant="link" onClick={() => fetchInit(selectedBranchId, adminRouteId)} className="ml-2 h-auto p-0 text-sm">
               Retry
             </Button>
           </div>
@@ -724,9 +854,11 @@ export default function MultiTicketingPage() {
                   )}
                   <div>
                     {initData.is_off_hours ? (
-                      <Badge variant="default">Off-Hours Active</Badge>
+                      <Badge variant="default">Off-Hours — Multi-Ticketing Active</Badge>
+                    ) : isAdmin ? (
+                      <Badge variant="secondary">Ferry Hours Active — Admin Override</Badge>
                     ) : (
-                      <Badge variant="destructive">Ferry Hours Active - Ticketing Disabled</Badge>
+                      <Badge variant="destructive">Ferry Hours Active — Multi-Ticketing Disabled</Badge>
                     )}
                   </div>
                 </div>

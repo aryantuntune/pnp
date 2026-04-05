@@ -16,9 +16,20 @@ import {
   Route,
   Item,
   PaymentMode,
-  FerrySchedule,
   RateLookupResponse,
+  TicketingStatus,
 } from "@/types";
+
+interface DepartureOptionItem {
+  id: number;
+  departure: string;
+  tag: "previous" | "current" | "next";
+}
+interface DepartureOptionsResponse {
+  server_time: string;
+  options: DepartureOptionItem[];
+  recommended: string | null;
+}
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +58,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, Plus, Printer, Settings2 } from "lucide-react";
+import { Download, Lock, Plus, Printer, Settings2 } from "lucide-react";
 import {
   printReceipt,
   ReceiptData,
@@ -229,6 +240,43 @@ export default function TicketingPage() {
   // Current user from DashboardShell context (already authenticated)
   const user = useDashboardUser();
 
+  const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+
+  // ── Time-lock state ──
+  const [lockStatus, setLockStatus] = useState<TicketingStatus | null>(null);
+  const [lockLoading, setLockLoading] = useState(!isAdmin);
+
+  useEffect(() => {
+    if (isAdmin) return; // Admins bypass locks
+
+    const branchId = getSelectedBranchId();
+    if (!branchId) {
+      setLockLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const { data } = await api.get<TicketingStatus>(
+          `/api/tickets/ticketing-status?branch_id=${branchId}`
+        );
+        if (!cancelled) {
+          setLockStatus(data);
+          setLockLoading(false);
+        }
+      } catch {
+        if (!cancelled) setLockLoading(false);
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 30_000); // Re-check every 30s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isAdmin]);
+
+  const isNormalTicketingLocked = !isAdmin && !lockLoading && lockStatus != null && !lockStatus.normal_ticketing_open;
+
   // Data
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
@@ -270,6 +318,9 @@ export default function TicketingPage() {
   const itemsRef = useRef<Item[]>([]);
   useEffect(() => { itemsRef.current = routeItems.length > 0 ? routeItems : items; }, [items, routeItems]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
+
+  // Reprint guard — tracks which ticket is currently reprinting
+  const [reprintingId, setReprintingId] = useState<number | null>(null);
 
   // Modal
   const [showModal, setShowModal] = useState(false);
@@ -322,10 +373,12 @@ export default function TicketingPage() {
   // Detail items
   const [formItems, setFormItems] = useState<FormItem[]>([]);
   const formItemsRef = useRef<FormItem[]>([]);
+  // Generation counter per row to prevent stale rate-lookup responses from overwriting correct rates
+  const rateFetchGenRef = useRef<Map<string, number>>(new Map());
   useEffect(() => { formItemsRef.current = formItems; }, [formItems]);
 
-  // All ferry schedules (loaded once)
-  const [ferrySchedules, setFerrySchedules] = useState<FerrySchedule[]>([]);
+  // Dynamic departure options (prev / current / next) — refreshed from server
+  const [departureOptions, setDepartureOptions] = useState<DepartureOptionItem[]>([]);
 
   // Computed amounts
   const [formAmount, setFormAmount] = useState(0);
@@ -339,6 +392,8 @@ export default function TicketingPage() {
   const modalRef = useRef<HTMLDivElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
   const isSavingRef = useRef(false);
+  // Synchronous guard to prevent double-submission (Enter key auto-repeat / rapid press)
+  const isSubmittingRef = useRef(false);
 
   // Auto-focus departure when modal opens
   useEffect(() => {
@@ -431,6 +486,24 @@ export default function TicketingPage() {
     idFilterEnd,
   ]);
 
+  // Fetch departure options from server (prev / current / next)
+  const fetchDepartureOptions = useCallback(async (branchId: number): Promise<string> => {
+    if (!branchId) {
+      setDepartureOptions([]);
+      return "";
+    }
+    try {
+      const { data } = await api.get<DepartureOptionsResponse>(
+        `/api/tickets/departure-options?branch_id=${branchId}`
+      );
+      setDepartureOptions(data.options);
+      return data.recommended || "";
+    } catch {
+      setDepartureOptions([]);
+      return "";
+    }
+  }, []);
+
   // Fetch dropdown data + tickets on mount (user already available from DashboardShell)
   useEffect(() => {
     Promise.all([
@@ -438,13 +511,11 @@ export default function TicketingPage() {
       api.get<Route[]>("/api/routes?limit=200&status=active"),
       api.get<Item[]>("/api/items?limit=200&status=active"),
       api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active&show_at_pos=true"),
-      api.get<FerrySchedule[]>("/api/ferry-schedules?limit=200"),
-    ]).then(([branchRes, routeRes, itemRes, pmRes, schedRes]) => {
+    ]).then(([branchRes, routeRes, itemRes, pmRes]) => {
       setBranches(branchRes.data);
       setAllRoutes(routeRes.data);
       setItems(itemRes.data);
       setPaymentModes(pmRes.data);
-      setFerrySchedules(schedRes.data);
     }).catch(() => { /* dropdown load failure is non-fatal */ });
     fetchTickets();
   }, [fetchTickets]);
@@ -496,27 +567,36 @@ export default function TicketingPage() {
     }
   };
 
-  // Branch change handler
-  const handleBranchChange = (branchId: number) => {
+  // Branch change handler — fetch fresh departure options from server
+  const handleBranchChange = async (branchId: number) => {
     setFormBranchId(branchId);
-    setFormDeparture(branchId ? getNextDeparture(branchId) : "");
+    const recommended = await fetchDepartureOptions(branchId);
+    setFormDeparture(recommended);
   };
 
   // Item change handler for detail rows
   const handleItemChange = async (tempId: string, itemId: number) => {
+    // Increment generation counter for this row so any in-flight rate lookup
+    // for a previously-typed item ID will be discarded when it resolves.
+    const gen = (rateFetchGenRef.current.get(tempId) || 0) + 1;
+    rateFetchGenRef.current.set(tempId, gen);
+
     const selectedItem = items.find((i) => i.id === itemId);
     const vehicleNo = selectedItem?.is_vehicle ? undefined : "";
-    const updated = formItems.map((fi) =>
-      fi.tempId === tempId
-        ? { ...fi, item_id: itemId, rate: 0, levy: 0, ...(vehicleNo !== undefined ? { vehicle_name: vehicleNo, vehicle_no: vehicleNo } : {}) }
-        : fi
+    setFormItems((prev) =>
+      prev.map((fi) =>
+        fi.tempId === tempId
+          ? { ...fi, item_id: itemId, rate: 0, levy: 0, ...(vehicleNo !== undefined ? { vehicle_name: vehicleNo, vehicle_no: vehicleNo } : {}) }
+          : fi
+      )
     );
-    setFormItems(updated);
     if (formRouteId) {
       try {
         const res = await api.get<RateLookupResponse>(
           `/api/tickets/rate-lookup?item_id=${itemId}&route_id=${formRouteId}`
         );
+        // Only apply if this is still the latest request for this row
+        if (rateFetchGenRef.current.get(tempId) !== gen) return;
         setFormItems((prev) =>
           prev.map((fi) =>
             fi.tempId === tempId
@@ -525,16 +605,19 @@ export default function TicketingPage() {
           )
         );
       } catch {
+        if (rateFetchGenRef.current.get(tempId) !== gen) return;
         setFormError("Failed to fetch rate. Please re-select the item or refresh the page.");
       }
     }
   };
 
-  // Re-fetch rates from server for all form items (used after 409 rate-mismatch)
+  // Re-fetch rates from server for all form items (used after 409 rate-mismatch).
+  // Uses formItemsRef to avoid stale closure after async operations.
   const refreshFormRates = async () => {
     if (!formRouteId) return;
+    const currentItems = formItemsRef.current;
     const refreshed = await Promise.all(
-      formItems.map(async (fi) => {
+      currentItems.map(async (fi) => {
         if (!fi.item_id || fi.is_cancelled) return fi;
         try {
           const res = await api.get<RateLookupResponse>(
@@ -649,33 +732,8 @@ export default function TicketingPage() {
     );
   };
 
-  // Check if current time is outside ferry schedule hours for a branch
-  const isOffHoursForBranch = useCallback((branchId: number): boolean => {
-    const branchSchedules = ferrySchedules
-      .filter((fs) => fs.branch_id === branchId)
-      .map((fs) => fs.departure)
-      .sort();
-    if (branchSchedules.length === 0) return true;
-    const now = new Date();
-    const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const firstFerry = branchSchedules[0];
-    const lastFerry = branchSchedules[branchSchedules.length - 1];
-    return nowStr < firstFerry || nowStr > lastFerry;
-  }, [ferrySchedules]);
-
-  // Find the next departure time relative to now — returns "" during off-hours (no wrap)
-  const getNextDeparture = (branchId: number): string => {
-    if (isOffHoursForBranch(branchId)) return "";
-    const branchSchedules = ferrySchedules
-      .filter((fs) => fs.branch_id === branchId)
-      .map((fs) => fs.departure)
-      .sort();
-    if (branchSchedules.length === 0) return "";
-    const now = new Date();
-    const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const next = branchSchedules.find((d) => d >= nowStr);
-    return next || "";
-  };
+  // Off-hours: no "current" option means all departures have passed (or none exist)
+  const isOffHours = departureOptions.length === 0 || !departureOptions.some((o) => o.tag === "current");
 
   // Open create modal
   const openCreateModal = async () => {
@@ -706,7 +764,8 @@ export default function TicketingPage() {
       setFormBranchId(selectedBranchId || 0);
       setFilteredBranches([]);
       if (selectedBranchId) {
-        setFormDeparture(getNextDeparture(selectedBranchId));
+        const recommended = await fetchDepartureOptions(selectedBranchId);
+        setFormDeparture(recommended);
       }
     } else {
       // Unrestricted user: start with empty selections
@@ -763,8 +822,10 @@ export default function TicketingPage() {
     }
   };
 
-  // Reprint ticket
+  // Reprint ticket (guarded against double-click)
   const handleReprint = async (ticket: Ticket) => {
+    if (reprintingId !== null) return; // already reprinting another ticket
+    setReprintingId(ticket.id);
     try {
       const res = await api.get<Ticket>(`/api/tickets/${ticket.id}`);
       const t = res.data;
@@ -812,12 +873,15 @@ export default function TicketingPage() {
         paymentModeName: reprintPaymentLabel,
       };
 
-      // Print receipt (non-blocking)
-      printReceipt(receiptData).catch(() => {
-        /* print failure is non-fatal */
-      });
+      // Await print — blocks until the print dialog closes or QZ Tray finishes
+      const printed = await printReceipt(receiptData);
+      if (!printed) {
+        setError("Print could not be initiated. Please check your printer connection.");
+      }
     } catch {
       setError("Failed to load ticket for reprinting.");
+    } finally {
+      setReprintingId(null);
     }
   };
 
@@ -956,17 +1020,24 @@ export default function TicketingPage() {
 
   // Save and print handler (called from payment modal)
   const handleSaveAndPrint = async () => {
+    // Synchronous guard: prevent duplicate ticket creation from rapid Enter presses
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     // Validate
     if (!formConfirmPaymentModeId) {
+      isSubmittingRef.current = false;
       setPaymentError("Please select a payment mode.");
       return;
     }
     if (!isUpiMode) {
       if (formReceivedAmount <= 0) {
+        isSubmittingRef.current = false;
         setPaymentError("Received amount must be greater than zero.");
         return;
       }
       if (formReceivedAmount < formNetAmount) {
+        isSubmittingRef.current = false;
         setPaymentError("Received amount cannot be less than net amount.");
         return;
       }
@@ -1033,13 +1104,20 @@ export default function TicketingPage() {
           amount: Math.round(fi.quantity * (fi.rate + fi.levy) * 100) / 100,
           vehicleNo: fi.vehicle_no || null,
         })),
-        netAmount: formNetAmount,
+        netAmount: savedTicket.net_amount,
         createdBy: savedTicket.created_by_username || user?.username || "",
         paperWidth,
         paymentModeName: paymentModeLabel,
       };
 
-      printReceipt(receiptData).catch(() => { /* non-fatal */ });
+      // Fire print WITHOUT blocking — operator must be able to start next ticket
+      // immediately during rush hour. Feedback shown asynchronously when done.
+      const ticketIdForPrint = savedTicket.id;
+      printReceipt(receiptData).then((printed) => {
+        if (!printed) {
+          setFormError(`Ticket #${ticketIdForPrint} saved but print failed. Use the reprint button.`);
+        }
+      }).catch(() => { /* non-fatal — ticket is saved regardless */ });
 
       // Update last-ticket info
       setLastTicketInfo({
@@ -1070,6 +1148,12 @@ export default function TicketingPage() {
       setPaymentError("");
       setFormRefNo("");
 
+      // Refresh departure options from server to stay in sync with schedule
+      if (formBranchId) {
+        const recommended = await fetchDepartureOptions(formBranchId);
+        setFormDeparture(recommended);
+      }
+
       requestAnimationFrame(() => {
         document.getElementById(`item-id-${newTempId}`)?.focus();
         isSavingRef.current = false;
@@ -1089,6 +1173,7 @@ export default function TicketingPage() {
       setPaymentError(msg);
     } finally {
       setSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -1220,9 +1305,10 @@ export default function TicketingPage() {
               variant="ghost"
               size="sm"
               onClick={() => handleReprint(ticket)}
+              disabled={reprintingId !== null}
               title="Reprint ticket"
             >
-              <Printer className="h-4 w-4" />
+              <Printer className={`h-4 w-4 ${reprintingId === ticket.id ? "animate-pulse" : ""}`} />
             </Button>
           )}
           {["SUPER_ADMIN", "ADMIN"].includes(user?.role || "") && (
@@ -1234,6 +1320,38 @@ export default function TicketingPage() {
       ),
     },
   ];
+
+  if (isNormalTicketingLocked && lockStatus) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="rounded-full bg-muted p-6 mb-6">
+          <Lock className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Normal Ticketing is Locked</h1>
+        <p className="text-muted-foreground max-w-md mb-4">
+          Normal ticketing is only available during scheduled ferry hours.
+          {lockStatus.normal_opens_at && (
+            <> It opens at <span className="font-semibold text-foreground">{lockStatus.normal_opens_at}</span></>
+          )}
+          {lockStatus.normal_closes_at && (
+            <> and closes at <span className="font-semibold text-foreground">{lockStatus.normal_closes_at}</span></>
+          )}
+          .
+        </p>
+        {lockStatus.first_ferry_time && lockStatus.last_ferry_time && (
+          <p className="text-sm text-muted-foreground mb-2">
+            Ferry schedule: {lockStatus.first_ferry_time} &ndash; {lockStatus.last_ferry_time}
+          </p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          Current server time: <span className="font-mono">{lockStatus.current_time}</span>
+        </p>
+        <p className="text-sm text-muted-foreground mt-4">
+          This page checks automatically every 30 seconds and will unlock when the time comes.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1257,16 +1375,10 @@ export default function TicketingPage() {
           </Button>
           <Button
             onClick={openCreateModal}
-            disabled={(() => {
-              const branchId = user?.active_branch_id || getSelectedBranchId() || 0;
-              return branchId > 0 && isOffHoursForBranch(branchId);
-            })()}
-            title={(() => {
-              const branchId = user?.active_branch_id || getSelectedBranchId() || 0;
-              return branchId > 0 && isOffHoursForBranch(branchId)
-                ? "Ferry hours have ended. Use Multi-Ticketing for off-hours tickets."
-                : "";
-            })()}
+            disabled={isNormalTicketingLocked}
+            title={isNormalTicketingLocked
+              ? "Ferry hours have ended. Use Multi-Ticketing for off-hours tickets."
+              : ""}
           >
             <Plus className="h-4 w-4 mr-2" /> New Ticket
           </Button>
@@ -1274,14 +1386,11 @@ export default function TicketingPage() {
       </div>
 
       {/* Off-hours banner */}
-      {(() => {
-        const branchId = user?.active_branch_id || getSelectedBranchId() || 0;
-        return branchId > 0 && isOffHoursForBranch(branchId) ? (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm font-medium">
-            Ferry hours have ended for your branch. Please use <a href="/dashboard/multiticketing" className="underline font-bold">Multi-Ticketing</a> for off-hours ticket generation.
-          </div>
-        ) : null;
-      })()}
+      {isNormalTicketingLocked && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm font-medium">
+          Ferry hours have ended for your branch. Please use <a href="/dashboard/multiticketing" className="underline font-bold">Multi-Ticketing</a> for off-hours ticket generation.
+        </div>
+      )}
 
       {/* Error Banner */}
       {error && (
@@ -1907,19 +2016,18 @@ export default function TicketingPage() {
                     ref={departureRef}
                     value={formDeparture}
                     onChange={(e) => setFormDeparture(e.target.value)}
-                    disabled={formBranchId > 0 && isOffHoursForBranch(formBranchId)}
+                    disabled={formBranchId > 0 && isOffHours}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">-- Select Departure --</option>
-                    {ferrySchedules
-                      .filter((fs) => !formBranchId || fs.branch_id === formBranchId)
-                      .map((fs) => (
-                        <option key={fs.id} value={fs.departure}>
-                          {fs.departure}
-                        </option>
-                      ))}
+                    {departureOptions.map((opt) => (
+                      <option key={opt.id} value={opt.departure}>
+                        {opt.departure}
+                        {opt.tag === "current" ? " ●" : ""}
+                      </option>
+                    ))}
                   </select>
-                  {formBranchId > 0 && isOffHoursForBranch(formBranchId) && (
+                  {formBranchId > 0 && isOffHours && (
                     <p className="text-xs text-amber-600 mt-1">Off-hours — departure locked to current time</p>
                   )}
                 </div>

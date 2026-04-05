@@ -297,7 +297,18 @@ ${qrHtml}`.trim();
 
 // ── Print ──
 
-export async function printReceipt(data: ReceiptData): Promise<void> {
+/**
+ * Print a receipt and return whether the print was initiated.
+ *
+ * - QZ Tray path: resolves `true` when the print job is spooled.
+ * - window.print() path: resolves `true` after the browser print dialog
+ *   closes (afterprint event).  Note: browsers cannot distinguish
+ *   "Print" from "Cancel" in the dialog — `true` means the dialog was
+ *   shown and dismissed, not that ink hit paper.
+ * - Returns `false` only when the print could not be initiated at all
+ *   (e.g. QZ Tray failed AND the DOM injection failed).
+ */
+export async function printReceipt(data: ReceiptData): Promise<boolean> {
   const [logoBase64, qrBase64] = await Promise.all([
     preloadLogo(),
     fetchQrBase64(data.ticketId),
@@ -316,12 +327,12 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
       qzConnected = true;
       const html = buildQzReceiptHtml(data, logoBase64, qrBase64);
       await qzPrint(printerName, html, widthMm);
-      return; // done — no dialog shown
+      return true; // print job spooled successfully
     } catch {
       // If QZ Tray connected, the print job likely went through even if
       // the promise rejected (e.g. WebSocket closed after spooling).
       // Only fall through to window.print() if connection itself failed.
-      if (qzConnected) return;
+      if (qzConnected) return true;
     }
   }
 
@@ -360,11 +371,18 @@ export async function printReceipt(data: ReceiptData): Promise<void> {
     container.remove();
   };
 
+  // Wait for the print dialog to close before resolving.
   // afterprint fires after the dialog is dismissed (or immediately if
-  // --kiosk-printing is active and the job was sent silently)
-  window.addEventListener("afterprint", cleanup, { once: true });
-  // Safety fallback in case afterprint never fires
-  setTimeout(cleanup, 15000);
+  // --kiosk-printing is active and the job was sent silently).
+  const printed = await new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => { cleanup(); resolve(true); }, 15000);
+    window.addEventListener("afterprint", () => {
+      clearTimeout(timeout);
+      cleanup();
+      resolve(true);
+    }, { once: true });
+    window.print();
+  });
 
-  window.print();
+  return printed;
 }
