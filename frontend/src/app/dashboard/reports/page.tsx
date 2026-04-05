@@ -309,27 +309,24 @@ export default function ReportsPage() {
 
   const activeReport = REPORT_TYPES[activeIndex];
 
-  // Fetch dropdown data once on mount
+  // Fetch dropdown data once on mount — each fetch is independent so one
+  // failure (e.g. role-restricted endpoint) doesn't block the others
   const fetchDropdowns = useCallback(async () => {
-    try {
-      const [branchResp, routeResp, pmResp, reportUsersResp, boatResp] = await Promise.all([
-        api.get<Branch[]>(
-          "/api/branches?limit=200&status=active&sort_by=name&sort_order=asc"
-        ),
-        api.get<Route[]>("/api/routes?limit=200&status=active"),
-        api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active"),
-        api.get<{ id: string; full_name: string }[]>("/api/reports/report-users"),
-        api.get<Boat[]>("/api/boats?limit=200&status=active"),
-      ]);
-      setBranches(branchResp.data);
-      setRoutes(routeResp.data);
-      setPaymentModes(pmResp.data);
-      // Map report-users to User-shaped objects for the dropdown
-      setUsers(reportUsersResp.data.map((u) => ({ ...u, id: u.id } as unknown as User)));
-      setBoats(boatResp.data);
-    } catch {
-      // non-critical
-    }
+    const results = await Promise.allSettled([
+      api.get<Branch[]>(
+        "/api/branches?limit=200&status=active&sort_by=name&sort_order=asc"
+      ),
+      api.get<Route[]>("/api/routes?limit=200&status=active"),
+      api.get<PaymentMode[]>("/api/payment-modes?limit=200&status=active"),
+      api.get<{ id: string; full_name: string }[]>("/api/reports/report-users"),
+      api.get<Boat[]>("/api/boats?limit=200&status=active"),
+    ]);
+    if (results[0].status === "fulfilled") setBranches(results[0].value.data);
+    if (results[1].status === "fulfilled") setRoutes(results[1].value.data);
+    if (results[2].status === "fulfilled") setPaymentModes(results[2].value.data);
+    if (results[3].status === "fulfilled")
+      setUsers(results[3].value.data.map((u) => ({ ...u, id: u.id } as unknown as User)));
+    if (results[4].status === "fulfilled") setBoats(results[4].value.data);
   }, []);
 
   useEffect(() => {

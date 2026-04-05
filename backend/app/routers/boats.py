@@ -9,7 +9,8 @@ from app.services import boat_service
 
 router = APIRouter(prefix="/api/boats", tags=["Boats"])
 
-# Ferry Management is accessible to SUPER_ADMIN, ADMIN, MANAGER
+# Ferry Management: read access includes BILLING_OPERATOR (needed for report filters)
+_ferry_read_roles = require_roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.BILLING_OPERATOR)
 _ferry_roles = require_roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER)
 
 
@@ -37,7 +38,7 @@ async def list_boats(
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
     db: AsyncSession = Depends(get_db),
-    _=Depends(_ferry_roles),
+    _=Depends(_ferry_read_roles),
 ):
     return await boat_service.get_all_boats(db, skip, limit, sort_by, sort_order, search, status, search_column, match_type, id_filter, id_op, id_filter_end)
 
@@ -46,7 +47,7 @@ async def list_boats(
     "/count",
     response_model=int,
     summary="Get total boat count",
-    description="Returns the total number of boats. Requires **Super Admin**, **Admin**, or **Manager** role.",
+    description="Returns the total number of boats. Requires **Super Admin**, **Admin**, **Manager**, or **Billing Operator** role.",
     responses={
         200: {"description": "Total count returned"},
         401: {"description": "Not authenticated"},
@@ -62,7 +63,7 @@ async def count_boats(
     id_filter_end: int | None = Query(None, ge=1, description="Range end for between operator"),
     status: str | None = Query(None, description="Filter by status: active, inactive, or all (default all)"),
     db: AsyncSession = Depends(get_db),
-    _=Depends(_ferry_roles),
+    _=Depends(_ferry_read_roles),
 ):
     return await boat_service.count_boats(db, search, status, search_column, match_type, id_filter, id_op, id_filter_end)
 
