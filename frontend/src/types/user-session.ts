@@ -7,6 +7,12 @@ export interface ActiveSession {
   ip_address: string | null;
   city: string | null;
   user_agent: string | null;
+  branch_id: number | null;
+  branch_name: string | null;
+  route_id: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  isp: string | null;
   full_name: string;
   username: string;
   role: string;
@@ -23,4 +29,9 @@ export interface SessionUser {
   full_name: string;
   username: string;
   role: string;
+}
+
+export interface SessionActivitySummary {
+  action_type: string;
+  count: number;
 }

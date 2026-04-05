@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +7,7 @@ from app.core.rbac import UserRole
 from app.database import get_db
 from app.dependencies import require_roles
 from app.models.daily_report_recipient import DailyReportRecipient
+from app.services.activity_log_service import log_activity, ActivityAction
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
 
@@ -50,6 +51,7 @@ async def list_recipients(
 )
 async def add_recipient(
     body: RecipientCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(_super_admin_only),
 ):
@@ -64,6 +66,11 @@ async def add_recipient(
     db.add(recipient)
     await db.flush()
     await db.refresh(recipient)
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.SETTINGS_CHANGE,
+        {"entity": "daily_report_recipient", "action": "add", "email": body.email},
+    )
     return recipient
 
 
@@ -74,6 +81,7 @@ async def add_recipient(
 )
 async def toggle_recipient(
     recipient_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(_super_admin_only),
 ):
@@ -86,6 +94,11 @@ async def toggle_recipient(
     recipient.is_active = not recipient.is_active
     await db.flush()
     await db.refresh(recipient)
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.SETTINGS_CHANGE,
+        {"entity": "daily_report_recipient", "action": "toggle", "id": recipient_id, "is_active": recipient.is_active},
+    )
     return recipient
 
 
@@ -96,6 +109,7 @@ async def toggle_recipient(
 )
 async def delete_recipient(
     recipient_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(_super_admin_only),
 ):
@@ -105,4 +119,10 @@ async def delete_recipient(
     recipient = result.scalar_one_or_none()
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
+    email = recipient.email
     await db.delete(recipient)
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.SETTINGS_CHANGE,
+        {"entity": "daily_report_recipient", "action": "delete", "id": recipient_id, "email": email},
+    )

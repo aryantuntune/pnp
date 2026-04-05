@@ -9,7 +9,7 @@ from app.database import get_db
 from app.dependencies import require_roles
 from app.core.rbac import UserRole
 from app.models.user import User
-from app.schemas.user_session import ActiveSessionRead, SessionHistoryRead
+from app.schemas.user_session import ActiveSessionRead, SessionHistoryRead, ActivitySummary
 from app.services import user_session_service
 
 router = APIRouter(prefix="/api/user-sessions", tags=["User Sessions"])
@@ -81,6 +81,20 @@ async def count_session_history(
     return await user_session_service.count_session_history(
         db, parsed_from, parsed_to, parsed_user_id,
     )
+
+
+@router.get(
+    "/{session_id}/activities",
+    response_model=list[ActivitySummary],
+    summary="Get activity breakdown for a session",
+    description="Returns action counts grouped by type for a specific session. SUPER_ADMIN only.",
+)
+async def get_session_activities(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(_super_admin_only),
+):
+    return await user_session_service.get_session_activity_summary(db, session_id)
 
 
 @router.get(

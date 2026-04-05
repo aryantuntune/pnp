@@ -9,6 +9,7 @@ import type {
   ActiveSession,
   SessionHistory,
   SessionUser,
+  SessionActivitySummary,
 } from "@/types/user-session";
 
 /* ───── helpers ───── */
@@ -72,12 +73,129 @@ function endReasonBadge(reason: string | null) {
     logout: { variant: "default", label: "Logout" },
     timeout: { variant: "secondary", label: "Timeout" },
     login_elsewhere: { variant: "destructive", label: "Kicked" },
+    idle_timeout: { variant: "secondary", label: "Idle Timeout" },
+    password_reset: { variant: "destructive", label: "Password Reset" },
   };
   const info = map[reason] || {
     variant: "secondary" as const,
     label: reason,
   };
   return <Badge variant={info.variant}>{info.label}</Badge>;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  TICKET_CREATE: "Tickets Created",
+  TICKET_BATCH: "Batch Tickets",
+  TICKET_VIEW: "Tickets Viewed",
+  TICKET_CANCEL: "Tickets Cancelled",
+  REPORT_VIEW: "Reports Viewed",
+  REPORT_PDF: "PDFs Downloaded",
+  SETTINGS_CHANGE: "Settings Changed",
+  BRANCH_SWITCH: "Branch Switches",
+};
+
+/* ───── Activity detail inline panel ───── */
+
+function ActivityDetail({ sessionId }: { sessionId: string }) {
+  const [data, setData] = useState<SessionActivitySummary[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get<SessionActivitySummary[]>(
+        `/api/user-sessions/${sessionId}/activities`
+      )
+      .then((r) => setData(r.data))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false));
+  }, [sessionId]);
+
+  if (loading)
+    return (
+      <span className="text-xs text-gray-400 italic">Loading...</span>
+    );
+  if (!data || data.length === 0)
+    return (
+      <span className="text-xs text-gray-400 italic">No activity logged</span>
+    );
+
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+      {data.map((a) => (
+        <span key={a.action_type} className="text-xs text-gray-600">
+          <span className="font-medium">{a.count}</span>{" "}
+          {ACTION_LABELS[a.action_type] || a.action_type}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ───── shared column builders ───── */
+
+function branchColumn<T extends ActiveSession>(): Column<T> {
+  return {
+    key: "branch_name" as string,
+    label: "Branch",
+    render: (s) =>
+      s.branch_name ? (
+        <span className="text-sm">{s.branch_name}</span>
+      ) : (
+        <span className="text-gray-300">{"\u2014"}</span>
+      ),
+  };
+}
+
+function ipCityColumn<T extends ActiveSession>(): Column<T> {
+  return {
+    key: "ip_address" as string,
+    label: "IP / City",
+    render: (s) => (
+      <div className="text-sm">
+        <div>{s.ip_address || "\u2014"}</div>
+        {s.city && <div className="text-xs text-gray-400">{s.city}</div>}
+        {s.isp && (
+          <div className="text-[10px] text-gray-300 truncate max-w-[180px]">
+            {s.isp}
+          </div>
+        )}
+      </div>
+    ),
+  };
+}
+
+function ticketsColumn<T extends ActiveSession>(
+  expandedId: string | null,
+  setExpandedId: (id: string | null) => void
+): Column<T> {
+  return {
+    key: "ticket_count" as string,
+    label: "Tickets / Activity",
+    render: (s) => {
+      const isExpanded = expandedId === s.session_id;
+      return (
+        <div>
+          <div className="flex items-center gap-2">
+            {s.ticket_count !== null && s.ticket_count !== undefined ? (
+              <span className="font-medium">{s.ticket_count}</span>
+            ) : (
+              <span className="text-gray-300">{"\u2014"}</span>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedId(isExpanded ? null : s.session_id);
+              }}
+              className="text-[11px] text-blue-500 hover:text-blue-700 hover:underline"
+            >
+              {isExpanded ? "hide" : "details"}
+            </button>
+          </div>
+          {isExpanded && <ActivityDetail sessionId={s.session_id} />}
+        </div>
+      );
+    },
+  };
 }
 
 /* ───── page ───── */
@@ -126,6 +244,7 @@ function LiveSessions() {
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -162,16 +281,8 @@ function LiveSessions() {
       label: "Role",
       render: (s) => roleBadge(s.role),
     },
-    {
-      key: "ip_address",
-      label: "IP / City",
-      render: (s) => (
-        <div className="text-sm">
-          <div>{s.ip_address || "\u2014"}</div>
-          {s.city && <div className="text-xs text-gray-400">{s.city}</div>}
-        </div>
-      ),
-    },
+    branchColumn<ActiveSession>(),
+    ipCityColumn<ActiveSession>(),
     {
       key: "started_at",
       label: "Login Time",
@@ -188,16 +299,7 @@ function LiveSessions() {
         </span>
       ),
     },
-    {
-      key: "ticket_count",
-      label: "Tickets",
-      render: (s) =>
-        s.ticket_count !== null && s.ticket_count !== undefined ? (
-          <span className="font-medium">{s.ticket_count}</span>
-        ) : (
-          <span className="text-gray-300">\u2014</span>
-        ),
-    },
+    ticketsColumn<ActiveSession>(expandedId, setExpandedId),
   ];
 
   return (
@@ -248,6 +350,7 @@ function HistoryTab() {
   const [dateTo, setDateTo] = useState("");
   const [userFilter, setUserFilter] = useState("");
   const [users, setUsers] = useState<SessionUser[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Load user list for filter dropdown
   useEffect(() => {
@@ -311,6 +414,7 @@ function HistoryTab() {
       label: "Role",
       render: (s) => roleBadge(s.role),
     },
+    branchColumn<SessionHistory>(),
     {
       key: "started_at",
       label: "Login",
@@ -339,26 +443,8 @@ function HistoryTab() {
       label: "End Reason",
       render: (s) => endReasonBadge(s.end_reason),
     },
-    {
-      key: "ip_address",
-      label: "IP / City",
-      render: (s) => (
-        <div className="text-sm">
-          <div>{s.ip_address || "\u2014"}</div>
-          {s.city && <div className="text-xs text-gray-400">{s.city}</div>}
-        </div>
-      ),
-    },
-    {
-      key: "ticket_count",
-      label: "Tickets",
-      render: (s) =>
-        s.ticket_count !== null && s.ticket_count !== undefined ? (
-          <span className="font-medium">{s.ticket_count}</span>
-        ) : (
-          <span className="text-gray-300">\u2014</span>
-        ),
-    },
+    ipCityColumn<SessionHistory>(),
+    ticketsColumn<SessionHistory>(expandedId, setExpandedId),
   ];
 
   return (

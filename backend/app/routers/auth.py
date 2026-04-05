@@ -100,6 +100,8 @@ async def mobile_login(
         db, user.id, sid,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
+        branch_id=user.active_branch_id,
+        route_id=user.route_id,
     )
 
     extra = {"role": user.role.value, "sid": sid}
@@ -200,8 +202,24 @@ async def select_branch(
                 detail="Branch does not belong to your assigned route.",
             )
 
+    old_branch_id = current_user.active_branch_id
     current_user.active_branch_id = branch_id
+
+    # Update session tracking
+    from app.services.user_session_service import update_session_branch
+    if current_user.active_session_id:
+        await update_session_branch(db, current_user.active_session_id, branch_id)
+
     await db.commit()
+
+    # Log activity (fire-and-forget)
+    from app.services.activity_log_service import log_activity, ActivityAction
+    await log_activity(
+        current_user.active_session_id, current_user.id,
+        ActivityAction.BRANCH_SWITCH,
+        {"from_branch_id": old_branch_id, "to_branch_id": branch_id},
+    )
+
     return {"message": "Branch set successfully", "active_branch_id": branch_id}
 
 

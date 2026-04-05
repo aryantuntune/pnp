@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +30,19 @@ class UserSession(Base):
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Branch/route context — set at login, branch_id updated on switch
+    branch_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("branches.id"), nullable=True
+    )
+    route_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("routes.id"), nullable=True
+    )
+
+    # Enhanced geolocation from ip-api.com
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    isp: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     def __repr__(self) -> str:
         return f"<UserSession id={self.id} user_id={self.user_id} session_id={self.session_id}>"

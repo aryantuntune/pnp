@@ -6,9 +6,11 @@ from sqlalchemy import select, func, update as sa_update, case
 
 from app.models.user_session import UserSession
 from app.models.user import User
+from app.models.branch import Branch
 from app.models.ticket import Ticket
+from app.models.user_activity_log import UserActivityLog
 from app.core.rbac import UserRole
-from app.services.geo_service import resolve_city
+from app.services.geo_service import resolve_geo
 
 STALE_TIMEOUT = timedelta(minutes=5)
 
@@ -19,9 +21,11 @@ async def start_session(
     session_id: str,
     ip_address: str | None = None,
     user_agent: str | None = None,
+    branch_id: int | None = None,
+    route_id: int | None = None,
 ) -> UserSession:
-    """Create a new session row. City is resolved async from IP."""
-    city = await resolve_city(ip_address)
+    """Create a new session row. Geo data resolved async from IP."""
+    geo = await resolve_geo(ip_address)
     now = datetime.now(timezone.utc)
     session = UserSession(
         user_id=user_id,
@@ -29,8 +33,13 @@ async def start_session(
         started_at=now,
         last_heartbeat=now,
         ip_address=ip_address,
-        city=city,
+        city=geo.get("city_display"),
         user_agent=user_agent[:255] if user_agent and len(user_agent) > 255 else user_agent,
+        branch_id=branch_id,
+        route_id=route_id,
+        latitude=geo.get("latitude"),
+        longitude=geo.get("longitude"),
+        isp=geo.get("isp"),
     )
     db.add(session)
     return session
@@ -63,6 +72,18 @@ async def update_heartbeat(db: AsyncSession, session_id: str) -> None:
             UserSession.ended_at.is_(None),
         )
         .values(last_heartbeat=now)
+    )
+
+
+async def update_session_branch(db: AsyncSession, session_id: str, branch_id: int) -> None:
+    """Update branch_id on the active session when user switches branch."""
+    await db.execute(
+        sa_update(UserSession)
+        .where(
+            UserSession.session_id == session_id,
+            UserSession.ended_at.is_(None),
+        )
+        .values(branch_id=branch_id)
     )
 
 
@@ -113,49 +134,80 @@ def _ticket_count_subquery(user_id_col, started_at_col, ended_at_col, role_col):
     )
 
 
-async def get_active_sessions(db: AsyncSession) -> list[dict]:
-    """Return all active sessions with user info and ticket counts."""
+def _build_session_query(*, include_ended: bool = False):
+    """Build the base SELECT for session queries with user info, branch, and ticket counts."""
     ticket_count = _ticket_count_subquery(
         User.id, UserSession.started_at, UserSession.ended_at, User.role
     )
+    cols = [
+        UserSession.id,
+        UserSession.user_id,
+        UserSession.session_id,
+        UserSession.started_at,
+        UserSession.last_heartbeat,
+        UserSession.ip_address,
+        UserSession.city,
+        UserSession.user_agent,
+        UserSession.branch_id,
+        UserSession.route_id,
+        UserSession.latitude,
+        UserSession.longitude,
+        UserSession.isp,
+        User.full_name,
+        User.username,
+        User.role,
+        Branch.name.label("branch_name"),
+        ticket_count.label("ticket_count"),
+    ]
+    if include_ended:
+        cols.insert(5, UserSession.ended_at)
+        cols.insert(6, UserSession.end_reason)
+
     query = (
-        select(
-            UserSession.id,
-            UserSession.user_id,
-            UserSession.session_id,
-            UserSession.started_at,
-            UserSession.last_heartbeat,
-            UserSession.ip_address,
-            UserSession.city,
-            UserSession.user_agent,
-            User.full_name,
-            User.username,
-            User.role,
-            ticket_count.label("ticket_count"),
-        )
+        select(*cols)
         .join(User, User.id == UserSession.user_id)
+        .outerjoin(Branch, Branch.id == UserSession.branch_id)
+    )
+    return query
+
+
+def _row_to_dict(row, *, include_ended: bool = False) -> dict:
+    """Convert a query row to a dict for API response."""
+    d = {
+        "id": row.id,
+        "user_id": str(row.user_id),
+        "session_id": row.session_id,
+        "started_at": row.started_at.isoformat() if row.started_at else None,
+        "last_heartbeat": row.last_heartbeat.isoformat() if row.last_heartbeat else None,
+        "ip_address": row.ip_address,
+        "city": row.city,
+        "user_agent": row.user_agent,
+        "branch_id": row.branch_id,
+        "branch_name": row.branch_name,
+        "route_id": row.route_id,
+        "latitude": float(row.latitude) if row.latitude is not None else None,
+        "longitude": float(row.longitude) if row.longitude is not None else None,
+        "isp": row.isp,
+        "full_name": row.full_name,
+        "username": row.username,
+        "role": row.role.value if hasattr(row.role, "value") else row.role,
+        "ticket_count": row.ticket_count,
+    }
+    if include_ended:
+        d["ended_at"] = row.ended_at.isoformat() if row.ended_at else None
+        d["end_reason"] = row.end_reason
+    return d
+
+
+async def get_active_sessions(db: AsyncSession) -> list[dict]:
+    """Return all active sessions with user info, branch, and ticket counts."""
+    query = (
+        _build_session_query(include_ended=False)
         .where(UserSession.ended_at.is_(None))
         .order_by(UserSession.started_at.desc())
     )
     result = await db.execute(query)
-    rows = result.all()
-    return [
-        {
-            "id": row.id,
-            "user_id": str(row.user_id),
-            "session_id": row.session_id,
-            "started_at": row.started_at.isoformat() if row.started_at else None,
-            "last_heartbeat": row.last_heartbeat.isoformat() if row.last_heartbeat else None,
-            "ip_address": row.ip_address,
-            "city": row.city,
-            "user_agent": row.user_agent,
-            "full_name": row.full_name,
-            "username": row.username,
-            "role": row.role.value if hasattr(row.role, "value") else row.role,
-            "ticket_count": row.ticket_count,
-        }
-        for row in rows
-    ]
+    return [_row_to_dict(row) for row in result.all()]
 
 
 async def get_session_history(
@@ -166,29 +218,8 @@ async def get_session_history(
     skip: int = 0,
     limit: int = 20,
 ) -> list[dict]:
-    """Return paginated session history with user info and ticket counts."""
-    ticket_count = _ticket_count_subquery(
-        User.id, UserSession.started_at, UserSession.ended_at, User.role
-    )
-    query = (
-        select(
-            UserSession.id,
-            UserSession.user_id,
-            UserSession.session_id,
-            UserSession.started_at,
-            UserSession.ended_at,
-            UserSession.last_heartbeat,
-            UserSession.end_reason,
-            UserSession.ip_address,
-            UserSession.city,
-            UserSession.user_agent,
-            User.full_name,
-            User.username,
-            User.role,
-            ticket_count.label("ticket_count"),
-        )
-        .join(User, User.id == UserSession.user_id)
-    )
+    """Return paginated session history with user info, branch, and ticket counts."""
+    query = _build_session_query(include_ended=True)
     if date_from:
         query = query.where(UserSession.started_at >= date_from)
     if date_to:
@@ -198,26 +229,7 @@ async def get_session_history(
 
     query = query.order_by(UserSession.started_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    rows = result.all()
-    return [
-        {
-            "id": row.id,
-            "user_id": str(row.user_id),
-            "session_id": row.session_id,
-            "started_at": row.started_at.isoformat() if row.started_at else None,
-            "ended_at": row.ended_at.isoformat() if row.ended_at else None,
-            "last_heartbeat": row.last_heartbeat.isoformat() if row.last_heartbeat else None,
-            "end_reason": row.end_reason,
-            "ip_address": row.ip_address,
-            "city": row.city,
-            "user_agent": row.user_agent,
-            "full_name": row.full_name,
-            "username": row.username,
-            "role": row.role.value if hasattr(row.role, "value") else row.role,
-            "ticket_count": row.ticket_count,
-        }
-        for row in rows
-    ]
+    return [_row_to_dict(row, include_ended=True) for row in result.all()]
 
 
 async def count_session_history(
@@ -236,3 +248,17 @@ async def count_session_history(
         query = query.where(UserSession.user_id == user_id_filter)
     result = await db.execute(query)
     return result.scalar() or 0
+
+
+async def get_session_activity_summary(db: AsyncSession, session_id: str) -> list[dict]:
+    """Return activity counts grouped by action_type for a session."""
+    result = await db.execute(
+        select(
+            UserActivityLog.action_type,
+            func.count().label("count"),
+        )
+        .where(UserActivityLog.session_id == session_id)
+        .group_by(UserActivityLog.action_type)
+        .order_by(UserActivityLog.action_type)
+    )
+    return [{"action_type": row.action_type, "count": row.count} for row in result.all()]

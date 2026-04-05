@@ -2,6 +2,90 @@
 
 ---
 
+## Deployment Update — 2026-04-05 (User activity tracking + branch/route in sessions + better geo)
+
+### Module
+
+Backend — User Sessions, Activity Logging, Geo Service, All Routers; Frontend — User Sessions Page
+
+### Changes
+
+**Feature 1 — User Activity Tracking**
+
+New `user_activity_logs` table records individual user actions (TICKET_CREATE, TICKET_BATCH, TICKET_VIEW, TICKET_CANCEL, REPORT_VIEW, REPORT_PDF, SETTINGS_CHANGE, BRANCH_SWITCH) with JSONB metadata. Logging uses fire-and-forget `BackgroundTasks` — zero impact on endpoint response times.
+
+Instrumented endpoints:
+- **Tickets**: create (single + batch), view, cancel (4 endpoints)
+- **Reports**: all 12 JSON data endpoints + all 9 PDF download endpoints (21 endpoints)
+- **Settings**: add/toggle/delete daily report recipients (3 endpoints)
+- **Auth**: branch switch (1 endpoint)
+
+New API endpoint: `GET /api/user-sessions/{session_id}/activities` returns activity counts grouped by action type for any session.
+
+Frontend: "Tickets" column renamed to "Tickets / Activity" with a clickable "details" link that expands inline to show the full activity breakdown per session.
+
+**Feature 2 — Branch & Route in Session Table**
+
+Added `branch_id` (FK branches) and `route_id` (FK routes) columns to `user_sessions`. Populated at login from the user's `active_branch_id` and `route_id`. When a billing operator switches branch mid-session, `user_sessions.branch_id` is updated.
+
+New "Branch" column in both Live Sessions and Session History tables. Shows the branch name the operator was working from during that session.
+
+**Feature 3 — Enhanced IP Geolocation**
+
+`geo_service.resolve_city()` replaced with `resolve_geo()` that returns a richer dict: `{city_display, latitude, longitude, isp}`. Same ip-api.com free API, just requesting additional fields (`lat`, `lon`, `isp`).
+
+New columns on `user_sessions`: `latitude` (NUMERIC 10,7), `longitude` (NUMERIC 10,7), `isp` (VARCHAR 150). ISP shown as small text under the IP/City cell in the frontend.
+
+### Files Changed
+
+**New files:**
+* `backend/app/models/user_activity_log.py` *(activity log model)*
+* `backend/app/services/activity_log_service.py` *(log_activity + ActivityAction constants)*
+* `backend/alembic/versions/a1b2c3d4e5f7_add_activity_tracking.py` *(migration)*
+
+**Modified backend:**
+* `backend/app/models/user_session.py` *(+5 columns: branch_id, route_id, latitude, longitude, isp)*
+* `backend/app/models/__init__.py` *(registered UserActivityLog)*
+* `backend/app/services/geo_service.py` *(resolve_geo returning dict with lat/lon/isp)*
+* `backend/app/services/user_session_service.py` *(branch/route params, Branch join, activity summary query)*
+* `backend/app/services/auth_service.py` *(pass branch_id/route_id to start_session)*
+* `backend/app/routers/auth.py` *(branch switch: update session + log activity)*
+* `backend/app/routers/tickets.py` *(+4 activity log calls)*
+* `backend/app/routers/reports.py` *(+21 activity log calls via _log_report helper)*
+* `backend/app/routers/settings.py` *(+3 activity log calls)*
+* `backend/app/routers/user_sessions.py` *(+activities endpoint)*
+* `backend/app/schemas/user_session.py` *(+branch/route/geo fields + ActivitySummary)*
+
+**Modified frontend:**
+* `frontend/src/types/user-session.ts` *(+branch/route/geo fields + SessionActivitySummary)*
+* `frontend/src/app/dashboard/user-sessions/page.tsx` *(Branch column, ISP display, activity detail panel)*
+
+### Database Migrations
+
+* `a1b2c3d4e5f7` — Adds 5 columns to `user_sessions` + creates `user_activity_logs` table with indexes
+
+### Deployment Steps (VPS)
+
+```bash
+# 1. Rebuild and restart
+docker compose up --build -d
+
+# 2. Run migration
+docker exec -it ssmspl-backend alembic upgrade head
+```
+
+### Important Notes
+
+* Existing sessions will have NULL `branch_id`, `route_id`, lat/lon/isp until users log in again. This is expected — historical sessions show "—" for these fields.
+* Activity logging only starts after deployment — no retroactive data for past sessions.
+* The `user_activity_logs` table grows with usage. At ~200 bytes/row and ~500 actions/day across all operators, that's ~36 MB/year. No partitioning needed yet.
+* To verify activity logging is working after deploy:
+  ```sql
+  SELECT action_type, count(*) FROM user_activity_logs GROUP BY action_type;
+  ```
+
+---
+
 ## Deployment Update — 2026-04-03 (Daily report: fix duplicate emails + PDF attachment)
 
 ### Module

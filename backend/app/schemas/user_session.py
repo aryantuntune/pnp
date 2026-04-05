@@ -10,6 +10,12 @@ class ActiveSessionRead(BaseModel):
     ip_address: str | None = Field(None, description="Client IP address")
     city: str | None = Field(None, description="City resolved from IP")
     user_agent: str | None = Field(None, description="Browser user-agent string")
+    branch_id: int | None = Field(None, description="Branch ID during this session")
+    branch_name: str | None = Field(None, description="Branch name during this session")
+    route_id: int | None = Field(None, description="Route ID assigned to user")
+    latitude: float | None = Field(None, description="IP geolocation latitude")
+    longitude: float | None = Field(None, description="IP geolocation longitude")
+    isp: str | None = Field(None, description="Internet service provider")
     full_name: str = Field(..., description="User full name")
     username: str = Field(..., description="Username")
     role: str = Field(..., description="User role")
@@ -19,3 +25,8 @@ class ActiveSessionRead(BaseModel):
 class SessionHistoryRead(ActiveSessionRead):
     ended_at: str | None = Field(None, description="Session end ISO timestamp")
     end_reason: str | None = Field(None, description="How session ended: logout, timeout, login_elsewhere")
+
+
+class ActivitySummary(BaseModel):
+    action_type: str = Field(..., description="Activity action type")
+    count: int = Field(..., description="Number of times this action occurred")

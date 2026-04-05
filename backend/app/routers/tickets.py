@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,9 +14,10 @@ from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.ticket import (
     TicketCreate, TicketRead, TicketUpdate, RateLookupResponse,
-    MultiTicketCreate, MultiTicketInitResponse,
+    MultiTicketCreate, MultiTicketInitResponse, TicketingStatusResponse,
 )
 from app.services import ticket_service
+from app.services.activity_log_service import log_activity, ActivityAction
 from app.services.qr_service import generate_qr_png
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
@@ -157,9 +158,9 @@ async def rate_lookup(
 @router.get(
     "/departure-options",
     summary="Get departure times for a branch",
-    description="Returns ferry schedules for the given branch with departure >= current time.",
+    description="Returns previous, current, and next ferry departure for the given branch relative to server time.",
     responses={
-        200: {"description": "List of departure options"},
+        200: {"description": "Departure options with recommended selection"},
     },
 )
 async def departure_options(
@@ -172,6 +173,35 @@ async def departure_options(
         if branch_id not in (b1, b2):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Branch not in your assigned route")
     return await ticket_service.get_departure_options(db, branch_id)
+
+
+@router.get(
+    "/ticketing-status",
+    response_model=TicketingStatusResponse,
+    summary="Get ticketing screen lock status for a branch",
+    description="Returns whether normal and multi-ticketing screens are open or locked based on ferry schedule times. SUPER_ADMIN and ADMIN always get both open.",
+)
+async def ticketing_status(
+    branch_id: int = Query(..., description="Branch ID to check status for"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_ticket_roles),
+):
+    # SUPER_ADMIN / ADMIN bypass all locks
+    if current_user.role in (UserRole.SUPER_ADMIN, UserRole.ADMIN):
+        import datetime
+        from app.services.ticket_service import IST
+        now = datetime.datetime.now(IST).time()
+        return {
+            "normal_ticketing_open": True,
+            "multi_ticketing_open": True,
+            "first_ferry_time": None,
+            "last_ferry_time": None,
+            "normal_opens_at": None,
+            "normal_closes_at": None,
+            "multi_opens_at": None,
+            "current_time": now.strftime("%H:%M:%S"),
+        }
+    return await ticket_service.get_ticketing_status(db, branch_id)
 
 
 @router.get(
@@ -188,10 +218,11 @@ async def departure_options(
 )
 async def multi_ticket_init(
     branch_id: int | None = Query(None, description="Operating branch ID. Defaults to route's branch_id_one."),
+    route_id: int | None = Query(None, description="Route ID (for admins without assigned route)."),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
-    return await ticket_service.get_multi_ticket_init(db, current_user, branch_id)
+    return await ticket_service.get_multi_ticket_init(db, current_user, branch_id, route_id=route_id)
 
 
 @router.post(
@@ -210,11 +241,23 @@ async def multi_ticket_init(
 )
 async def create_multi_tickets(
     body: MultiTicketCreate,
+    background_tasks: BackgroundTasks,
     branch_id: int | None = Query(None, description="Operating branch ID. Defaults to route's branch_id_one."),
+    route_id: int | None = Query(None, description="Route ID (for admins without assigned route)."),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
-    return await ticket_service.create_multi_tickets(db, body, current_user, branch_id)
+    skip_time_check = current_user.role in (UserRole.SUPER_ADMIN, UserRole.ADMIN)
+    result = await ticket_service.create_multi_tickets(
+        db, body, current_user, branch_id,
+        route_id=route_id, skip_time_check=skip_time_check,
+    )
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.TICKET_BATCH,
+        {"ticket_count": len(result), "branch_id": result[0]["branch_id"] if result else None},
+    )
+    return result
 
 
 @router.post(
@@ -233,6 +276,7 @@ async def create_multi_tickets(
 )
 async def create_ticket(
     body: TicketCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
@@ -252,7 +296,16 @@ async def create_ticket(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Branch does not belong to your assigned route.",
             )
-    return await ticket_service.create_ticket(db, body, user_id=current_user.id)
+    # Time-lock: non-admin roles can only create normal tickets during normal-ticketing hours
+    if current_user.role not in (UserRole.SUPER_ADMIN, UserRole.ADMIN):
+        await ticket_service._validate_normal_hours(db, body.branch_id)
+    result = await ticket_service.create_ticket(db, body, user_id=current_user.id)
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.TICKET_CREATE,
+        {"ticket_id": str(result["id"]), "ticket_no": result["ticket_no"], "branch_id": result["branch_id"]},
+    )
+    return result
 
 
 @router.get(
@@ -299,6 +352,7 @@ async def get_ticket_qr(
 )
 async def get_ticket(
     ticket_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
@@ -308,6 +362,11 @@ async def get_ticket(
     if needs_route_scope(current_user) and current_user.route_id:
         if ticket_data.get("route_id") != current_user.route_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ticket not in your assigned route")
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.TICKET_VIEW,
+        {"ticket_id": str(ticket_id)},
+    )
     return ticket_data
 
 
@@ -327,6 +386,7 @@ async def get_ticket(
 async def update_ticket(
     ticket_id: int,
     body: TicketUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
@@ -336,4 +396,11 @@ async def update_ticket(
     if needs_route_scope(current_user) and current_user.route_id:
         if existing.get("route_id") != current_user.route_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ticket not in your assigned route")
-    return await ticket_service.update_ticket(db, ticket_id, body)
+    result = await ticket_service.update_ticket(db, ticket_id, body)
+    if body.is_cancelled:
+        background_tasks.add_task(
+            log_activity, current_user.active_session_id, current_user.id,
+            ActivityAction.TICKET_CANCEL,
+            {"ticket_id": str(ticket_id)},
+        )
+    return result

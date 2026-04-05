@@ -74,7 +74,11 @@ async def login(
     user.last_login = datetime.now(timezone.utc)
 
     # Track session in user_sessions table
-    await user_session_service.start_session(db, user.id, sid, ip_address, user_agent)
+    await user_session_service.start_session(
+        db, user.id, sid, ip_address, user_agent,
+        branch_id=user.active_branch_id,
+        route_id=user.route_id,
+    )
 
     extra = {"role": user.role.value, "sid": sid}
     access_token = create_access_token(subject=str(user.id), extra_claims=extra)
