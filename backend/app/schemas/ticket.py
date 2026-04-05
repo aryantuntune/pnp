@@ -41,7 +41,7 @@ class TicketItemRead(BaseModel):
     vehicle_no: str | None = Field(None, description="Vehicle number")
     vehicle_name: str | None = Field(None, description="Vehicle name")
     is_cancelled: bool = Field(..., description="Whether this item is cancelled")
-    amount: float = Field(..., description="Computed: rate * (quantity + levy)")
+    amount: float = Field(..., description="Computed: quantity * (rate + levy)")
     item_name: str | None = Field(None, description="Item name for display")
 
     model_config = {"from_attributes": True}
@@ -171,3 +171,16 @@ class MultiTicketInitResponse(BaseModel):
 
 class MultiTicketCreate(BaseModel):
     tickets: list[TicketCreate] = Field(..., min_length=1, description="Array of tickets to create atomically")
+
+
+# ── Ticketing status (time-lock) ──
+
+class TicketingStatusResponse(BaseModel):
+    normal_ticketing_open: bool = Field(..., description="Whether normal ticketing is currently available")
+    multi_ticketing_open: bool = Field(..., description="Whether multi-ticketing is currently available")
+    first_ferry_time: str | None = Field(None, description="HH:MM of earliest ferry for this branch")
+    last_ferry_time: str | None = Field(None, description="HH:MM of latest ferry for this branch")
+    normal_opens_at: str | None = Field(None, description="HH:MM when normal ticketing opens (first_ferry - 45min)")
+    normal_closes_at: str | None = Field(None, description="HH:MM when normal ticketing closes (last_ferry + 30min)")
+    multi_opens_at: str | None = Field(None, description="HH:MM — hint for lock screen: when multi-ticketing next opens")
+    current_time: str = Field(..., description="Current server time HH:MM:SS in IST")

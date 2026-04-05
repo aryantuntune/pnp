@@ -300,19 +300,22 @@ async def get_departure_options(db: AsyncSession, branch_id: int) -> list[dict]:
     ]
 
 
-async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = None) -> dict:
+async def get_multi_ticket_init(
+    db: AsyncSession, user, branch_id: int | None = None, route_id: int | None = None,
+) -> dict:
     """Return all data needed to populate the multi-ticket form."""
-    if not user.route_id:
+    effective_route_id = route_id or user.route_id
+    if not effective_route_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User has no assigned route. Cannot use multi-ticketing.",
+            detail="No route specified. Please select a route.",
         )
 
     # Get route info
-    route_result = await db.execute(select(Route).where(Route.id == user.route_id))
+    route_result = await db.execute(select(Route).where(Route.id == effective_route_id))
     route = route_result.scalar_one_or_none()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assigned route not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
 
     route_name = await _get_route_display_name(db, route.id)
 
@@ -321,27 +324,21 @@ async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = 
         if branch_id not in (route.branch_id_one, route.branch_id_two):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Branch {branch_id} does not belong to the user's route",
+                detail=f"Branch {branch_id} does not belong to route {effective_route_id}",
             )
     else:
         branch_id = route.branch_id_one
     branch_name = await _get_branch_name(db, branch_id)
 
     # Get ferry time window for this branch
-    first_result = await db.execute(
-        select(func.min(FerrySchedule.departure)).where(FerrySchedule.branch_id == branch_id)
-    )
-    first_ferry = first_result.scalar_one_or_none()
+    first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
 
-    last_result = await db.execute(
-        select(func.max(FerrySchedule.departure)).where(FerrySchedule.branch_id == branch_id)
-    )
-    last_ferry = last_result.scalar_one_or_none()
-
-    # Determine if off-hours
+    # Determine if off-hours (multi-ticketing allowed)
+    # Multi-ticketing is open when: now < first_ferry OR now >= last_ferry + 30 min
     now = datetime.datetime.now(IST).time()
     if first_ferry and last_ferry:
-        is_off_hours = now < first_ferry or now > last_ferry
+        normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
+        is_off_hours = now < first_ferry or now >= normal_closes_at
     else:
         # No ferry schedules — always off-hours
         is_off_hours = True
@@ -356,7 +353,7 @@ async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = 
             ItemRate.rate,
             ItemRate.levy,
         )
-        .join(ItemRate, (ItemRate.item_id == Item.id) & (ItemRate.route_id == user.route_id) & (ItemRate.is_active == True))
+        .join(ItemRate, (ItemRate.item_id == Item.id) & (ItemRate.route_id == effective_route_id) & (ItemRate.is_active == True))
         .where(Item.is_active == True)
         .order_by(Item.id)
     )
@@ -398,7 +395,7 @@ async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = 
                 select(ItemRate)
                 .where(
                     ItemRate.item_id == sf_item_id,
-                    ItemRate.route_id == user.route_id,
+                    ItemRate.route_id == effective_route_id,
                     ItemRate.is_active == True,
                 )
                 .limit(1)
@@ -424,8 +421,26 @@ async def get_multi_ticket_init(db: AsyncSession, user, branch_id: int | None = 
     }
 
 
-async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
-    """Raise 400 if current time is within ferry schedule hours."""
+NORMAL_TICKET_BUFFER_BEFORE = datetime.timedelta(minutes=45)
+MULTI_TICKET_BUFFER_AFTER = datetime.timedelta(minutes=30)
+
+
+def _time_add(t: datetime.time, delta: datetime.timedelta) -> datetime.time:
+    """Add a timedelta to a time, clamping at 23:59:59."""
+    dt = datetime.datetime.combine(datetime.date.today(), t) + delta
+    return dt.time()
+
+
+def _time_sub(t: datetime.time, delta: datetime.timedelta) -> datetime.time:
+    """Subtract a timedelta from a time, clamping at 00:00:00."""
+    dt = datetime.datetime.combine(datetime.date.today(), t) - delta
+    if dt.date() < datetime.date.today():
+        return datetime.time(0, 0, 0)
+    return dt.time()
+
+
+async def _get_ferry_window(db: AsyncSession, branch_id: int):
+    """Return (first_ferry, last_ferry) times for a branch, or (None, None)."""
     first_result = await db.execute(
         select(func.min(FerrySchedule.departure)).where(FerrySchedule.branch_id == branch_id)
     )
@@ -436,40 +451,135 @@ async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
     )
     last_ferry = last_result.scalar_one_or_none()
 
+    return first_ferry, last_ferry
+
+
+async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
+    """Compute which ticketing screens are open/locked for a branch right now.
+
+    Time windows:
+      - Before (first_ferry - 45min):       MULTI only
+      - (first_ferry - 45min) → first_ferry: BOTH open (overlap)
+      - first_ferry → (last_ferry + 30min):  NORMAL only
+      - After (last_ferry + 30min):          MULTI only
+
+    No ferry schedules → both open.
+    """
+    first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
+    now = datetime.datetime.now(IST).time()
+
+    if not first_ferry or not last_ferry:
+        return {
+            "normal_ticketing_open": True,
+            "multi_ticketing_open": True,
+            "first_ferry_time": None,
+            "last_ferry_time": None,
+            "normal_opens_at": None,
+            "normal_closes_at": None,
+            "multi_opens_at": None,
+            "current_time": now.strftime("%H:%M:%S"),
+        }
+
+    normal_opens_at = _time_sub(first_ferry, NORMAL_TICKET_BUFFER_BEFORE)
+    normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
+
+    normal_open = normal_opens_at <= now < normal_closes_at
+    multi_open = now < first_ferry or now >= normal_closes_at
+
+    # Hint for lock screen: when will multi-ticketing next open?
+    if multi_open:
+        multi_opens_at_hint = None
+    else:
+        multi_opens_at_hint = _format_time(normal_closes_at)
+
+    return {
+        "normal_ticketing_open": normal_open,
+        "multi_ticketing_open": multi_open,
+        "first_ferry_time": _format_time(first_ferry),
+        "last_ferry_time": _format_time(last_ferry),
+        "normal_opens_at": _format_time(normal_opens_at),
+        "normal_closes_at": _format_time(normal_closes_at),
+        "multi_opens_at": multi_opens_at_hint,
+        "current_time": now.strftime("%H:%M:%S"),
+    }
+
+
+async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
+    """Raise 400 if current time is within the normal-ticketing-only window.
+
+    Multi-ticketing is blocked from first_ferry until last_ferry + 30 min buffer.
+    """
+    first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
+
     if first_ferry and last_ferry:
         now = datetime.datetime.now(IST).time()
-        if first_ferry <= now <= last_ferry:
+        normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
+        if first_ferry <= now < normal_closes_at:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Multi-ticketing is only available outside ferry hours ({_format_time(first_ferry)} - {_format_time(last_ferry)}). Current time: {_format_time(now)}",
+                detail=(
+                    f"Multi-ticketing is only available outside ferry hours. "
+                    f"Ferry schedule: {_format_time(first_ferry)} - {_format_time(last_ferry)} "
+                    f"(+30 min buffer until {_format_time(normal_closes_at)}). "
+                    f"Current time: {_format_time(now)}"
+                ),
             )
 
 
-async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | None = None) -> list[dict]:
+async def _validate_normal_hours(db: AsyncSession, branch_id: int) -> None:
+    """Raise 400 if current time is outside the normal-ticketing window.
+
+    Normal ticketing is open from (first_ferry - 45 min) to (last_ferry + 30 min).
+    """
+    first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
+
+    if first_ferry and last_ferry:
+        now = datetime.datetime.now(IST).time()
+        normal_opens_at = _time_sub(first_ferry, NORMAL_TICKET_BUFFER_BEFORE)
+        normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
+        if now < normal_opens_at or now >= normal_closes_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Normal ticketing is only available during ferry hours. "
+                    f"Open from {_format_time(normal_opens_at)} to {_format_time(normal_closes_at)}. "
+                    f"Current time: {_format_time(now)}"
+                ),
+            )
+
+
+async def create_multi_tickets(
+    db: AsyncSession, data, user,
+    branch_id: int | None = None,
+    route_id: int | None = None,
+    skip_time_check: bool = False,
+) -> list[dict]:
     """Create multiple tickets in a single transaction."""
-    if not user.route_id:
+    effective_route_id = route_id or user.route_id
+    if not effective_route_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User has no assigned route.",
+            detail="No route specified. Please select a route.",
         )
 
     # Determine branch from user's route
-    route_result = await db.execute(select(Route).where(Route.id == user.route_id))
+    route_result = await db.execute(select(Route).where(Route.id == effective_route_id))
     route = route_result.scalar_one_or_none()
     if not route:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assigned route not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
 
     if branch_id is not None:
         if branch_id not in (route.branch_id_one, route.branch_id_two):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Branch {branch_id} does not belong to the user's route",
+                detail=f"Branch {branch_id} does not belong to route {effective_route_id}",
             )
     else:
         branch_id = route.branch_id_one
 
-    # Validate off-hours
-    await _validate_off_hours(db, branch_id)
+    # Validate off-hours (skipped for admin roles)
+    if not skip_time_check:
+        await _validate_off_hours(db, branch_id)
 
     # Check if SF (Special Ferry) item is configured — its rate is split across tickets
     sf_item_id = None
@@ -484,7 +594,7 @@ async def create_multi_tickets(db: AsyncSession, data, user, branch_id: int | No
             select(ItemRate.rate, ItemRate.levy)
             .where(
                 ItemRate.item_id == sf_item_id,
-                ItemRate.route_id == user.route_id,
+                ItemRate.route_id == effective_route_id,
                 ItemRate.is_active == True,
             )
             .limit(1)
@@ -775,6 +885,8 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
     if update_data.get("is_cancelled") is True:
         ticket.is_cancelled = True
         ticket.status = "CANCELLED"
+        ticket.amount = 0
+        ticket.net_amount = 0
         items_result = await db.execute(
             select(TicketItem).where(TicketItem.ticket_id == ticket_id)
         )

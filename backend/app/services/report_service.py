@@ -240,7 +240,7 @@ async def get_item_breakdown_report(
     branch_id: int | None = None,
     route_id: int | None = None,
 ) -> dict:
-    # Ticket items
+    # Ticket items — filter both cancelled tickets AND cancelled items
     tq = (
         select(
             TicketItem.item_id,
@@ -256,13 +256,14 @@ async def get_item_breakdown_report(
             ), 0).label("revenue"),
         )
         .join(Ticket, Ticket.id == TicketItem.ticket_id)
+        .where(Ticket.is_cancelled == False)
         .group_by(TicketItem.item_id)
     )
     tq = _apply_ticket_filters(tq, date_from, date_to, branch_id, route_id)
     ticket_items = (await db.execute(tq)).all()
     ticket_map = {r.item_id: {"qty": int(r.qty), "revenue": float(r.revenue)} for r in ticket_items}
 
-    # Booking items
+    # Booking items — filter both cancelled bookings AND cancelled items
     bq = (
         select(
             BookingItem.item_id,
@@ -278,6 +279,7 @@ async def get_item_breakdown_report(
             ), 0).label("revenue"),
         )
         .join(Booking, Booking.id == BookingItem.booking_id)
+        .where(Booking.is_cancelled == False)
         .group_by(BookingItem.item_id)
     )
     bq = _apply_booking_filters(bq, date_from, date_to, branch_id, route_id)
