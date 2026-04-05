@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update as sa_update, case
 
+from app.database import AsyncSessionLocal
 from app.models.user_session import UserSession
 from app.models.user import User
 from app.models.branch import Branch
@@ -88,18 +89,22 @@ async def update_session_branch(db: AsyncSession, session_id: str, branch_id: in
 
 
 async def close_stale_sessions(db: AsyncSession) -> int:
-    """Close sessions with no heartbeat for >5 minutes. Returns count closed."""
+    """Close sessions with no heartbeat for >5 minutes. Returns count closed.
+
+    Uses its own DB session so it never commits the caller's pending state.
+    """
     cutoff = datetime.now(timezone.utc) - STALE_TIMEOUT
-    result = await db.execute(
-        sa_update(UserSession)
-        .where(
-            UserSession.ended_at.is_(None),
-            UserSession.last_heartbeat < cutoff,
+    async with AsyncSessionLocal() as _db:
+        result = await _db.execute(
+            sa_update(UserSession)
+            .where(
+                UserSession.ended_at.is_(None),
+                UserSession.last_heartbeat < cutoff,
+            )
+            .values(ended_at=UserSession.last_heartbeat, end_reason="timeout")
         )
-        .values(ended_at=UserSession.last_heartbeat, end_reason="timeout")
-    )
-    await db.commit()
-    return result.rowcount
+        await _db.commit()
+        return result.rowcount
 
 
 def _ticket_count_subquery(user_id_col, started_at_col, ended_at_col, role_col):

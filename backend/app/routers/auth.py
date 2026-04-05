@@ -185,6 +185,7 @@ async def refresh(request: Request, body: RefreshRequest | None = None, db: Asyn
 )
 async def select_branch(
     body: dict,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -214,8 +215,8 @@ async def select_branch(
 
     # Log activity (fire-and-forget)
     from app.services.activity_log_service import log_activity, ActivityAction
-    await log_activity(
-        current_user.active_session_id, current_user.id,
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
         ActivityAction.BRANCH_SWITCH,
         {"from_branch_id": old_branch_id, "to_branch_id": branch_id},
     )

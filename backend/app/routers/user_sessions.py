@@ -1,5 +1,5 @@
+import datetime as _dt
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,23 +38,18 @@ async def list_active_sessions(
     description="Paginated session history with optional date and user filters. SUPER_ADMIN only.",
 )
 async def list_session_history(
-    date_from: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
-    date_to: str | None = Query(None, description="End date (YYYY-MM-DD)"),
-    user_id: str | None = Query(None, description="Filter by user UUID"),
+    date_from: _dt.date | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    date_to: _dt.date | None = Query(None, description="End date (YYYY-MM-DD)"),
+    user_id: uuid.UUID | None = Query(None, description="Filter by user UUID"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(_super_admin_only),
 ):
-    parsed_from = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=timezone.utc) if date_from else None
-    parsed_to = (
-        datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
-        if date_to
-        else None
-    )
-    parsed_user_id = uuid.UUID(user_id) if user_id else None
+    parsed_from = _dt.datetime.combine(date_from, _dt.time.min, tzinfo=_dt.timezone.utc) if date_from else None
+    parsed_to = _dt.datetime.combine(date_to, _dt.time(23, 59, 59), tzinfo=_dt.timezone.utc) if date_to else None
     return await user_session_service.get_session_history(
-        db, parsed_from, parsed_to, parsed_user_id, skip, limit,
+        db, parsed_from, parsed_to, user_id, skip, limit,
     )
 
 
@@ -65,21 +60,16 @@ async def list_session_history(
     description="Total count for pagination. SUPER_ADMIN only.",
 )
 async def count_session_history(
-    date_from: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
-    date_to: str | None = Query(None, description="End date (YYYY-MM-DD)"),
-    user_id: str | None = Query(None, description="Filter by user UUID"),
+    date_from: _dt.date | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    date_to: _dt.date | None = Query(None, description="End date (YYYY-MM-DD)"),
+    user_id: uuid.UUID | None = Query(None, description="Filter by user UUID"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(_super_admin_only),
 ):
-    parsed_from = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=timezone.utc) if date_from else None
-    parsed_to = (
-        datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
-        if date_to
-        else None
-    )
-    parsed_user_id = uuid.UUID(user_id) if user_id else None
+    parsed_from = _dt.datetime.combine(date_from, _dt.time.min, tzinfo=_dt.timezone.utc) if date_from else None
+    parsed_to = _dt.datetime.combine(date_to, _dt.time(23, 59, 59), tzinfo=_dt.timezone.utc) if date_to else None
     return await user_session_service.count_session_history(
-        db, parsed_from, parsed_to, parsed_user_id,
+        db, parsed_from, parsed_to, user_id,
     )
 
 
