@@ -4542,3 +4542,47 @@ sudo systemctl restart ssmspl-frontend
   ```sql
   UPDATE users SET active_branch_id = <branch_id> WHERE username = '<username>';
   ```
+
+---
+
+## Deployment Update — 2026-04-05
+
+### Module
+
+Reports — Dropdown Fix for Billing Operators
+
+### Commit ID
+
+75e749a
+
+### Changes
+
+* **Root cause of blank dropdowns + 403 error**: `/api/boats` endpoint only allowed SUPER_ADMIN, ADMIN, MANAGER — returned 403 for billing operators. The reports page used `Promise.all` to fetch all dropdowns (branches, routes, payment modes, users, boats), so one 403 rejection killed ALL fetches. Result: every dropdown appeared blank even though route/branch state was correctly set by the auto-lock logic.
+* Added `BILLING_OPERATOR` to boats list/count read roles (`_ferry_read_roles`). Write/create/update/delete remain restricted to SUPER_ADMIN/ADMIN/MANAGER.
+* Replaced `Promise.all` with `Promise.allSettled` in `fetchDropdowns()` so each API call succeeds or fails independently — one restricted endpoint no longer blocks others from loading.
+
+### Files Modified
+
+* `backend/app/routers/boats.py`
+* `frontend/src/app/dashboard/reports/page.tsx`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+cd frontend
+rm -rf .next
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
