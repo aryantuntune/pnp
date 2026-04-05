@@ -89,3 +89,6 @@ analysis_issues/
 
 # Vital secrets backup for AI and admin eyes only
 SECRETS_VITAL_DO_NOT_COMMIT.md
+
+# Maintenance mode flag files (created at runtime, not committed)
+nginx/maintenance/*.flag

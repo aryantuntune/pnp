@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="20">
+    <title>System Update - SSMSPL Admin</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0a0f1a 0%, #131c2e 40%, #1a2744 100%);
+            color: #e2e8f0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem 1.5rem;
+            max-width: 560px;
+            width: 100%;
+            z-index: 10;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .icon-wrap {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        .icon {
+            font-size: 3.5rem;
+            line-height: 1;
+        }
+
+        .badge {
+            position: absolute;
+            top: -4px;
+            right: -12px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .badge-update {
+            background: #f6ad55;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+
+        .badge-maintenance {
+            background: #63b3ed;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+
+        .badge-outage {
+            background: #fc8181;
+            animation: badgePulse 1.5s ease-in-out infinite;
+        }
+
+        .badge svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        @keyframes badgePulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(246,173,85,0.4); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(246,173,85,0); }
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.3rem;
+            letter-spacing: -0.01em;
+        }
+
+        .subtitle {
+            font-size: 0.82rem;
+            color: #718096;
+            margin-bottom: 2rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .message-box {
+            padding: 1.4rem 1.8rem;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 1.5rem;
+        }
+
+        .message {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #a0aec0;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Progress bar */
+        .progress-wrap {
+            margin-bottom: 1.5rem;
+            padding: 0 1rem;
+        }
+
+        .progress-bar {
+            height: 3px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            animation: progress 3s ease-in-out infinite;
+        }
+
+        .progress-fill-update { background: linear-gradient(90deg, #f6ad55, #ed8936); }
+        .progress-fill-maintenance { background: linear-gradient(90deg, #63b3ed, #4299e1); }
+        .progress-fill-outage { background: linear-gradient(90deg, #fc8181, #f56565); }
+
+        @keyframes progress {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 60%; margin-left: 20%; }
+            100% { width: 0%; margin-left: 100%; }
+        }
+
+        .status-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-update {
+            color: #f6ad55;
+            background: rgba(246,173,85,0.1);
+            border: 1px solid rgba(246,173,85,0.2);
+        }
+
+        .status-maintenance {
+            color: #63b3ed;
+            background: rgba(99,179,237,0.1);
+            border: 1px solid rgba(99,179,237,0.2);
+        }
+
+        .status-outage {
+            color: #fc8181;
+            background: rgba(252,129,129,0.1);
+            border: 1px solid rgba(252,129,129,0.2);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .status-dot-update { background: #f6ad55; }
+        .status-dot-maintenance { background: #63b3ed; }
+        .status-dot-outage { background: #fc8181; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .footer-note {
+            font-size: 0.75rem;
+            color: #4a5568;
+            margin-top: 1rem;
+        }
+
+        /* Subtle grid background */
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(99,179,237,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99,179,237,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 1.5rem 1rem; }
+            h1 { font-size: 1.4rem; }
+            .message { font-size: 0.9rem; }
+            .icon { font-size: 2.8rem; }
+            .message-box { padding: 1.1rem 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+
+    <div class="container">
+        <div class="icon-wrap">
+            <div class="icon" role="img" aria-label="Server">&#x2699;&#xFE0F;</div>
+            <div class="badge" id="badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+            </div>
+        </div>
+
+        <div id="status-label" class="status-label"></div>
+        <h1 id="title"></h1>
+        <p class="subtitle">SSMSPL Admin Portal</p>
+
+        <div class="message-box">
+            <p class="message" id="message"></p>
+        </div>
+
+        <div class="progress-wrap">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <p class="footer-note">This page refreshes automatically every 20 seconds</p>
+    </div>
+
+    <script>
+        // Mode is injected by nginx sub_filter
+        var mode = '%%MODE%%';
+
+        var config = {
+            update: {
+                title: 'System Update in Progress',
+                statusText: 'Deploying Updates',
+                statusClass: 'status-update',
+                dotClass: 'status-dot-update',
+                badgeClass: 'badge-update',
+                progressClass: 'progress-fill-update',
+                messages: [
+                    'New system updates are being deployed to the server.',
+                    'Deployment in progress \u2014 the dashboard will be available shortly.',
+                    'Server updates underway. This usually takes just a few minutes.',
+                    "We're rolling out new features and improvements.",
+                    'System update in progress \u2014 please refresh in a couple of minutes.',
+                    'Backend and frontend services are being rebuilt with the latest changes.',
+                    'Almost there! New updates are being applied to the system.',
+                    'The admin portal is being updated with the latest version.',
+                    'Rebuilding services with the newest code. Hang tight!',
+                    'Server restart in progress \u2014 your data is safe.'
+                ]
+            },
+            maintenance: {
+                title: 'System Under Maintenance',
+                statusText: 'Scheduled Maintenance',
+                statusClass: 'status-maintenance',
+                dotClass: 'status-dot-maintenance',
+                badgeClass: 'badge-maintenance',
+                progressClass: 'progress-fill-maintenance',
+                messages: [
+                    'The system is currently under scheduled maintenance.',
+                    'Maintenance in progress \u2014 the admin portal will return shortly.',
+                    "We're performing system maintenance to ensure optimal performance.",
+                    'The dashboard is temporarily unavailable during maintenance.',
+                    'Maintenance window active \u2014 all admin functions will resume soon.',
+                    "System maintenance underway. This won't take long."
+                ]
+            },
+            none: {
+                title: 'Temporarily Unavailable',
+                statusText: 'Service Interruption',
+                statusClass: 'status-outage',
+                dotClass: 'status-dot-outage',
+                badgeClass: 'badge-outage',
+                progressClass: 'progress-fill-outage',
+                messages: [
+                    'The server is temporarily unavailable. Please try again in a moment.',
+                    "We're experiencing a brief interruption. Services will resume shortly.",
+                    'The admin portal is temporarily unreachable. Please refresh shortly.',
+                    'Connection to the server was interrupted. Retrying automatically.'
+                ]
+            }
+        };
+
+        var c = config[mode] || config['none'];
+        var idx = Math.floor(Math.random() * c.messages.length);
+
+        document.getElementById('title').textContent = c.title;
+        document.getElementById('message').textContent = c.messages[idx];
+        document.getElementById('progress-fill').className = 'progress-fill ' + c.progressClass;
+        document.getElementById('badge').className = 'badge ' + c.badgeClass;
+        document.getElementById('status-label').className = 'status-label ' + c.statusClass;
+        document.getElementById('status-label').innerHTML =
+            '<span class="status-dot ' + c.dotClass + '"></span>' + c.statusText;
+
+        // Update page title
+        document.title = c.title + ' - SSMSPL Admin';
+    </script>
+</body>
+</html>

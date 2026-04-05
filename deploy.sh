@@ -35,7 +35,7 @@ if [ ! -d "./certbot/conf/live/carferry.online" ]; then
     if [ -f "./nginx/conf.d/default.conf" ]; then
         cp ./nginx/conf.d/default.conf ./nginx/conf.d/default-ssl.conf.bak
     fi
-    cp ./nginx/conf.d/default-initial.conf ./nginx/conf.d/default.conf
+    cp ./nginx/conf.d/default-initial.conf.disabled ./nginx/conf.d/default.conf
 
     # Start only nginx and required services
     docker compose -f docker-compose.prod.yml up -d nginx
