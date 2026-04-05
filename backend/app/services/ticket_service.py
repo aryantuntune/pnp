@@ -283,21 +283,79 @@ async def get_current_rate(db: AsyncSession, item_id: int, route_id: int) -> dic
     }
 
 
-async def get_departure_options(db: AsyncSession, branch_id: int) -> list[dict]:
-    now = datetime.datetime.now(IST).time()
+async def get_departure_options(db: AsyncSession, branch_id: int) -> dict:
+    """Return prev / current-or-next / next-after departure options.
+
+    The ``recommended`` key is the departure that should be auto-selected
+    (the nearest schedule whose departure + buffer >= now).  We also
+    include one schedule before it (``previous``) and one schedule after
+    it (``next``) so the operator has a small, relevant window.
+
+    A 10-minute buffer keeps a departure as "current" after its scheduled
+    time (e.g. 16:00 stays current until 16:10) so billing operators can
+    still print tickets for ferries that are slightly delayed.
+
+    Returns ``server_time`` so the frontend can display server-synchronised
+    time without relying on the client clock.
+    """
+    BUFFER_MINUTES = 10
+    now_dt = datetime.datetime.now(IST)
+    now = now_dt.time()
+    # Effective cutoff: a schedule is still "current" if departure + buffer >= now,
+    # i.e. we compare departure against (now - buffer).
+    cutoff_dt = now_dt - datetime.timedelta(minutes=BUFFER_MINUTES)
+    cutoff = cutoff_dt.time()
+
+    # Fetch all schedules for the branch, sorted ascending
     result = await db.execute(
         select(FerrySchedule)
-        .where(
-            FerrySchedule.branch_id == branch_id,
-            FerrySchedule.departure >= now,
-        )
+        .where(FerrySchedule.branch_id == branch_id)
         .order_by(FerrySchedule.departure.asc())
     )
-    schedules = result.scalars().all()
-    return [
-        {"id": s.id, "departure": _format_time(s.departure)}
-        for s in schedules
-    ]
+    all_schedules = result.scalars().all()
+
+    if not all_schedules:
+        return {
+            "server_time": now_dt.strftime("%H:%M"),
+            "options": [],
+            "recommended": None,
+        }
+
+    # Find the index of the first schedule whose departure >= cutoff
+    # (i.e. departure + buffer hasn't expired yet)
+    current_idx: int | None = None
+    for i, s in enumerate(all_schedules):
+        if s.departure >= cutoff:
+            current_idx = i
+            break
+
+    options: list[dict] = []
+
+    if current_idx is not None:
+        # Previous schedule (one before current)
+        if current_idx > 0:
+            prev = all_schedules[current_idx - 1]
+            options.append({"id": prev.id, "departure": _format_time(prev.departure), "tag": "previous"})
+        # Current / next-up schedule
+        cur = all_schedules[current_idx]
+        options.append({"id": cur.id, "departure": _format_time(cur.departure), "tag": "current"})
+        # Next schedule (one after current)
+        if current_idx + 1 < len(all_schedules):
+            nxt = all_schedules[current_idx + 1]
+            options.append({"id": nxt.id, "departure": _format_time(nxt.departure), "tag": "next"})
+
+        recommended = _format_time(cur.departure)
+    else:
+        # All departures (+ buffer) have passed — show only the last schedule
+        last = all_schedules[-1]
+        options.append({"id": last.id, "departure": _format_time(last.departure), "tag": "previous"})
+        recommended = None
+
+    return {
+        "server_time": now_dt.strftime("%H:%M"),
+        "options": options,
+        "recommended": recommended,
+    }
 
 
 async def get_multi_ticket_init(

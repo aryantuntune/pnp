@@ -359,6 +359,17 @@ export interface MultiTicketInit {
   sf_levy: number | null;
 }
 
+export interface TicketingStatus {
+  normal_ticketing_open: boolean;
+  multi_ticketing_open: boolean;
+  first_ferry_time: string | null;
+  last_ferry_time: string | null;
+  normal_opens_at: string | null;
+  normal_closes_at: string | null;
+  multi_opens_at: string | null;
+  current_time: string;
+}
+
 // ── Company types ──
 
 export interface Company {
