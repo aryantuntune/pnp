@@ -606,7 +606,8 @@ async def get_item_wise_summary(
             "net": net,
         })
 
-    # Payment mode breakdown — include all active modes
+    # Payment mode breakdown — use item-level data (same source as grand_total)
+    # to avoid mismatch when individual ticket items are cancelled
     all_pm = (await db.execute(
         select(PaymentMode.description)
         .where(PaymentMode.is_active == True)
@@ -617,11 +618,14 @@ async def get_item_wise_summary(
         select(
             PaymentMode.description.label("payment_mode_name"),
             func.coalesce(func.sum(
-                case((Ticket.is_cancelled == False, Ticket.net_amount), else_=0)
+                (TicketItem.rate + TicketItem.levy) * TicketItem.quantity
             ), 0).label("amount"),
         )
         .select_from(Ticket)
+        .join(TicketItem, TicketItem.ticket_id == Ticket.id)
         .join(PaymentMode, PaymentMode.id == Ticket.payment_mode_id)
+        .where(Ticket.is_cancelled == False)
+        .where(TicketItem.is_cancelled == False)
         .group_by(PaymentMode.description)
         .order_by(PaymentMode.description)
     )
@@ -630,7 +634,7 @@ async def get_item_wise_summary(
         pm_q = pm_q.where(Ticket.payment_mode_id == payment_mode_id)
 
     pm_result = (await db.execute(pm_q)).all()
-    pm_map = {r.payment_mode_name: r.amount for r in pm_result}
+    pm_map = {r.payment_mode_name: float(r.amount) for r in pm_result}
     payment_modes = [
         {"payment_mode_name": name, "amount": pm_map.get(name, 0)}
         for name in all_pm
@@ -825,7 +829,8 @@ async def get_branch_item_summary(
             "net": net,
         })
 
-    # Payment mode breakdown — include all active modes
+    # Payment mode breakdown — use item-level data (same source as grand_total)
+    # to avoid mismatch when individual ticket items are cancelled
     all_pm = (await db.execute(
         select(PaymentMode.description)
         .where(PaymentMode.is_active == True)
@@ -836,11 +841,14 @@ async def get_branch_item_summary(
         select(
             PaymentMode.description.label("payment_mode_name"),
             func.coalesce(func.sum(
-                case((Ticket.is_cancelled == False, Ticket.net_amount), else_=0)
+                (TicketItem.rate + TicketItem.levy) * TicketItem.quantity
             ), 0).label("amount"),
         )
         .select_from(Ticket)
+        .join(TicketItem, TicketItem.ticket_id == Ticket.id)
         .join(PaymentMode, PaymentMode.id == Ticket.payment_mode_id)
+        .where(Ticket.is_cancelled == False)
+        .where(TicketItem.is_cancelled == False)
         .group_by(PaymentMode.description)
         .order_by(PaymentMode.description)
     )
@@ -849,7 +857,7 @@ async def get_branch_item_summary(
         pm_q = pm_q.where(Ticket.payment_mode_id == payment_mode_id)
 
     pm_result = (await db.execute(pm_q)).all()
-    pm_map = {r.payment_mode_name: r.amount for r in pm_result}
+    pm_map = {r.payment_mode_name: float(r.amount) for r in pm_result}
     payment_modes = [
         {"payment_mode_name": name, "amount": pm_map.get(name, 0)}
         for name in all_pm
