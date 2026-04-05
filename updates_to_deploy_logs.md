@@ -4628,3 +4628,51 @@ sudo systemctl restart ssmspl
 After deploying, generate an Item Wise Summary report and verify that:
 1. The sum of all payment mode amounts equals the grand total exactly
 2. Check for dates where individual ticket items were cancelled (not full ticket cancellations) — these were the cases that triggered the mismatch
+
+---
+
+## Deployment Update — 2026-04-05
+
+### Module
+
+Reports / Ticketing — Financial Calculation Hardening
+
+### Commit ID
+
+bfac6a2
+
+### Changes
+
+* **Item Breakdown report**: Added `Ticket.is_cancelled == False` and `Booking.is_cancelled == False` filters to item-level queries. Previously only checked `TicketItem.is_cancelled` — a cancelled ticket with inconsistent item flags could leak revenue into the report.
+* **Full ticket cancellation**: Now zeros out `Ticket.amount` and `Ticket.net_amount` when cancelling. Previously retained original values in DB even after cancellation — reports excluded them via CASE expressions, but stored data was misleading for manual reconciliation queries.
+* **Schema documentation fix**: `TicketItemRead.amount` formula corrected from `rate * (quantity + levy)` to `quantity * (rate + levy)`.
+
+### Files Modified
+
+* `backend/app/services/report_service.py`
+* `backend/app/services/ticket_service.py`
+* `backend/app/schemas/ticket.py`
+
+### Database Migrations
+
+* None
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+sudo systemctl restart ssmspl
+```
+
+### Known Design Difference (NOT a bug)
+
+Reports fall into two categories that show different totals when discounts are applied:
+
+| Category | Reports | Basis |
+|----------|---------|-------|
+| **NET** (after discount) | Revenue, Branch Summary, Payment Mode, Date Wise, User Wise, Ticket Details | `Ticket.net_amount` |
+| **GROSS** (before discount) | Item Breakdown, Item Wise Summary, Vehicle Wise, Branch Item Summary | `(rate + levy) * quantity` |
+
+If a ticket has ₹100 in items and ₹10 discount: NET reports show ₹90, GROSS reports show ₹100. This is by design — item-level reports show what items were sold, not what was collected after discount. If discounts are rare/zero, totals will match across all reports.
