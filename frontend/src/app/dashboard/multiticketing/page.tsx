@@ -23,6 +23,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -189,6 +191,8 @@ export default function MultiTicketingPage() {
   const [listLoading, setListLoading] = useState(false);
   const [listSortBy, setListSortBy] = useState("id");
   const [listSortOrder, setListSortOrder] = useState<"asc" | "desc">("desc");
+  const [listDateFrom, setListDateFrom] = useState(() => formatDateYYYYMMDD(new Date()));
+  const [listDateTo, setListDateTo] = useState(() => formatDateYYYYMMDD(new Date()));
 
   // Print/save refs
   const saveRef = useRef<HTMLButtonElement>(null);
@@ -264,7 +268,6 @@ export default function MultiTicketingPage() {
   const fetchMultiTickets = useCallback(async () => {
     setListLoading(true);
     try {
-      const today = formatDateYYYYMMDD(new Date());
       const skip = (listPage - 1) * listPageSize;
       const params = new URLSearchParams({
         skip: String(skip),
@@ -272,15 +275,15 @@ export default function MultiTicketingPage() {
         sort_by: listSortBy,
         sort_order: listSortOrder,
         is_multi_ticket: "true",
-        date_from: today,
-        date_to: today,
+        date_from: listDateFrom,
+        date_to: listDateTo,
       });
       const [pageResp, countResp] = await Promise.all([
         api.get<Ticket[]>(`/api/tickets?${params}`),
         api.get<number>(`/api/tickets/count?${new URLSearchParams({
           is_multi_ticket: "true",
-          date_from: today,
-          date_to: today,
+          date_from: listDateFrom,
+          date_to: listDateTo,
         })}`),
       ]);
       setListTickets(pageResp.data);
@@ -290,7 +293,7 @@ export default function MultiTicketingPage() {
     } finally {
       setListLoading(false);
     }
-  }, [listPage, listPageSize, listSortBy, listSortOrder]);
+  }, [listPage, listPageSize, listSortBy, listSortOrder, listDateFrom, listDateTo]);
 
   useEffect(() => {
     fetchMultiTickets();
@@ -1267,14 +1270,38 @@ export default function MultiTicketingPage() {
           </div>
         )}
 
-        {/* ── Today's Multi-Tickets listing ── */}
+        {/* ── Multi-Tickets listing ── */}
         <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Today&apos;s Multi-Tickets</h2>
-            <Button variant="outline" size="sm" onClick={fetchMultiTickets} disabled={listLoading}>
-              <RefreshCw className={`h-4 w-4 mr-1 ${listLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold">Multi-Tickets</h2>
+            <div className="flex flex-wrap items-end gap-3">
+              {(user.role === "SUPER_ADMIN" || user.role === "ADMIN") && (
+                <>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Date From</Label>
+                    <Input
+                      type="date"
+                      value={listDateFrom}
+                      onChange={(e) => { setListDateFrom(e.target.value); setListPage(1); }}
+                      className="w-[150px]"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1 block">Date To</Label>
+                    <Input
+                      type="date"
+                      value={listDateTo}
+                      onChange={(e) => { setListDateTo(e.target.value); setListPage(1); }}
+                      className="w-[150px]"
+                    />
+                  </div>
+                </>
+              )}
+              <Button variant="outline" size="sm" onClick={fetchMultiTickets} disabled={listLoading}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${listLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
           <DataTable<Ticket>
             columns={multiTicketColumns}
@@ -1295,7 +1322,7 @@ export default function MultiTicketingPage() {
               }
             }}
             loading={listLoading}
-            emptyMessage="No multi-tickets generated today."
+            emptyMessage="No multi-tickets found for the selected date range."
             rowClassName={(row) => row.is_cancelled ? "opacity-50" : undefined}
           />
         </div>
