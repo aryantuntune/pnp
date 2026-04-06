@@ -392,11 +392,14 @@ async def get_multi_ticket_init(
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
 
     # Determine if off-hours (multi-ticketing allowed)
-    # Multi-ticketing is open when: now < first_ferry OR now >= last_ferry + 30 min
+    # Multi-ticketing and normal ticketing are mutually exclusive:
+    #   Normal open: (first_ferry - 45min) to (last_ferry + 30min)
+    #   Multi open:  outside that window
     now = datetime.datetime.now(IST).time()
     if first_ferry and last_ferry:
+        normal_opens_at = _time_sub(first_ferry, NORMAL_TICKET_BUFFER_BEFORE)
         normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
-        is_off_hours = now < first_ferry or now >= normal_closes_at
+        is_off_hours = now < normal_opens_at or now >= normal_closes_at
     else:
         # No ferry schedules — always off-hours
         is_off_hours = True
@@ -515,11 +518,10 @@ async def _get_ferry_window(db: AsyncSession, branch_id: int):
 async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
     """Compute which ticketing screens are open/locked for a branch right now.
 
-    Time windows:
-      - Before (first_ferry - 45min):       MULTI only
-      - (first_ferry - 45min) → first_ferry: BOTH open (overlap)
-      - first_ferry → (last_ferry + 30min):  NORMAL only
-      - After (last_ferry + 30min):          MULTI only
+    Mutually exclusive — no overlap:
+      - Before (first_ferry - 45min):                    MULTI only
+      - (first_ferry - 45min) → (last_ferry + 30min):   NORMAL only
+      - After (last_ferry + 30min):                      MULTI only
 
     No ferry schedules → both open.
     """
@@ -542,7 +544,7 @@ async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
     normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
 
     normal_open = normal_opens_at <= now < normal_closes_at
-    multi_open = now < first_ferry or now >= normal_closes_at
+    multi_open = not normal_open  # mutually exclusive — no overlap
 
     # Hint for lock screen: when will multi-ticketing next open?
     if multi_open:
@@ -563,22 +565,24 @@ async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
 
 
 async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
-    """Raise 400 if current time is within the normal-ticketing-only window.
+    """Raise 400 if current time is within the normal-ticketing window.
 
-    Multi-ticketing is blocked from first_ferry until last_ferry + 30 min buffer.
+    Normal ticketing window: (first_ferry - 45min) to (last_ferry + 30min).
+    Multi-ticketing is blocked during this entire window — no overlap.
     """
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
 
     if first_ferry and last_ferry:
         now = datetime.datetime.now(IST).time()
+        normal_opens_at = _time_sub(first_ferry, NORMAL_TICKET_BUFFER_BEFORE)
         normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
-        if first_ferry <= now < normal_closes_at:
+        if normal_opens_at <= now < normal_closes_at:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"Multi-ticketing is only available outside ferry hours. "
-                    f"Ferry schedule: {_format_time(first_ferry)} - {_format_time(last_ferry)} "
-                    f"(+30 min buffer until {_format_time(normal_closes_at)}). "
+                    f"Multi-ticketing is only available outside normal ticketing hours. "
+                    f"Normal ticketing: {_format_time(normal_opens_at)} - {_format_time(normal_closes_at)} "
+                    f"(ferry schedule {_format_time(first_ferry)} - {_format_time(last_ferry)}). "
                     f"Current time: {_format_time(now)}"
                 ),
             )
