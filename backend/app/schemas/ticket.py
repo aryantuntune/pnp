@@ -160,6 +160,7 @@ class MultiTicketInitResponse(BaseModel):
     route_name: str
     branch_id: int
     branch_name: str
+    multi_ticketing_enabled: bool = Field(True, description="Whether multi-ticketing is enabled for this route")
     items: list[MultiTicketInitItem]
     payment_modes: list[MultiTicketInitPaymentMode]
     first_ferry_time: str | None = Field(None, description="HH:MM of earliest ferry")
