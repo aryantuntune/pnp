@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, X, Trash2, RefreshCw, Lock } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw, Lock, Printer, Ban } from "lucide-react";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 
 /* ── Local grid types ── */
@@ -148,40 +148,6 @@ function isRowInvalid(
   if (!def || item.qty < 1) return true;
   return false;
 }
-
-/* ── Multi-ticket listing columns ── */
-
-const multiTicketColumns: Column<Ticket>[] = [
-  { key: "id", label: "ID", sortable: true },
-  { key: "ticket_no", label: "Ticket No", sortable: true },
-  { key: "departure", label: "Departure", sortable: true },
-  {
-    key: "net_amount",
-    label: "Net Amount",
-    sortable: true,
-    className: "text-right",
-    render: (row) => `${Number(row.net_amount).toFixed(2)}`,
-  },
-  { key: "payment_mode_name", label: "Payment Mode" },
-  {
-    key: "status",
-    label: "Status",
-    render: (row) =>
-      row.is_cancelled
-        ? "\u274C Cancelled"
-        : "\u2705 Confirmed",
-  },
-  {
-    key: "created_at",
-    label: "Created At",
-    sortable: true,
-    render: (row) => {
-      if (!row.created_at) return "\u2014";
-      const d = new Date(row.created_at);
-      return d.toLocaleTimeString("en-IN", { hour12: false });
-    },
-  },
-];
 
 /* ── Page Component ── */
 
@@ -350,6 +316,136 @@ export default function MultiTicketingPage() {
   /* ── Preload logo for receipt printing ── */
   useEffect(() => { preloadLogo(); }, []);
 
+  /* ── Cancel ticket (SUPER_ADMIN only) ── */
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const handleCancelTicket = async (ticket: Ticket) => {
+    if (cancellingId !== null) return;
+    if (!confirm(`Cancel ticket #${ticket.ticket_no}? This cannot be undone.`)) return;
+    setCancellingId(ticket.id);
+    try {
+      await api.patch(`/api/tickets/${ticket.id}`, { is_cancelled: true });
+      fetchMultiTickets();
+    } catch {
+      alert("Failed to cancel ticket.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  /* ── Reprint ticket ── */
+  const [reprintingId, setReprintingId] = useState<number | null>(null);
+  const handleReprintTicket = async (ticket: Ticket) => {
+    if (reprintingId !== null) return;
+    setReprintingId(ticket.id);
+    try {
+      const res = await api.get<Ticket>(`/api/tickets/${ticket.id}`);
+      const t = res.data;
+      const paperWidth = getReceiptPaperWidth();
+      let fromTo = "";
+      if (routeInfo) {
+        const isFromBranchOne = t.branch_id === routeInfo.branch_id_one;
+        fromTo = isFromBranchOne
+          ? `${routeInfo.branch_one_name} To ${routeInfo.branch_two_name}`
+          : `${routeInfo.branch_two_name} To ${routeInfo.branch_one_name}`;
+      }
+      const receiptData: ReceiptData = {
+        ticketId: t.id,
+        ticketNo: t.ticket_no,
+        branchName: branchInfo?.name || t.branch_name || "",
+        branchPhone: branchInfo?.contact_nos || "",
+        fromTo,
+        ticketDate: t.ticket_date,
+        createdAt: t.created_at || null,
+        departure: t.departure || null,
+        items: (t.items || [])
+          .filter((ti) => !ti.is_cancelled)
+          .map((ti) => ({
+            name: ti.item_name || `Item #${ti.item_id}`,
+            quantity: ti.quantity,
+            rate: ti.rate,
+            levy: ti.levy,
+            amount: ti.amount,
+            vehicleNo: ti.vehicle_no || null,
+          })),
+        netAmount: t.net_amount,
+        createdBy: t.created_by_username || user?.username || "",
+        paperWidth,
+        paymentModeName: t.payment_mode_name || "-",
+      };
+      await printReceipt(receiptData);
+    } catch {
+      alert("Failed to load ticket for reprinting.");
+    } finally {
+      setReprintingId(null);
+    }
+  };
+
+  /* ── Multi-ticket listing columns (dynamic — needs user role + handlers) ── */
+  const canCancel = user.role === "SUPER_ADMIN";
+  const canReprint = user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "MANAGER";
+  const multiTicketColumns: Column<Ticket>[] = [
+    { key: "id", label: "ID", sortable: true },
+    { key: "ticket_no", label: "Ticket No", sortable: true },
+    { key: "departure", label: "Departure", sortable: true },
+    {
+      key: "net_amount",
+      label: "Net Amount",
+      sortable: true,
+      className: "text-right",
+      render: (row) => `${Number(row.net_amount).toFixed(2)}`,
+    },
+    { key: "payment_mode_name", label: "Payment Mode" },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) =>
+        row.is_cancelled
+          ? "\u274C Cancelled"
+          : "\u2705 Confirmed",
+    },
+    {
+      key: "created_at",
+      label: "Created At",
+      sortable: true,
+      render: (row) => {
+        if (!row.created_at) return "\u2014";
+        const d = new Date(row.created_at);
+        return d.toLocaleTimeString("en-IN", { hour12: false });
+      },
+    },
+    ...((canReprint || canCancel) ? [{
+      key: "actions",
+      label: "Actions",
+      render: (row: Ticket) => (
+        <div className="flex items-center gap-1">
+          {canReprint && !row.is_cancelled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleReprintTicket(row)}
+              disabled={reprintingId === row.id}
+              title="Reprint"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
+          )}
+          {canCancel && !row.is_cancelled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleCancelTicket(row)}
+              disabled={cancellingId === row.id}
+              title="Cancel ticket"
+              className="text-destructive hover:text-destructive"
+            >
+              <Ban className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      ),
+    }] : []),
+  ];
+
   /* ── Branch switch handler ── */
   const handleBranchSwitch = (branchId: number) => {
     setSelectedBranchId(branchId);
@@ -452,7 +548,7 @@ export default function MultiTicketingPage() {
         addItemRow(ticketTempId);
       }
 
-      if (e.code === "KeyS") {
+      if (e.code === "KeyS" && !e.repeat) {
         e.preventDefault();
         e.stopPropagation();
         saveRef.current?.click();
@@ -1200,6 +1296,7 @@ export default function MultiTicketingPage() {
             }}
             loading={listLoading}
             emptyMessage="No multi-tickets generated today."
+            rowClassName={(row) => row.is_cancelled ? "opacity-50" : undefined}
           />
         </div>
       </div>

@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { useDashboardUser } from "@/components/dashboard/DashboardUserContext";
 import { Company, User } from "@/types";
-import { Settings, Palette, Mail, HardDrive } from "lucide-react";
+import { Settings, Palette, Mail, HardDrive, Clock } from "lucide-react";
 import GeneralTab from "./components/general-tab";
 import AppearanceTab from "./components/appearance-tab";
 import NotificationsTab from "./components/notifications-tab";
 import BackupsTab from "./components/backups-tab";
+import OperationsTab from "./components/operations-tab";
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
+  { id: "operations", label: "Operations", icon: Clock },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "notifications", label: "Notifications", icon: Mail },
   { id: "backups", label: "Backups", icon: HardDrive },
@@ -40,9 +42,9 @@ export default function SettingsPage() {
     );
   }
 
-  // Filter tabs — only show Backups to SUPER_ADMIN
+  // Filter tabs — Operations and Backups visible only to SUPER_ADMIN
   const visibleTabs = TABS.filter((tab) => {
-    if (tab.id === "backups") return user?.role === "SUPER_ADMIN";
+    if (tab.id === "operations" || tab.id === "backups") return user?.role === "SUPER_ADMIN";
     return true;
   });
 
@@ -82,6 +84,14 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {activeTab === "general" && (
             <GeneralTab company={company} setCompany={setCompany} />
+          )}
+          {activeTab === "operations" && (
+            <OperationsTab
+              timeLockEnabled={company.time_lock_enabled}
+              onTimeLockChange={(enabled) =>
+                setCompany({ ...company, time_lock_enabled: enabled })
+              }
+            />
           )}
           {activeTab === "appearance" && <AppearanceTab />}
           {activeTab === "notifications" && <NotificationsTab />}

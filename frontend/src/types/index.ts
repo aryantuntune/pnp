@@ -385,6 +385,7 @@ export interface Company {
   email: string | null;
   sf_item_id: number | null;
   active_theme: string | null;
+  time_lock_enabled: boolean;
   created_at?: string;
   updated_at?: string;
 }

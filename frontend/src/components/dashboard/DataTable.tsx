@@ -42,6 +42,7 @@ interface DataTableProps<T> {
   loading?: boolean;
   emptyMessage?: string;
   emptyIcon?: React.ReactNode;
+  rowClassName?: (row: T, index: number) => string | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,6 +60,7 @@ export default function DataTable<T extends Record<string, any>>({
   loading = false,
   emptyMessage = "No records found.",
   emptyIcon,
+  rowClassName,
 }: DataTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const start = (page - 1) * pageSize + 1;
@@ -112,7 +114,7 @@ export default function DataTable<T extends Record<string, any>>({
               </TableRow>
             ) : (
               data.map((row, idx) => (
-                <TableRow key={idx} className="hover:bg-muted/30">
+                <TableRow key={idx} className={cn("hover:bg-muted/30", rowClassName?.(row, idx))}>
                   {columns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
                       {col.render ? col.render(row, idx) : (row[col.key] as React.ReactNode) ?? "\u2014"}

@@ -395,8 +395,12 @@ async def get_multi_ticket_init(
     # Multi-ticketing and normal ticketing are mutually exclusive:
     #   Normal open: (first_ferry - 45min) to (last_ferry + 30min)
     #   Multi open:  outside that window
+    # When time-lock is disabled, always treat as off-hours (both screens open).
+    time_lock_on = await _is_time_lock_enabled(db)
     now = datetime.datetime.now(IST).time()
-    if first_ferry and last_ferry:
+    if not time_lock_on:
+        is_off_hours = True
+    elif first_ferry and last_ferry:
         normal_opens_at = _time_sub(first_ferry, NORMAL_TICKET_BUFFER_BEFORE)
         normal_closes_at = _time_add(last_ferry, MULTI_TICKET_BUFFER_AFTER)
         is_off_hours = now < normal_opens_at or now >= normal_closes_at
@@ -515,6 +519,13 @@ async def _get_ferry_window(db: AsyncSession, branch_id: int):
     return first_ferry, last_ferry
 
 
+async def _is_time_lock_enabled(db: AsyncSession) -> bool:
+    """Check if time-lock is enabled in company settings."""
+    result = await db.execute(select(Company).where(Company.id == 1))
+    company = result.scalar_one_or_none()
+    return company.time_lock_enabled if company else True
+
+
 async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
     """Compute which ticketing screens are open/locked for a branch right now.
 
@@ -524,16 +535,19 @@ async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
       - After (last_ferry + 30min):                      MULTI only
 
     No ferry schedules → both open.
+    Time-lock disabled → both open (admin override).
     """
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
     now = datetime.datetime.now(IST).time()
 
-    if not first_ferry or not last_ferry:
+    # Time-lock disabled → both screens always open
+    time_lock_on = await _is_time_lock_enabled(db)
+    if not time_lock_on or not first_ferry or not last_ferry:
         return {
             "normal_ticketing_open": True,
             "multi_ticketing_open": True,
-            "first_ferry_time": None,
-            "last_ferry_time": None,
+            "first_ferry_time": _format_time(first_ferry) if first_ferry else None,
+            "last_ferry_time": _format_time(last_ferry) if last_ferry else None,
             "normal_opens_at": None,
             "normal_closes_at": None,
             "multi_opens_at": None,
@@ -569,7 +583,10 @@ async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
 
     Normal ticketing window: (first_ferry - 45min) to (last_ferry + 30min).
     Multi-ticketing is blocked during this entire window — no overlap.
+    Skipped entirely when time-lock is disabled.
     """
+    if not await _is_time_lock_enabled(db):
+        return
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
 
     if first_ferry and last_ferry:
@@ -592,7 +609,10 @@ async def _validate_normal_hours(db: AsyncSession, branch_id: int) -> None:
     """Raise 400 if current time is outside the normal-ticketing window.
 
     Normal ticketing is open from (first_ferry - 45 min) to (last_ferry + 30 min).
+    Skipped entirely when time-lock is disabled.
     """
+    if not await _is_time_lock_enabled(db):
+        return
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
 
     if first_ferry and last_ferry:

@@ -30,6 +30,7 @@ class CompanyRead(BaseModel):
     email: str | None = Field(None, description="Contact email")
     sf_item_id: int | None = Field(None, description="Special fare item ID")
     active_theme: str | None = Field(None, description="Active UI theme name")
+    time_lock_enabled: bool = Field(True, description="Whether ferry schedule time-lock is active")
     created_at: datetime | None = Field(None, description="Record creation timestamp")
     updated_at: datetime | None = Field(None, description="Record last update timestamp")
 

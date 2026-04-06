@@ -281,6 +281,7 @@ CREATE TABLE IF NOT EXISTS company (
     email               VARCHAR(60) NOT NULL,
     sf_item_id          INTEGER,
     active_theme        VARCHAR(50) DEFAULT 'ocean',
+    time_lock_enabled   BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL,
     created_by          UUID DEFAULT uuid_generate_v4(),
@@ -661,6 +662,9 @@ DROP TRIGGER IF EXISTS item_rate_audit ON item_rates;
 CREATE TRIGGER item_rate_audit
     AFTER INSERT OR UPDATE ON item_rates
     FOR EACH ROW EXECUTE FUNCTION record_item_rate_change();
+
+-- PATCH: Add time_lock_enabled to company
+ALTER TABLE company ADD COLUMN IF NOT EXISTS time_lock_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- ============================================================
 -- END OF DDL

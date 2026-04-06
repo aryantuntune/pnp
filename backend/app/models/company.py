@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -20,6 +20,7 @@ class Company(AuditMixin, Base):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sf_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active_theme: Mapped[str | None] = mapped_column(String(50), nullable=True, default="ocean")
+    time_lock_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
     def __repr__(self) -> str:
         return f"<Company id={self.id} name={self.name}>"

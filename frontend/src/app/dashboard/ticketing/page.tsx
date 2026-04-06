@@ -148,7 +148,7 @@ function ItemSearchSelect({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.repeat) {
       e.preventDefault();
       if (open && filtered.length > 0) {
         handleSelect(filtered[highlightIdx]?.id ?? 0);
@@ -1788,7 +1788,7 @@ export default function TicketingPage() {
                   onChange={(e) => setFormRefNo(e.target.value)}
                   className="mt-1"
                   autoFocus
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.repeat) { e.preventDefault(); handleSaveAndPrint(); } }}
                 />
               </div>
             )}
@@ -1812,7 +1812,7 @@ export default function TicketingPage() {
                     }}
                     onFocus={(e) => e.target.select()}
                     onBlur={() => setFormReceivedAmountStr(formReceivedAmount.toFixed(2))}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveAndPrint(); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.repeat) { e.preventDefault(); handleSaveAndPrint(); } }}
                     className="text-right mt-1"
                     autoFocus
                   />

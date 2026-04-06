@@ -6,12 +6,60 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rbac import UserRole
 from app.database import get_db
 from app.dependencies import require_roles
+from app.models.company import Company
 from app.models.daily_report_recipient import DailyReportRecipient
 from app.services.activity_log_service import log_activity, ActivityAction
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
 
 _super_admin_only = require_roles(UserRole.SUPER_ADMIN)
+
+
+class TimeLockToggle(BaseModel):
+    enabled: bool
+
+
+class TimeLockStatus(BaseModel):
+    time_lock_enabled: bool
+
+
+@router.get(
+    "/time-lock",
+    response_model=TimeLockStatus,
+    summary="Get time-lock status",
+)
+async def get_time_lock(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(_super_admin_only),
+):
+    result = await db.execute(select(Company).where(Company.id == 1))
+    company = result.scalar_one_or_none()
+    return {"time_lock_enabled": company.time_lock_enabled if company else True}
+
+
+@router.put(
+    "/time-lock",
+    response_model=TimeLockStatus,
+    summary="Toggle time-lock on ticketing screens",
+)
+async def toggle_time_lock(
+    body: TimeLockToggle,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(_super_admin_only),
+):
+    result = await db.execute(select(Company).where(Company.id == 1))
+    company = result.scalar_one_or_none()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company record not found")
+    company.time_lock_enabled = body.enabled
+    await db.flush()
+    background_tasks.add_task(
+        log_activity, current_user.active_session_id, current_user.id,
+        ActivityAction.SETTINGS_CHANGE,
+        {"entity": "time_lock", "action": "toggle", "enabled": body.enabled},
+    )
+    return {"time_lock_enabled": company.time_lock_enabled}
 
 
 class RecipientCreate(BaseModel):
