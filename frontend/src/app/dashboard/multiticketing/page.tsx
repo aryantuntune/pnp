@@ -221,8 +221,10 @@ export default function MultiTicketingPage() {
     let cancelled = false;
     const check = async () => {
       try {
+        const statusParams = new URLSearchParams({ branch_id: String(initData.branch_id) });
+        if (initData.route_id) statusParams.set("route_id", String(initData.route_id));
         const { data } = await api.get<TicketingStatus>(
-          `/api/tickets/ticketing-status?branch_id=${initData.branch_id}`
+          `/api/tickets/ticketing-status?${statusParams}`
         );
         if (!cancelled) setLockStatus(data);
       } catch { /* ignore */ }

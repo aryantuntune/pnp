@@ -527,7 +527,7 @@ async def _is_time_lock_enabled(db: AsyncSession) -> bool:
     return company.time_lock_enabled if company else True
 
 
-async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
+async def get_ticketing_status(db: AsyncSession, branch_id: int, route_id: int | None = None) -> dict:
     """Compute which ticketing screens are open/locked for a branch right now.
 
     Mutually exclusive — no overlap:
@@ -537,9 +537,31 @@ async def get_ticketing_status(db: AsyncSession, branch_id: int) -> dict:
 
     No ferry schedules → both open.
     Time-lock disabled → both open (admin override).
+    Route multi_ticketing_enabled=false → normal always open, multi always closed.
     """
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
     now = datetime.datetime.now(IST).time()
+
+    # Check route-level multi-ticketing flag
+    route_mt_enabled = True
+    if route_id:
+        route_result = await db.execute(select(Route).where(Route.id == route_id))
+        route = route_result.scalar_one_or_none()
+        if route:
+            route_mt_enabled = route.multi_ticketing_enabled
+
+    # Route has multi-ticketing disabled → normal always open, multi always closed
+    if not route_mt_enabled:
+        return {
+            "normal_ticketing_open": True,
+            "multi_ticketing_open": False,
+            "first_ferry_time": _format_time(first_ferry) if first_ferry else None,
+            "last_ferry_time": _format_time(last_ferry) if last_ferry else None,
+            "normal_opens_at": None,
+            "normal_closes_at": None,
+            "multi_opens_at": None,
+            "current_time": now.strftime("%H:%M:%S"),
+        }
 
     # Time-lock disabled → both screens always open
     time_lock_on = await _is_time_lock_enabled(db)
@@ -606,14 +628,21 @@ async def _validate_off_hours(db: AsyncSession, branch_id: int) -> None:
             )
 
 
-async def _validate_normal_hours(db: AsyncSession, branch_id: int) -> None:
+async def _validate_normal_hours(db: AsyncSession, branch_id: int, route_id: int | None = None) -> None:
     """Raise 400 if current time is outside the normal-ticketing window.
 
     Normal ticketing is open from (first_ferry - 45 min) to (last_ferry + 30 min).
     Skipped entirely when time-lock is disabled.
+    Skipped when route has multi_ticketing_enabled=false (normal ticketing is always open).
     """
     if not await _is_time_lock_enabled(db):
         return
+    # If route has multi-ticketing disabled, normal ticketing is always open
+    if route_id:
+        route_result = await db.execute(select(Route).where(Route.id == route_id))
+        route = route_result.scalar_one_or_none()
+        if route and not route.multi_ticketing_enabled:
+            return
     first_ferry, last_ferry = await _get_ferry_window(db, branch_id)
 
     if first_ferry and last_ferry:

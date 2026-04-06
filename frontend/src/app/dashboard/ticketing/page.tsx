@@ -258,8 +258,10 @@ export default function TicketingPage() {
     let cancelled = false;
     const check = async () => {
       try {
+        const statusParams = new URLSearchParams({ branch_id: String(branchId) });
+        if (user?.route_id) statusParams.set("route_id", String(user.route_id));
         const { data } = await api.get<TicketingStatus>(
-          `/api/tickets/ticketing-status?branch_id=${branchId}`
+          `/api/tickets/ticketing-status?${statusParams}`
         );
         if (!cancelled) {
           setLockStatus(data);

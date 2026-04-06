@@ -183,6 +183,7 @@ async def departure_options(
 )
 async def ticketing_status(
     branch_id: int = Query(..., description="Branch ID to check status for"),
+    route_id: int | None = Query(None, description="Route ID — used to check multi_ticketing_enabled"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_ticket_roles),
 ):
@@ -201,7 +202,7 @@ async def ticketing_status(
             "multi_opens_at": None,
             "current_time": now.strftime("%H:%M:%S"),
         }
-    return await ticket_service.get_ticketing_status(db, branch_id)
+    return await ticket_service.get_ticketing_status(db, branch_id, route_id=route_id)
 
 
 @router.get(
@@ -298,7 +299,7 @@ async def create_ticket(
             )
     # Time-lock: non-admin roles can only create normal tickets during normal-ticketing hours
     if current_user.role not in (UserRole.SUPER_ADMIN, UserRole.ADMIN):
-        await ticket_service._validate_normal_hours(db, body.branch_id)
+        await ticket_service._validate_normal_hours(db, body.branch_id, route_id=current_user.route_id)
     result = await ticket_service.create_ticket(db, body, user_id=current_user.id)
     background_tasks.add_task(
         log_activity, current_user.active_session_id, current_user.id,
