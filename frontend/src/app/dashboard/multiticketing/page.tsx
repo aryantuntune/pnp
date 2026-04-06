@@ -11,8 +11,15 @@ import {
   TicketItemCreate,
   Ticket,
   Route,
+  Branch,
   TicketingStatus,
 } from "@/types";
+import {
+  printReceipt,
+  ReceiptData,
+  getReceiptPaperWidth,
+  preloadLogo,
+} from "@/lib/print-receipt";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -217,12 +224,7 @@ export default function MultiTicketingPage() {
   const [listSortBy, setListSortBy] = useState("id");
   const [listSortOrder, setListSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Print state
-  const [printData, setPrintData] = useState<Ticket[] | null>(null);
-  const [showPrint, setShowPrint] = useState(false);
-  // Ref (not state) — guaranteed synchronous, no React batching race
-  const printTimeRef = useRef("");
-  const printTriggered = useRef(false);
+  // Print/save refs
   const saveRef = useRef<HTMLButtonElement>(null);
   // Synchronous guard to prevent double-submission (rapid Alt+S / button double-click)
   const isSubmittingRef = useRef(false);
@@ -336,6 +338,18 @@ export default function MultiTicketingPage() {
     }).catch(() => { /* ignore */ });
   }, [initData?.route_id]);
 
+  /* ── Fetch branch info for receipt printing ── */
+  const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
+  useEffect(() => {
+    if (!initData?.branch_id) return;
+    api.get<Branch>(`/api/branches/${initData.branch_id}`).then(({ data }) => {
+      setBranchInfo(data);
+    }).catch(() => { /* ignore */ });
+  }, [initData?.branch_id]);
+
+  /* ── Preload logo for receipt printing ── */
+  useEffect(() => { preloadLogo(); }, []);
+
   /* ── Branch switch handler ── */
   const handleBranchSwitch = (branchId: number) => {
     setSelectedBranchId(branchId);
@@ -351,21 +365,6 @@ export default function MultiTicketingPage() {
     }
   }, [initData]);
 
-  /* ── Print trigger ── */
-  useEffect(() => {
-    if (showPrint && printData && !printTriggered.current) {
-      printTriggered.current = true;
-      const timeout = setTimeout(() => {
-        window.print();
-        // After print dialog closes, reset form
-        setPrintData(null);
-        setShowPrint(false);
-        printTriggered.current = false;
-        resetForm();
-      }, 300);
-      return () => clearTimeout(timeout);
-    }
-  }, [showPrint, printData, resetForm]);
 
   /* ── Item helpers (lookup from initData) ── */
   const findItem = useCallback(
@@ -678,10 +677,47 @@ export default function MultiTicketingPage() {
       const { data } = await api.post<Ticket[]>(`/api/tickets/batch${batchQs ? `?${batchQs}` : ""}`, {
         tickets: payload,
       });
-      // Reuse the same timestamp captured above — DB departure, print receipt, and listing all match
-      printTimeRef.current = currentTime;
-      setPrintData(data);
-      setShowPrint(true);
+      // Print each ticket using the same receipt format as normal ticketing
+      const paperWidth = getReceiptPaperWidth();
+      let fromTo = "";
+      if (routeInfo) {
+        const isFromBranchOne = initData.branch_id === routeInfo.branch_id_one;
+        fromTo = isFromBranchOne
+          ? `${routeInfo.branch_one_name} To ${routeInfo.branch_two_name}`
+          : `${routeInfo.branch_two_name} To ${routeInfo.branch_one_name}`;
+      }
+      const branchName = branchInfo?.name || initData.branch_name || "";
+      const branchPhone = branchInfo?.contact_nos || "";
+
+      for (const ticket of data) {
+        const receiptData: ReceiptData = {
+          ticketId: ticket.id,
+          ticketNo: ticket.ticket_no,
+          branchName,
+          branchPhone,
+          fromTo,
+          ticketDate: ticket.ticket_date,
+          createdAt: ticket.created_at || null,
+          departure: currentTime,
+          items: (ticket.items || [])
+            .filter((ti) => !ti.is_cancelled)
+            .map((ti) => ({
+              name: ti.item_name || initData.items.find((i) => i.id === ti.item_id)?.name || `Item #${ti.item_id}`,
+              quantity: ti.quantity,
+              rate: ti.rate,
+              levy: ti.levy,
+              amount: ti.amount,
+              vehicleNo: ti.vehicle_no || null,
+            })),
+          netAmount: ticket.net_amount,
+          createdBy: ticket.created_by_username || user?.username || "",
+          paperWidth,
+          paymentModeName: ticket.payment_mode_name || "-",
+        };
+        await printReceipt(receiptData);
+      }
+
+      resetForm();
       fetchMultiTickets();
     } catch (e: unknown) {
       const errObj = e as { response?: { status?: number; data?: { detail?: string } } };
@@ -766,8 +802,6 @@ export default function MultiTicketingPage() {
 
   return (
     <>
-      {/* When printing, unmount main content entirely — no CSS print-hide needed */}
-      {!showPrint && (
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* ── Page header ── */}
         <div className="flex items-center justify-between mb-4 shrink-0">
@@ -1169,60 +1203,6 @@ export default function MultiTicketingPage() {
           />
         </div>
       </div>
-      )}
-
-      {/* ── Print View — main content is unmounted above, so only this renders ── */}
-      {showPrint && printData && (
-        <div className="p-4">
-          {printData.map((ticket, idx) => (
-            <div key={ticket.id} className="mb-8">
-              {idx > 0 && <hr className="border-t-2 border-dashed border-gray-400 my-6" />}
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-bold">SSMSPL - Ferry Ticket</h2>
-              </div>
-              <div className="text-sm space-y-1 mb-3">
-                <p>
-                  <strong>Ticket No:</strong> {ticket.ticket_no}
-                </p>
-                <p>
-                  <strong>Branch:</strong> {ticket.branch_name}
-                  &nbsp;&nbsp;&nbsp;
-                  <strong>Route:</strong> {ticket.route_name}
-                </p>
-                <p>
-                  <strong>Date:</strong> {ticket.ticket_date}&nbsp;&nbsp;&nbsp;<strong>Time:</strong> {printTimeRef.current}
-                </p>
-              </div>
-              <table className="w-full text-sm border-collapse mb-3">
-                <thead>
-                  <tr className="border-b-2 border-gray-800">
-                    <th className="text-left py-1 px-2">Item</th>
-                    <th className="text-center py-1 px-2">Qty</th>
-                    <th className="text-right py-1 px-2">Rate</th>
-                    <th className="text-right py-1 px-2">Levy</th>
-                    <th className="text-right py-1 px-2">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ticket.items?.map((ti) => (
-                    <tr key={ti.id} className="border-b border-gray-300">
-                      <td className="py-1 px-2">{ti.item_name}</td>
-                      <td className="py-1 px-2 text-center">{ti.quantity}</td>
-                      <td className="py-1 px-2 text-right">{ti.rate.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right">{ti.levy.toFixed(2)}</td>
-                      <td className="py-1 px-2 text-right">{ti.amount.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-between text-sm font-bold border-t-2 border-gray-800 pt-2">
-                <span>Total: {ticket.net_amount.toFixed(2)}</span>
-                <span>Payment: {ticket.payment_mode_name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </>
   );
 }
