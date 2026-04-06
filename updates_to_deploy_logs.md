@@ -4760,3 +4760,99 @@ Reports fall into two categories that show different totals when discounts are a
 | **GROSS** (before discount) | Item Breakdown, Item Wise Summary, Vehicle Wise, Branch Item Summary | `(rate + levy) * quantity` |
 
 If a ticket has ₹100 in items and ₹10 discount: NET reports show ₹90, GROSS reports show ₹100. This is by design — item-level reports show what items were sold, not what was collected after discount. If discounts are rare/zero, totals will match across all reports.
+
+---
+
+## Deployment Update — 2026-04-06
+
+### Module
+
+Ticketing — Multi-Ticket Separation, Time-Lock Toggle, Cancel/Reprint, Hardening
+
+### Commit IDs
+
+d724ef6, 0b92ffd, a6d4440, a27fff1
+
+### Changes
+
+**Feature 1 — Multi-Ticket Separation (Cosmetic)**
+
+Added `is_multi_ticket` (BOOLEAN, default FALSE) and `generated_at` (TIMESTAMPTZ) columns to `tickets` table. Normal ticketing page now filters with `is_multi_ticket=false` — multi-tickets no longer appear in the normal listing. Multi-ticketing page shows only `is_multi_ticket=true` tickets. This is purely cosmetic — reports, dashboard, and all revenue calculations remain unchanged and continue to include all tickets.
+
+**Feature 2 — Multi-Ticketing Listing with Cancel & Reprint**
+
+Multi-ticketing page now shows a "Today's Multi-Tickets" DataTable below the creation form. Features:
+- Reprint button (visible to SUPER_ADMIN, ADMIN, MANAGER) — reprints using the shared 80mm thermal receipt format
+- Cancel button (visible to SUPER_ADMIN only) — cancels ticket with confirmation dialog
+- Cancelled ticket rows are greyed out (opacity-50) for visual distinction
+- Listing auto-refreshes after ticket creation or cancellation
+
+**Feature 3 — Time-Lock Toggle**
+
+New "Operations" tab in Settings (SUPER_ADMIN only) with a toggle to enable/disable ferry schedule time-lock. When disabled, both normal and multi-ticketing screens are open simultaneously regardless of ferry schedules. Useful for admin overrides during irregular operations.
+
+- New `time_lock_enabled` column on `company` table (BOOLEAN, default TRUE)
+- New API endpoints: `GET/PUT /api/settings/time-lock`
+- Backend: `_is_time_lock_enabled()` check integrated into `get_ticketing_status()`, `_validate_off_hours()`, `_validate_normal_hours()`, and `get_multi_ticket_init()`
+
+**Feature 4 — Mutual Exclusivity (committed earlier as 0b92ffd)**
+
+Normal and multi-ticketing screens are now mutually exclusive per branch based on ferry schedules:
+- Normal window: first ferry - 45min to last ferry + 30min
+- Multi window: everything outside that range
+- No overlap — `multi_open = not normal_open`
+
+**Feature 5 — Double-Submit Prevention**
+
+Added `!e.repeat` guard on all keyboard submission handlers (Enter, Alt+S) across both ticketing pages to prevent key auto-repeat from creating duplicate tickets. Also fixed `ItemSearchSelect` component's Enter handler.
+
+### Files Modified
+
+* `backend/app/models/company.py` — added `time_lock_enabled` column
+* `backend/app/schemas/company.py` — added field to `CompanyRead`
+* `backend/app/routers/settings.py` — new time-lock GET/PUT endpoints
+* `backend/app/services/ticket_service.py` — time-lock checks, mutual exclusivity, `is_multi_ticket` filter
+* `backend/scripts/ddl.sql` — added `time_lock_enabled`, `is_multi_ticket`, `generated_at` columns
+* `frontend/src/app/dashboard/multiticketing/page.tsx` — listing, cancel, reprint, receipt format, `!e.repeat`
+* `frontend/src/app/dashboard/ticketing/page.tsx` — `is_multi_ticket=false` filter, `!e.repeat` guards
+* `frontend/src/app/dashboard/settings/page.tsx` — Operations tab
+* `frontend/src/app/dashboard/settings/components/operations-tab.tsx` — new component
+* `frontend/src/components/dashboard/DataTable.tsx` — `rowClassName` prop
+* `frontend/src/types/index.ts` — `time_lock_enabled` on Company
+
+### Database Migrations
+
+* `d724ef6` added `is_multi_ticket` and `generated_at` to tickets via Alembic (already deployed)
+* `time_lock_enabled` on company table — requires migration or manual DDL:
+  ```sql
+  ALTER TABLE company ADD COLUMN time_lock_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+  ```
+
+### Deployment Steps (VPS)
+
+Backend:
+```bash
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+sudo systemctl restart ssmspl
+```
+
+Frontend:
+```bash
+cd frontend
+npm run build
+sudo systemctl restart ssmspl-frontend
+```
+
+### Verification
+
+1. Open normal ticketing page — verify multi-tickets are NOT listed
+2. Open multi-ticketing page — verify only multi-tickets are listed, with cancel/reprint buttons
+3. Create a multi-ticket — verify it appears in the listing and prints on 80mm format
+4. Cancel a ticket (as SUPER_ADMIN) — verify row turns grey, cancel/reprint buttons disappear
+5. Log in as BILLING_OPERATOR — verify cancel button is NOT visible, reprint is NOT visible
+6. Log in as MANAGER — verify reprint is visible, cancel is NOT visible
+7. Settings > Operations > toggle time-lock OFF — verify both ticketing screens become available
+8. Toggle time-lock ON — verify mutual exclusivity resumes based on ferry schedules
+9. Generate any report — verify totals unchanged (cancelled tickets excluded, multi-tickets included)
