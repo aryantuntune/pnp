@@ -494,6 +494,8 @@ MULTI_TICKET_BUFFER_AFTER = datetime.timedelta(minutes=30)
 def _time_add(t: datetime.time, delta: datetime.timedelta) -> datetime.time:
     """Add a timedelta to a time, clamping at 23:59:59."""
     dt = datetime.datetime.combine(datetime.date.today(), t) + delta
+    if dt.date() > datetime.date.today():
+        return datetime.time(23, 59, 59)
     return dt.time()
 
 

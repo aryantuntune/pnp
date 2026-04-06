@@ -882,7 +882,7 @@ export default function MultiTicketingPage() {
         <h1 className="text-2xl font-bold mb-2">Multi-Ticketing Not Available</h1>
         <p className="text-muted-foreground max-w-md mb-4">
           Multi-ticketing is disabled for route <span className="font-semibold text-foreground">{initData.route_name}</span>.
-          This route uses normal ticketing only. Contact a Super Admin to enable it.
+          This route uses normal ticketing only. Contact a system administrator to enable it.
         </p>
       </div>
     );

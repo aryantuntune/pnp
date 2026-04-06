@@ -33,7 +33,7 @@ interface AppSidebarProps {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super Admin",
+  SUPER_ADMIN: "System Administrator",
   ADMIN: "Admin",
   MANAGER: "Manager",
   BILLING_OPERATOR: "Billing Operator",

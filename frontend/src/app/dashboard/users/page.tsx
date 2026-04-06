@@ -57,9 +57,10 @@ const BASE_ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "TICKET_CHECKER", label: "Ticket Checker" },
 ];
 
-const SA_ROLE_OPTION = { value: "SUPER_ADMIN", label: "Super Admin" };
+const SA_ROLE_OPTION = { value: "SUPER_ADMIN", label: "System Administrator" };
 
 function formatRole(role: string): string {
+  if (role === "SUPER_ADMIN") return "System Administrator";
   return role
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())

@@ -54,7 +54,7 @@ function roleBadge(role: string) {
   };
   return (
     <Badge variant={colors[role] || "secondary"}>
-      {role.replace(/_/g, " ")}
+      {role === "SUPER_ADMIN" ? "System Administrator" : role.replace(/_/g, " ")}
     </Badge>
   );
 }
@@ -488,7 +488,7 @@ function HistoryTab() {
             <option value="">All Users</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.full_name} ({u.role.replace(/_/g, " ")})
+                {u.full_name} ({u.role === "SUPER_ADMIN" ? "System Administrator" : u.role.replace(/_/g, " ")})
               </option>
             ))}
           </select>
