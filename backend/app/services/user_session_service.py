@@ -13,7 +13,7 @@ from app.models.user_activity_log import UserActivityLog
 from app.core.rbac import UserRole
 from app.services.geo_service import resolve_geo
 
-STALE_TIMEOUT = timedelta(minutes=5)
+STALE_TIMEOUT = timedelta(minutes=15)
 
 
 async def start_session(
@@ -89,7 +89,7 @@ async def update_session_branch(db: AsyncSession, session_id: str, branch_id: in
 
 
 async def close_stale_sessions(db: AsyncSession) -> int:
-    """Close sessions with no heartbeat for >5 minutes. Returns count closed.
+    """Close sessions with no heartbeat for >15 minutes. Returns count closed.
 
     Uses its own DB session so it never commits the caller's pending state.
     """
@@ -101,7 +101,7 @@ async def close_stale_sessions(db: AsyncSession) -> int:
                 UserSession.ended_at.is_(None),
                 UserSession.last_heartbeat < cutoff,
             )
-            .values(ended_at=UserSession.last_heartbeat, end_reason="timeout")
+            .values(ended_at=UserSession.last_heartbeat, end_reason="idle_timeout")
         )
         await _db.commit()
         return result.rowcount

@@ -24,7 +24,7 @@ class ActiveSessionRead(BaseModel):
 
 class SessionHistoryRead(ActiveSessionRead):
     ended_at: str | None = Field(None, description="Session end ISO timestamp")
-    end_reason: str | None = Field(None, description="How session ended: logout, timeout, login_elsewhere")
+    end_reason: str | None = Field(None, description="How session ended: logout, idle_timeout, login_elsewhere")
 
 
 class ActivitySummary(BaseModel):
