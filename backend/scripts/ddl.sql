@@ -217,8 +217,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     updated_at          TIMESTAMPTZ,
     created_by          UUID DEFAULT uuid_generate_v4(),
     updated_by          UUID DEFAULT uuid_generate_v4(),
-    CONSTRAINT ticket_amount_check     CHECK (amount >= 1),
-    CONSTRAINT ticket_net_amount_check CHECK (net_amount >= 1)
+    CONSTRAINT ticket_amount_check     CHECK (amount >= 0),
+    CONSTRAINT ticket_net_amount_check CHECK (net_amount >= 0)
 );
 
 -- Ticket items table
