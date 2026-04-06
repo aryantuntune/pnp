@@ -2,6 +2,50 @@
 
 ---
 
+## Deployment Update — 2026-04-07 (Item ID input fix + per-route multi-ticketing toggle)
+
+### Module
+
+Frontend — Ticketing, Multi-Ticketing, Settings; Backend — Ticket Service, Routes
+
+### Changes
+
+**Bug Fix — Item ID input selecting wrong item on keystroke**
+
+**Root cause**: The item ID number input on the normal ticketing screen fired `handleItemChange` on every keystroke. When typing a double-digit ID like "14", the first keystroke "1" immediately selected item 1 (Cycle) and triggered a rate lookup. Combined with the ID column being only 70px wide (truncating double-digit IDs to show only the first digit), operators couldn't see the mistake. This caused 14 tickets to be created with the wrong item (Cycle).
+
+**Fix**: The item ID input no longer triggers item selection on every keystroke. Selection only fires on **Enter** or **blur** (when the operator tabs to the next field), allowing the full ID to be typed before confirming. Column width widened from 70px to 90px so double-digit IDs are fully visible.
+
+**Feature — Per-route multi-ticketing toggle**
+
+Added `multi_ticketing_enabled` boolean column to the `routes` table (default: true). SUPER_ADMIN can toggle it per route from System Settings > Operations tab. When disabled for a route, the multi-ticketing screen shows a lock message and the backend rejects batch ticket creation with HTTP 400.
+
+**Improvement — Multi-ticket SF validation**
+
+Multi-ticket validation now excludes the Special Ferry (SF) item from the "at least one item required" check, since SF is auto-added and locked.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `frontend/src/app/dashboard/ticketing/page.tsx` | Item ID: onChange stores number only, onBlur/Enter triggers selection; column 70px→90px |
+| `frontend/src/app/dashboard/multiticketing/page.tsx` | Lock screen when multi_ticketing_enabled=false; SF item excluded from validation |
+| `frontend/src/app/dashboard/settings/components/operations-tab.tsx` | Per-route multi-ticketing toggle UI |
+| `frontend/src/types/index.ts` | Added multi_ticketing_enabled to Route, RouteUpdate, MultiTicketInit |
+| `backend/app/models/route.py` | Added multi_ticketing_enabled column |
+| `backend/app/schemas/route.py` | Added field to RouteRead and RouteUpdate |
+| `backend/app/services/route_service.py` | Include multi_ticketing_enabled in update |
+| `backend/app/services/ticket_service.py` | Enforce multi_ticketing_enabled in create_multi_tickets; expose in multi-ticket-init |
+| `backend/scripts/ddl.sql` | ALTER TABLE routes ADD COLUMN multi_ticketing_enabled |
+
+### Migration Required
+
+```sql
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS multi_ticketing_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+```
+
+---
+
 ## Deployment Update — 2026-04-05 (User activity tracking + branch/route in sessions + better geo)
 
 ### Module
