@@ -475,6 +475,7 @@ async def get_multi_ticket_init(
         "route_name": route_name or "",
         "branch_id": branch_id,
         "branch_name": branch_name or "",
+        "multi_ticketing_enabled": route.multi_ticketing_enabled,
         "items": items_with_rates,
         "payment_modes": [{"id": pm.id, "description": pm.description} for pm in payment_modes],
         "first_ferry_time": _format_time(first_ferry),
@@ -649,6 +650,12 @@ async def create_multi_tickets(
     route = route_result.scalar_one_or_none()
     if not route:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
+
+    if not route.multi_ticketing_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Multi-ticketing is not enabled for this route.",
+        )
 
     if branch_id is not None:
         if branch_id not in (route.branch_id_one, route.branch_id_two):

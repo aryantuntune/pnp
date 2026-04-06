@@ -32,6 +32,7 @@ async def get_route_by_id(db: AsyncSession, route_id: int) -> dict:
         "branch_id_one": route.branch_id_one,
         "branch_id_two": route.branch_id_two,
         "is_active": route.is_active,
+        "multi_ticketing_enabled": route.multi_ticketing_enabled,
         "branch_one_name": branch_one_name,
         "branch_two_name": branch_two_name,
     }
@@ -124,6 +125,7 @@ async def get_all_routes(
             "branch_id_one": row[0].branch_id_one,
             "branch_id_two": row[0].branch_id_two,
             "is_active": row[0].is_active,
+            "multi_ticketing_enabled": row[0].multi_ticketing_enabled,
             "branch_one_name": row[1],
             "branch_two_name": row[2],
         }

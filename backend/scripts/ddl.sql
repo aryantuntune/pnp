@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS routes (
     branch_id_one       INTEGER NOT NULL REFERENCES branches(id),
     branch_id_two       INTEGER NOT NULL REFERENCES branches(id),
     is_active           BOOLEAN DEFAULT TRUE,
+    multi_ticketing_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ,
     created_by          UUID DEFAULT uuid_generate_v4(),

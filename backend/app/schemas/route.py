@@ -25,6 +25,7 @@ class RouteUpdate(BaseModel):
     branch_id_one: int | None = Field(None, description="Updated first branch ID")
     branch_id_two: int | None = Field(None, description="Updated second branch ID")
     is_active: bool | None = Field(None, description="Set false to soft-delete (deactivate) the route")
+    multi_ticketing_enabled: bool | None = Field(None, description="Enable/disable multi-ticketing for this route")
 
     model_config = {
         "json_schema_extra": {
@@ -38,6 +39,7 @@ class RouteUpdate(BaseModel):
 class RouteRead(RouteBase):
     id: int = Field(..., description="Unique route identifier")
     is_active: bool | None = Field(None, description="Whether the route is active")
+    multi_ticketing_enabled: bool = Field(True, description="Whether multi-ticketing is enabled for this route")
     branch_one_name: str | None = Field(None, description="Name of the first branch")
     branch_two_name: str | None = Field(None, description="Name of the second branch")
     created_at: datetime | None = Field(None, description="Record creation timestamp")

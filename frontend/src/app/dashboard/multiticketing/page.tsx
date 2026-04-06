@@ -642,9 +642,9 @@ export default function MultiTicketingPage() {
         return `${label}: Please select a payment mode.`;
 
 
-      const activeItems = t.items.filter((it) => it.qty > 0);
+      const activeItems = t.items.filter((it) => it.qty > 0 && !it.isSfItem);
       if (activeItems.length === 0)
-        return `${label}: At least one item with quantity > 0 is required.`;
+        return `${label}: At least one item (other than Special Ferry) with quantity > 0 is required.`;
 
       for (let ii = 0; ii < t.items.length; ii++) {
         const it = t.items[ii];
@@ -866,6 +866,22 @@ export default function MultiTicketingPage() {
             </option>
           ))}
         </select>
+      </div>
+    );
+  }
+
+  // Route-level multi-ticketing disabled
+  if (initData && !initData.multi_ticketing_enabled) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="rounded-full bg-muted p-6 mb-6">
+          <Lock className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">Multi-Ticketing Not Available</h1>
+        <p className="text-muted-foreground max-w-md mb-4">
+          Multi-ticketing is disabled for route <span className="font-semibold text-foreground">{initData.route_name}</span>.
+          This route uses normal ticketing only. Contact a Super Admin to enable it.
+        </p>
       </div>
     );
   }
@@ -1113,6 +1129,7 @@ export default function MultiTicketingPage() {
                                       onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                                       onChange={(e) => {
                                         const id = parseInt(e.target.value) || 0;
+                                        if (hasSf && id === initData?.sf_item_id) return;
                                         updateItemField(
                                           ticket.tempId,
                                           item.tempId,
@@ -1145,7 +1162,9 @@ export default function MultiTicketingPage() {
                                       className="border border-input rounded px-2 py-1 text-sm w-full min-w-0 sm:min-w-[160px] bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                                     >
                                       <option value={0}>-- Select Item --</option>
-                                      {initData.items.map((it) => (
+                                      {initData.items
+                                        .filter((it) => !hasSf || it.id !== initData.sf_item_id)
+                                        .map((it) => (
                                         <option key={it.id} value={it.id}>
                                           {it.name}
                                         </option>

@@ -120,6 +120,7 @@ export interface Route {
   branch_id_one: number;
   branch_id_two: number;
   is_active: boolean | null;
+  multi_ticketing_enabled: boolean;
   branch_one_name: string | null;
   branch_two_name: string | null;
   created_at?: string;
@@ -135,6 +136,7 @@ export interface RouteUpdate {
   branch_id_one?: number;
   branch_id_two?: number;
   is_active?: boolean;
+  multi_ticketing_enabled?: boolean;
 }
 
 export interface Item {
@@ -349,6 +351,7 @@ export interface MultiTicketInit {
   route_name: string;
   branch_id: number;
   branch_name: string;
+  multi_ticketing_enabled: boolean;
   items: MultiTicketInitItem[];
   payment_modes: MultiTicketInitPaymentMode[];
   first_ferry_time: string | null;

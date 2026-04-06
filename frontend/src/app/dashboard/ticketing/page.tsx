@@ -2055,7 +2055,7 @@ export default function TicketingPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[70px]">
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[90px]">
                           ID
                         </th>
                         <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[30%]">
@@ -2116,19 +2116,31 @@ export default function TicketingPage() {
                                   disabled={fi.is_cancelled}
                                   value={fi.item_id || ""}
                                   placeholder="ID"
-                                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.repeat) {
+                                      e.preventDefault();
+                                      const id = parseInt((e.target as HTMLInputElement).value) || 0;
+                                      if (id && items.some((i) => i.id === id)) {
+                                        handleItemChange(fi.tempId, id);
+                                      }
+                                    }
+                                  }}
                                   onChange={(e) => {
+                                    // Only store the typed number — don't trigger rate lookup yet.
+                                    // Item selection + rate lookup happens on Enter or blur.
+                                    const id = parseInt(e.target.value) || 0;
+                                    setFormItems((prev) =>
+                                      prev.map((item) =>
+                                        item.tempId === fi.tempId
+                                          ? { ...item, item_id: id, rate: 0, levy: 0 }
+                                          : item
+                                      )
+                                    );
+                                  }}
+                                  onBlur={(e) => {
                                     const id = parseInt(e.target.value) || 0;
                                     if (id && items.some((i) => i.id === id)) {
                                       handleItemChange(fi.tempId, id);
-                                    } else {
-                                      setFormItems((prev) =>
-                                        prev.map((item) =>
-                                          item.tempId === fi.tempId
-                                            ? { ...item, item_id: id, rate: 0, levy: 0 }
-                                            : item
-                                        )
-                                      );
                                     }
                                   }}
                                   className="h-8"

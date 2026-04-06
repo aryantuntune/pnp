@@ -12,6 +12,7 @@ class Route(AuditMixin, Base):
     branch_id_one: Mapped[int] = mapped_column(Integer, ForeignKey("branches.id"), nullable=False)
     branch_id_two: Mapped[int] = mapped_column(Integer, ForeignKey("branches.id"), nullable=False)
     is_active: Mapped[bool | None] = mapped_column(Boolean, default=True, nullable=True)
+    multi_ticketing_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
 
     def __repr__(self) -> str:
         return f"<Route id={self.id} branch_one={self.branch_id_one} branch_two={self.branch_id_two}>"
