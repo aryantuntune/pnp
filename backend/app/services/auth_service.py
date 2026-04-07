@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, create_password_reset_token, decode_token
-from app.core.rbac import ROLE_MENU_ITEMS, UserRole, UserRole
+from app.core.rbac import ROLE_MENU_ITEMS, UserRole
 from app.models.user import User
 from app.services import token_service
 
