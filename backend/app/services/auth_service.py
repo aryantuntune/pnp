@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, create_password_reset_token, decode_token
-from app.core.rbac import ROLE_MENU_ITEMS, UserRole
+from app.core.rbac import ROLE_MENU_ITEMS, UserRole, UserRole
 from app.models.user import User
 from app.services import token_service
 
@@ -140,7 +140,9 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
     extra = {"role": user.role.value}
     if user.active_session_id:
         extra["sid"] = user.active_session_id
-    new_access = create_access_token(subject=str(user.id), extra_claims=extra)
+    # Mobile checkers get long-lived tokens (24h) to avoid frequent refreshing
+    token_ttl = 1440 if user.role == UserRole.TICKET_CHECKER else None
+    new_access = create_access_token(subject=str(user.id), extra_claims=extra, expires_minutes=token_ttl)
     new_refresh = create_refresh_token(subject=str(user.id))
 
     # Store new refresh token
