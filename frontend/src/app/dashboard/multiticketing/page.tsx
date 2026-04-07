@@ -273,8 +273,9 @@ export default function MultiTicketingPage() {
     fetchInit(undefined, adminRouteId);
   }, [fetchInit, needsRouteSelector, adminRouteId]);
 
-  /* ── Fetch multi-ticket listing ── */
+  /* ── Fetch multi-ticket listing (filtered by current operating branch) ── */
   const fetchMultiTickets = useCallback(async () => {
+    if (!initData?.branch_id) return;
     setListLoading(true);
     try {
       const skip = (listPage - 1) * listPageSize;
@@ -286,14 +287,17 @@ export default function MultiTicketingPage() {
         is_multi_ticket: "true",
         date_from: listDateFrom,
         date_to: listDateTo,
+        branch_filter: String(initData.branch_id),
+      });
+      const countParams = new URLSearchParams({
+        is_multi_ticket: "true",
+        date_from: listDateFrom,
+        date_to: listDateTo,
+        branch_filter: String(initData.branch_id),
       });
       const [pageResp, countResp] = await Promise.all([
         api.get<Ticket[]>(`/api/tickets?${params}`),
-        api.get<number>(`/api/tickets/count?${new URLSearchParams({
-          is_multi_ticket: "true",
-          date_from: listDateFrom,
-          date_to: listDateTo,
-        })}`),
+        api.get<number>(`/api/tickets/count?${countParams}`),
       ]);
       setListTickets(pageResp.data);
       setListTotal(countResp.data as unknown as number);
@@ -302,7 +306,7 @@ export default function MultiTicketingPage() {
     } finally {
       setListLoading(false);
     }
-  }, [listPage, listPageSize, listSortBy, listSortOrder, listDateFrom, listDateTo]);
+  }, [listPage, listPageSize, listSortBy, listSortOrder, listDateFrom, listDateTo, initData?.branch_id]);
 
   useEffect(() => {
     fetchMultiTickets();
@@ -353,18 +357,37 @@ export default function MultiTicketingPage() {
       const res = await api.get<Ticket>(`/api/tickets/${ticket.id}`);
       const t = res.data;
       const paperWidth = getReceiptPaperWidth();
+
+      // Use ticket's own branch info (may differ from page branch after edit)
+      let ticketBranchName = t.branch_name || "";
+      let ticketBranchPhone = "";
+      if (t.branch_id === initData?.branch_id && branchInfo) {
+        ticketBranchName = branchInfo.name;
+        ticketBranchPhone = branchInfo.contact_nos || "";
+      } else {
+        try {
+          const branchRes = await api.get<Branch>(`/api/branches/${t.branch_id}`);
+          ticketBranchName = branchRes.data.name;
+          ticketBranchPhone = branchRes.data.contact_nos || "";
+        } catch { /* use ticket data */ }
+      }
+
+      // Determine from-to direction using route info
       let fromTo = "";
-      if (routeInfo) {
+      if (t.route_id === routeInfo?.id && routeInfo) {
         const isFromBranchOne = t.branch_id === routeInfo.branch_id_one;
         fromTo = isFromBranchOne
           ? `${routeInfo.branch_one_name} To ${routeInfo.branch_two_name}`
           : `${routeInfo.branch_two_name} To ${routeInfo.branch_one_name}`;
+      } else {
+        fromTo = t.route_name || "";
       }
+
       const receiptData: ReceiptData = {
         ticketId: t.id,
         ticketNo: t.ticket_no,
-        branchName: branchInfo?.name || t.branch_name || "",
-        branchPhone: branchInfo?.contact_nos || "",
+        branchName: ticketBranchName,
+        branchPhone: ticketBranchPhone,
         fromTo,
         ticketDate: t.ticket_date,
         createdAt: t.created_at || null,
@@ -443,6 +466,7 @@ export default function MultiTicketingPage() {
   const multiTicketColumns: Column<Ticket>[] = [
     { key: "id", label: "ID", sortable: true },
     { key: "ticket_no", label: "Ticket No", sortable: true },
+    { key: "branch_name", label: "Branch" },
     { key: "departure", label: "Departure", sortable: true },
     {
       key: "net_amount",
