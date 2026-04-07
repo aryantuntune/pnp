@@ -377,13 +377,15 @@ async def get_multi_ticket_init(
 
     route_name = await _get_route_display_name(db, route.id)
 
-    # Determine operating branch: use provided branch_id or default to branch_id_one
+    # Determine operating branch: use provided branch_id, or user's active branch, or route's branch_id_one
     if branch_id is not None:
         if branch_id not in (route.branch_id_one, route.branch_id_two):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Branch {branch_id} does not belong to route {effective_route_id}",
             )
+    elif user.active_branch_id and user.active_branch_id in (route.branch_id_one, route.branch_id_two):
+        branch_id = user.active_branch_id
     else:
         branch_id = route.branch_id_one
     branch_name = await _get_branch_name(db, branch_id)
@@ -694,6 +696,8 @@ async def create_multi_tickets(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Branch {branch_id} does not belong to route {effective_route_id}",
             )
+    elif user.active_branch_id and user.active_branch_id in (route.branch_id_one, route.branch_id_two):
+        branch_id = user.active_branch_id
     else:
         branch_id = route.branch_id_one
 
