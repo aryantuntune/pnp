@@ -1019,6 +1019,11 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
         await db.flush()
         return await _enrich_ticket(db, ticket, include_items=True)
 
+    if "branch_id" in update_data:
+        r = await db.execute(select(Branch.id).where(Branch.id == update_data["branch_id"]))
+        if not r.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Branch ID {update_data['branch_id']} not found")
+
     if "route_id" in update_data:
         r = await db.execute(select(Route.id).where(Route.id == update_data["route_id"]))
         if not r.scalar_one_or_none():
@@ -1034,7 +1039,7 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
     elif "departure" in update_data:
         ticket.departure = None
 
-    for field in ("route_id", "payment_mode_id", "discount"):
+    for field in ("branch_id", "route_id", "payment_mode_id", "discount"):
         if field in update_data:
             setattr(ticket, field, update_data[field])
 

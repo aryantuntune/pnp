@@ -33,7 +33,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, X, Trash2, RefreshCw, Lock, Printer, Ban } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Plus, X, Trash2, RefreshCw, Lock, Printer, Ban, Pencil } from "lucide-react";
 import DataTable, { Column } from "@/components/dashboard/DataTable";
 
 /* ── Local grid types ── */
@@ -385,7 +392,52 @@ export default function MultiTicketingPage() {
     }
   };
 
+  /* ── Edit ticket (SUPER_ADMIN only) ── */
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [editBranchId, setEditBranchId] = useState<number>(0);
+  const [editRouteId, setEditRouteId] = useState<number>(0);
+  const [editRoutes, setEditRoutes] = useState<Route[]>([]);
+  const [editBranches, setEditBranches] = useState<Branch[]>([]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const openEditDialog = async (ticket: Ticket) => {
+    setEditingTicket(ticket);
+    setEditBranchId(ticket.branch_id);
+    setEditRouteId(ticket.route_id);
+    try {
+      const [routesRes, branchesRes] = await Promise.all([
+        api.get<Route[]>("/api/routes?limit=200"),
+        api.get<Branch[]>("/api/branches?limit=200"),
+      ]);
+      setEditRoutes(routesRes.data);
+      setEditBranches(branchesRes.data);
+    } catch { /* ignore */ }
+  };
+
+  const handleEditSave = async () => {
+    if (!editingTicket) return;
+    const payload: Record<string, number> = {};
+    if (editBranchId !== editingTicket.branch_id) payload.branch_id = editBranchId;
+    if (editRouteId !== editingTicket.route_id) payload.route_id = editRouteId;
+    if (Object.keys(payload).length === 0) {
+      setEditingTicket(null);
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await api.patch(`/api/tickets/${editingTicket.id}`, payload);
+      setEditingTicket(null);
+      fetchMultiTickets();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to update ticket.";
+      alert(msg);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   /* ── Multi-ticket listing columns (dynamic — needs user role + handlers) ── */
+  const canEdit = user.role === "SUPER_ADMIN";
   const canCancel = user.role === "SUPER_ADMIN";
   const canReprint = user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "MANAGER";
   const multiTicketColumns: Column<Ticket>[] = [
@@ -418,11 +470,21 @@ export default function MultiTicketingPage() {
         return d.toLocaleTimeString("en-IN", { hour12: false });
       },
     },
-    ...((canReprint || canCancel) ? [{
+    ...((canReprint || canCancel || canEdit) ? [{
       key: "actions",
       label: "Actions",
       render: (row: Ticket) => (
         <div className="flex items-center gap-1">
+          {canEdit && !row.is_cancelled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEditDialog(row)}
+              title="Edit branch / route"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
           {canReprint && !row.is_cancelled && (
             <Button
               variant="ghost"
@@ -1348,6 +1410,54 @@ export default function MultiTicketingPage() {
           />
         </div>
       </div>
+      {/* ── Edit ticket dialog (SUPER_ADMIN only) ── */}
+      <Dialog open={editingTicket !== null} onOpenChange={(open) => { if (!open) setEditingTicket(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Ticket #{editingTicket?.ticket_no}</DialogTitle>
+          </DialogHeader>
+          {editingTicket && (
+            <div className="space-y-4">
+              <div>
+                <Label>Branch (Operating From)</Label>
+                <select
+                  value={editBranchId}
+                  onChange={(e) => setEditBranchId(Number(e.target.value))}
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background text-foreground mt-1"
+                >
+                  <option value={0}>-- Select Branch --</option>
+                  {editBranches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Route</Label>
+                <select
+                  value={editRouteId}
+                  onChange={(e) => setEditRouteId(Number(e.target.value))}
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background text-foreground mt-1"
+                >
+                  <option value={0}>-- Select Route --</option>
+                  {editRoutes.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.branch_one_name} - {r.branch_two_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTicket(null)} disabled={editSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSave} disabled={editSubmitting || !editBranchId || !editRouteId}>
+              {editSubmitting ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

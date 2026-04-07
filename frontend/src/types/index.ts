@@ -309,6 +309,7 @@ export interface TicketCreate {
 }
 
 export interface TicketUpdate {
+  branch_id?: number;
   departure?: string | null;
   route_id?: number;
   payment_mode_id?: number;

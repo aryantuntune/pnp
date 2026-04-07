@@ -85,6 +85,7 @@ class TicketCreate(BaseModel):
 
 
 class TicketUpdate(BaseModel):
+    branch_id: int | None = Field(None, description="Updated branch ID (admin only)")
     departure: str | None = Field(None, description="Updated departure time HH:MM")
     route_id: int | None = Field(None, description="Updated route ID")
     payment_mode_id: int | None = Field(None, description="Updated payment mode ID")
