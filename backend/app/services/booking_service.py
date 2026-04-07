@@ -545,6 +545,7 @@ async def create_booking(
 
     # 14. Flush and return enriched booking
     await db.flush()
+    await db.refresh(booking)
     return await _enrich_booking(db, booking, include_items=True)
 
 
@@ -633,6 +634,7 @@ async def confirm_booking_payment(
 
     booking.status = "CONFIRMED"
     await db.flush()
+    await db.refresh(booking)
     return await _enrich_booking(db, booking, include_items=True)
 
 

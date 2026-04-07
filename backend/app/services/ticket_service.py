@@ -1016,6 +1016,7 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
         for ti in items_result.scalars().all():
             ti.is_cancelled = True
         await db.flush()
+        await db.refresh(ticket)
         return await _enrich_ticket(db, ticket, include_items=True)
 
     if "route_id" in update_data:
@@ -1092,4 +1093,5 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
             _cross_check_amounts(current_amount, ticket.net_amount, update_data.get("amount", current_amount), update_data["net_amount"])
 
     await db.flush()
+    await db.refresh(ticket)
     return await _enrich_ticket(db, ticket, include_items=True)
