@@ -22,9 +22,9 @@ def get_password_hash(password: str) -> str:
     ).decode("utf-8")
 
 
-def create_access_token(subject: str | Any, extra_claims: dict | None = None) -> str:
+def create_access_token(subject: str | Any, extra_claims: dict | None = None, expires_minutes: int | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=expires_minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     payload = {"sub": str(subject), "exp": expire, "type": "access", "jti": str(uuid.uuid4())}
     if extra_claims:

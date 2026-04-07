@@ -18,6 +18,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import useVersionCheck from "@/hooks/useVersionCheck";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import IdleWarningToast from "@/components/ui/IdleWarningToast";
+import SessionLockout from "@/components/ui/SessionLockout";
 
 interface CustomerInfo {
   id: number;
@@ -57,51 +60,6 @@ export default function CustomerLayout({
       });
   }, [router]);
 
-  // Heartbeat: ping server periodically while user is active
-  const userActiveRef = useRef(false);
-  useEffect(() => {
-    const HEARTBEAT_INTERVAL = 3 * 60 * 1000; // 3 minutes
-
-    const markActive = () => { userActiveRef.current = true; };
-    const events = ["mousedown", "keydown", "touchstart", "scroll"];
-    events.forEach((event) => window.addEventListener(event, markActive));
-
-    const heartbeatId = setInterval(() => {
-      if (userActiveRef.current) {
-        userActiveRef.current = false;
-        api.get("/api/portal/auth/me").catch(() => {});
-      }
-    }, HEARTBEAT_INTERVAL);
-
-    return () => {
-      clearInterval(heartbeatId);
-      events.forEach((event) => window.removeEventListener(event, markActive));
-    };
-  }, []);
-
-  // Idle timeout: force-logout after 10 minutes of inactivity
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-
-    const resetTimer = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(async () => {
-        await portalLogout();
-        window.location.href = "/customer/login?reason=idle_timeout";
-      }, IDLE_TIMEOUT);
-    };
-
-    const idleEvents = ["mousedown", "keydown", "touchstart", "scroll"];
-    idleEvents.forEach((event) => window.addEventListener(event, resetTimer));
-    resetTimer();
-
-    return () => {
-      clearTimeout(timeoutId);
-      idleEvents.forEach((event) => window.removeEventListener(event, resetTimer));
-    };
-  }, []);
-
   // Close profile dropdown on outside click
   useEffect(() => {
     if (!isProfileOpen) return;
@@ -131,6 +89,11 @@ export default function CustomerLayout({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen]);
+
+  const { isLockedOut, warning } = useIdleTimeout({
+    logoutFn: portalLogout,
+    heartbeatUrl: "/api/portal/auth/me",
+  });
 
   const handleLogout = async () => {
     await portalLogout();
@@ -370,6 +333,15 @@ export default function CustomerLayout({
           </p>
         </div>
       </footer>
+      {warning && (
+        <IdleWarningToast
+          remaining={warning.remaining}
+          persistent={warning.persistent}
+        />
+      )}
+      {isLockedOut && (
+        <SessionLockout redirectUrl="/customer/login?reason=idle_timeout" />
+      )}
     </div>
   );
 }

@@ -105,7 +105,8 @@ async def mobile_login(
     )
 
     extra = {"role": user.role.value, "sid": sid}
-    access_token = create_access_token(subject=str(user.id), extra_claims=extra)
+    # Mobile checkers get long-lived tokens (24h) — no idle timeout, minimal refreshing
+    access_token = create_access_token(subject=str(user.id), extra_claims=extra, expires_minutes=1440)
     refresh_token = create_refresh_token(subject=str(user.id))
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     await token_service.store_refresh_token(db, refresh_token, expires_at, user_id=user.id)
