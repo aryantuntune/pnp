@@ -1,0 +1,64 @@
+services:
+  admin-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    container_name: admin-backend
+    environment:
+      APP_ENV: production
+      FORWARDED_ALLOW_IPS: "*"
+    env_file: ./backend/.env.admin
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    networks:
+      - admin-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  admin-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://admin.carferry.online
+        NEXT_PUBLIC_APP_URL: https://admin.carferry.online
+        NEXT_PUBLIC_APP_NAME: "SSMSPL Admin"
+        NEXT_PUBLIC_ADMIN_PORTAL: "true"
+        INTERNAL_API_URL: http://admin-backend:8000
+    restart: always
+    container_name: admin-frontend
+    environment:
+      NODE_ENV: production
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "3010:3000"
+    depends_on:
+      admin-backend:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:3000/login', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    networks:
+      - admin-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+networks:
+  admin-net:
+    driver: bridge

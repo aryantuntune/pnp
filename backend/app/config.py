@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "SSMSPL"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    ADMIN_PORTAL_MODE: bool = False
 
     # Security
     SECRET_KEY: str

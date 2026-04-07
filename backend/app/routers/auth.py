@@ -73,6 +73,13 @@ async def mobile_login(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    # Admin portal does not serve mobile app
+    if settings.ADMIN_PORTAL_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Mobile login is not available on the admin portal.",
+        )
+
     # Authenticate first
     user = await auth_service.authenticate_user(db, body.username, body.password)
     if not user:

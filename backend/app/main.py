@@ -31,22 +31,29 @@ async def lifespan(app: FastAPI):
 
     await init_blacklist()
 
-    task = asyncio.create_task(expiry_loop())
-    report_task = asyncio.create_task(daily_report_loop())
-    logger.info("Booking expiry background task started")
-    logger.info("Daily report scheduler started")
+    task = None
+    report_task = None
+    if not settings.ADMIN_PORTAL_MODE:
+        task = asyncio.create_task(expiry_loop())
+        report_task = asyncio.create_task(daily_report_loop())
+        logger.info("Booking expiry background task started")
+        logger.info("Daily report scheduler started")
 
     yield
 
     # --- Shutdown: clean up connections ---
-    task.cancel()
-    report_task.cancel()
+    if task:
+        task.cancel()
+    if report_task:
+        report_task.cancel()
     try:
-        await task
+        if task:
+            await task
     except asyncio.CancelledError:
         pass
     try:
-        await report_task
+        if report_task:
+            await report_task
     except asyncio.CancelledError:
         pass
     await close_blacklist()
@@ -240,21 +247,24 @@ app.include_router(item_rates.router)
 app.include_router(ferry_schedules.router)
 app.include_router(payment_modes.router)
 app.include_router(tickets.router)
-app.include_router(portal_auth.router)
 app.include_router(company.router)
-app.include_router(booking.router)
-app.include_router(portal_bookings.router)
 app.include_router(reports.router)
 app.include_router(verification.router)
-app.include_router(contact.router)
 app.include_router(dashboard.router)
-app.include_router(portal_payment.router)
-app.include_router(portal_theme.router)
 app.include_router(settings_router.router)
 app.include_router(rate_change_logs.router)
 app.include_router(qz.router)
 app.include_router(backup.router)
 app.include_router(user_sessions.router)
+
+# Customer-facing routers — disabled on admin portal (no public site / customer portal)
+if not settings.ADMIN_PORTAL_MODE:
+    app.include_router(portal_auth.router)
+    app.include_router(booking.router)
+    app.include_router(portal_bookings.router)
+    app.include_router(portal_payment.router)
+    app.include_router(portal_theme.router)
+    app.include_router(contact.router)
 
 
 @app.get("/health", tags=["Health"])

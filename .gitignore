@@ -17,6 +17,7 @@ htmlcov/
 .env.test
 .env.staging
 .env.production
+.env.admin
 .env.local
 !.env.example
 !.env.*.example

@@ -8,8 +8,25 @@ const CUSTOMER_PUBLIC = [
   "/customer/reset-password",
 ];
 
+const ADMIN_PORTAL_ALLOWED = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/dashboard",
+];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Admin portal mode: block public site and customer portal routes
+  if (process.env.NEXT_PUBLIC_ADMIN_PORTAL === "true") {
+    const isAllowed = ADMIN_PORTAL_ALLOWED.some(
+      (p) => pathname === p || pathname.startsWith(p + "/")
+    );
+    if (!isAllowed) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
 
   // Protect ALL /dashboard/* routes
   if (pathname.startsWith("/dashboard")) {

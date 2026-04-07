@@ -64,6 +64,13 @@ async def login(
             detail="Incorrect username or password",
         )
 
+    # Admin portal: only SUPER_ADMIN and ADMIN can log in
+    if settings.ADMIN_PORTAL_MODE and user.role not in (UserRole.SUPER_ADMIN, UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted to administrators only.",
+        )
+
     # Close previous session if one exists
     from app.services import user_session_service
     if user.active_session_id:
@@ -112,6 +119,15 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    # Admin portal: block refresh for non-admin roles (e.g. user was demoted after login)
+    if settings.ADMIN_PORTAL_MODE and user.role not in (UserRole.SUPER_ADMIN, UserRole.ADMIN):
+        await token_service.revoke_token(db, refresh_token)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted to administrators only.",
+        )
 
     # Block refresh if session is already closed (e.g., idle timeout already fired)
     if not user.active_session_id:
