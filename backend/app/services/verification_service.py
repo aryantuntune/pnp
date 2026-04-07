@@ -1,4 +1,5 @@
 import datetime
+import logging
 import uuid
 
 from fastapi import HTTPException, status
@@ -14,6 +15,8 @@ from app.models.route import Route
 from app.models.user import User
 from app.core.data_cutoff import is_before_cutoff
 from app.core.rbac import UserRole
+
+log = logging.getLogger("ssmspl.verification")
 
 
 async def _get_branch_name(db: AsyncSession, branch_id: int) -> str | None:
@@ -186,6 +189,11 @@ async def lookup_ticket_by_code(db: AsyncSession, verification_code: uuid.UUID, 
     ticket = result.scalar_one_or_none()
     if not ticket:
         return None
+    log.info(
+        "SCAN ticket_lookup id=%s ticket_no=%s db_status=%r is_cancelled=%s checked_in_at=%s created_at=%s code=%s",
+        ticket.id, ticket.ticket_no, ticket.status, ticket.is_cancelled,
+        ticket.checked_in_at, ticket.created_at, verification_code,
+    )
     if is_before_cutoff(ticket.ticket_date, user.role):
         return None
     _check_route_access(user, ticket.route_id)
@@ -194,19 +202,36 @@ async def lookup_ticket_by_code(db: AsyncSession, verification_code: uuid.UUID, 
 
 async def lookup_by_code(db: AsyncSession, verification_code: uuid.UUID, user: User) -> dict:
     """Look up a booking or ticket by verification code. Tries booking first, then ticket."""
+    log.info(
+        "SCAN lookup_by_code code=%s checker=%s (role=%s)",
+        verification_code, user.username, user.role,
+    )
+
     # Try booking first
     result = await db.execute(
         select(Booking).where(Booking.verification_code == verification_code)
     )
     booking = result.scalar_one_or_none()
     if booking:
+        log.info(
+            "SCAN matched BOOKING id=%s booking_no=%s status=%s checked_in_at=%s code=%s",
+            booking.id, booking.booking_no, booking.status,
+            booking.checked_in_at, verification_code,
+        )
         return await lookup_booking_by_code(db, verification_code, user)
 
     # Try ticket
     ticket_result = await lookup_ticket_by_code(db, verification_code, user)
     if ticket_result:
+        log.info(
+            "SCAN matched TICKET id=%s ticket_no=%s status=%s checked_in_at=%s code=%s",
+            ticket_result["id"], ticket_result["reference_no"],
+            ticket_result["status"], ticket_result.get("checked_in_at"),
+            verification_code,
+        )
         return ticket_result
 
+    log.warning("SCAN no match found for code=%s", verification_code)
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="No booking or ticket found for this verification code",
@@ -218,6 +243,11 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
     Sets status to VERIFIED and records checked_in_at timestamp.
     QR codes can only be scanned once."""
 
+    log.info(
+        "CHECK-IN verify code=%s checker=%s (role=%s)",
+        verification_code, current_user.username, current_user.role,
+    )
+
     # Try booking first
     result = await db.execute(
         select(Booking).where(Booking.verification_code == verification_code)
@@ -225,6 +255,10 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
     booking = result.scalar_one_or_none()
 
     if booking:
+        log.info(
+            "CHECK-IN matched BOOKING id=%s booking_no=%s status=%s checked_in_at=%s",
+            booking.id, booking.booking_no, booking.status, booking.checked_in_at,
+        )
         # Route access check
         _check_route_access(current_user, booking.route_id)
 
@@ -239,6 +273,10 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
                 detail="Payment pending — cannot verify until payment is confirmed",
             )
         if booking.status == "VERIFIED":
+            log.warning(
+                "CHECK-IN ALREADY VERIFIED booking id=%s at %s — duplicate attempt by %s",
+                booking.id, booking.checked_in_at, current_user.username,
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Already verified at {booking.checked_in_at.isoformat() if booking.checked_in_at else 'unknown'}",
@@ -248,6 +286,7 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
         booking.status = "VERIFIED"
         booking.checked_in_at = now
         await db.flush()
+        log.info("CHECK-IN OK booking id=%s verified at %s by %s", booking.id, now, current_user.username)
 
         return {
             "message": "Booking verified successfully",
@@ -264,16 +303,24 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
     ticket = ticket_result.scalar_one_or_none()
 
     if ticket:
+        effective_status = _ticket_status(ticket)
+        log.info(
+            "CHECK-IN matched TICKET id=%s ticket_no=%s db_status=%s effective_status=%s checked_in_at=%s",
+            ticket.id, ticket.ticket_no, ticket.status, effective_status, ticket.checked_in_at,
+        )
         # Route access check
         _check_route_access(current_user, ticket.route_id)
 
-        effective_status = _ticket_status(ticket)
         if effective_status == "CANCELLED":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot verify a cancelled ticket",
             )
         if effective_status == "VERIFIED":
+            log.warning(
+                "CHECK-IN ALREADY VERIFIED ticket id=%s ticket_no=%s at %s — duplicate attempt by %s",
+                ticket.id, ticket.ticket_no, ticket.checked_in_at, current_user.username,
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Already verified at {ticket.checked_in_at.isoformat() if ticket.checked_in_at else 'unknown'}",
@@ -283,6 +330,10 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
         ticket.status = "VERIFIED"
         ticket.checked_in_at = now
         await db.flush()
+        log.info(
+            "CHECK-IN OK ticket id=%s ticket_no=%s verified at %s by %s",
+            ticket.id, ticket.ticket_no, now, current_user.username,
+        )
 
         return {
             "message": "Ticket verified successfully",
@@ -292,6 +343,7 @@ async def verify(db: AsyncSession, verification_code: uuid.UUID, current_user: U
             "checked_in_at": now,
         }
 
+    log.warning("CHECK-IN no match found for code=%s", verification_code)
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="No booking or ticket found for this verification code",
