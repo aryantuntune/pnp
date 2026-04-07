@@ -19,20 +19,16 @@ export default function IdleWarningToast({
   remaining,
   persistent,
 }: IdleWarningToastProps) {
-  const [visible, setVisible] = useState(true);
+  const [dismissed, setDismissed] = useState(false);
 
   // Auto-dismiss transient toasts after 5 seconds
   useEffect(() => {
-    if (persistent) {
-      setVisible(true);
-      return;
-    }
-    setVisible(true);
-    const timer = setTimeout(() => setVisible(false), 5000);
+    if (persistent) return;
+    const timer = setTimeout(() => setDismissed(true), 5000);
     return () => clearTimeout(timer);
   }, [persistent]);
 
-  if (!visible) return null;
+  if (dismissed && !persistent) return null;
 
   return (
     <div

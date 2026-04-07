@@ -31,11 +31,12 @@ export function useIdleTimeout({
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [warning, setWarning] = useState<IdleWarning | null>(null);
 
-  const lastActiveAtRef = useRef(Date.now());
-  const lastHeartbeatRef = useRef(Date.now());
+  const lastActiveAtRef = useRef(0);
+  const lastHeartbeatRef = useRef(0);
   const wasActiveSinceHeartbeatRef = useRef(false);
   const shown5minRef = useRef(false);
   const lockedOutRef = useRef(false);
+  const initializedRef = useRef(false);
 
   const resetActivity = useCallback(() => {
     if (lockedOutRef.current) return; // ignore activity after lockout
@@ -43,6 +44,14 @@ export function useIdleTimeout({
     wasActiveSinceHeartbeatRef.current = true;
     shown5minRef.current = false;
     setWarning(null);
+  }, []);
+
+  // Initialize timestamp refs on mount (avoids calling Date.now() during render)
+  useEffect(() => {
+    const now = Date.now();
+    lastActiveAtRef.current = now;
+    lastHeartbeatRef.current = now;
+    initializedRef.current = true;
   }, []);
 
   const triggerLockout = useCallback(() => {
@@ -57,7 +66,7 @@ export function useIdleTimeout({
   // 1-second tick: compute elapsed, drive warnings/lockout, send heartbeat
   useEffect(() => {
     const tick = () => {
-      if (lockedOutRef.current) return;
+      if (lockedOutRef.current || !initializedRef.current) return;
 
       const now = Date.now();
       const elapsed = now - lastActiveAtRef.current;
@@ -105,7 +114,7 @@ export function useIdleTimeout({
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState !== "visible") return;
-      if (lockedOutRef.current) return;
+      if (lockedOutRef.current || !initializedRef.current) return;
 
       const elapsed = Date.now() - lastActiveAtRef.current;
       if (elapsed >= IDLE_LIMIT) {
