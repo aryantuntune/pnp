@@ -304,7 +304,8 @@ async def get_departure_options(db: AsyncSession, branch_id: int) -> dict:
     # Effective cutoff: a schedule is still "current" if departure + buffer >= now,
     # i.e. we compare departure against (now - buffer).
     cutoff_dt = now_dt - datetime.timedelta(minutes=BUFFER_MINUTES)
-    cutoff = cutoff_dt.time()
+    # Clamp to midnight if subtraction wrapped to previous day (e.g. 00:05 - 10min)
+    cutoff = cutoff_dt.time() if cutoff_dt.date() == now_dt.date() else datetime.time(0, 0)
 
     # Fetch all schedules for the branch, sorted ascending
     result = await db.execute(
@@ -961,6 +962,7 @@ async def create_ticket(
         payment_mode_id=effective_payment_mode_id,
         is_cancelled=False,
         net_amount=computed_net,
+        status="CONFIRMED",
         verification_code=uuid_mod.uuid4(),
         boat_id=data.boat_id,
         ref_no=data.ref_no,
@@ -992,6 +994,7 @@ async def create_ticket(
     branch.last_ticket_no = next_ticket_no
 
     await db.flush()
+    await db.refresh(ticket)
     return await _enrich_ticket(db, ticket, include_items=True)
 
 
@@ -1017,6 +1020,7 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
         for ti in items_result.scalars().all():
             ti.is_cancelled = True
         await db.flush()
+        await db.refresh(ticket)
         return await _enrich_ticket(db, ticket, include_items=True)
 
     if "branch_id" in update_data:
@@ -1098,4 +1102,5 @@ async def update_ticket(db: AsyncSession, ticket_id: int, data: TicketUpdate) ->
             _cross_check_amounts(current_amount, ticket.net_amount, update_data.get("amount", current_amount), update_data["net_amount"])
 
     await db.flush()
+    await db.refresh(ticket)
     return await _enrich_ticket(db, ticket, include_items=True)

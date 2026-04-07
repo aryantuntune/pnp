@@ -45,6 +45,8 @@ async def create_otp(db: AsyncSession, email: str, purpose: str) -> str:
         email=email,
         otp_hash=hash_token(raw_otp),
         purpose=purpose,
+        attempts=0,
+        is_used=False,
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES),
     )
     db.add(otp_record)

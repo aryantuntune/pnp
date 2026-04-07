@@ -22,7 +22,9 @@ class Ticket(AuditMixin, Base):
     payment_mode_id: Mapped[int] = mapped_column(Integer, ForeignKey("payment_modes.id"), nullable=False)
     is_cancelled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     net_amount: Mapped[float] = mapped_column(Numeric(9, 2), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="CONFIRMED", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default="CONFIRMED", server_default="CONFIRMED", nullable=False,
+    )  # server_default mirrors DDL (ddl.sql:209) — no migration needed
     checked_in_at: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)
     verification_code: Mapped[uuid_mod.UUID | None] = mapped_column(UUID(as_uuid=True), default=uuid_mod.uuid4, nullable=True, unique=True)
     boat_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("boats.id"), nullable=True)

@@ -459,6 +459,7 @@ async def simulate_callback(
         if booking and booking.status == "PENDING":
             booking.status = "CONFIRMED"
             await db.flush()
+            await db.refresh(booking)
 
             logger.info("Booking %s confirmed via simulated payment", booking.id)
 
@@ -586,6 +587,7 @@ async def payment_callback(
         if booking and booking.status == "PENDING":
             booking.status = "CONFIRMED"
             await db.flush()
+            await db.refresh(booking)
 
             logger.info("Booking %s confirmed via payment callback", booking.id)
 

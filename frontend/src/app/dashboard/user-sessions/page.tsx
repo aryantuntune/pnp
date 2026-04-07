@@ -71,7 +71,7 @@ function endReasonBadge(reason: string | null) {
     { variant: "default" | "secondary" | "destructive"; label: string }
   > = {
     logout: { variant: "default", label: "Logout" },
-    timeout: { variant: "secondary", label: "Timeout" },
+    timeout: { variant: "secondary", label: "Idle Timeout" },
     login_elsewhere: { variant: "destructive", label: "Kicked" },
     idle_timeout: { variant: "secondary", label: "Idle Timeout" },
     password_reset: { variant: "destructive", label: "Password Reset" },
