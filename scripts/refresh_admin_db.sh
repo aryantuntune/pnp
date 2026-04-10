@@ -1,10 +1,23 @@
 #!/bin/bash
-# refresh_admin_db.sh — Copy ssmspl_sync (read-only replica) → ssmspl_admin (editable)
+# refresh_admin_db.sh — Full reset of ssmspl_admin from ssmspl_sync
 # Run on Server 2 as root or postgres user
+#
+# WARNING: This script is for EMERGENCY RESETS ONLY.
+# Normal operation uses cascading logical replication (ssmspl_sync → ssmspl_admin)
+# which keeps ssmspl_admin in real-time sync automatically.
+#
+# Running this script will:
+#   1. Drop and recreate the admin_sub subscription
+#   2. Overwrite ALL data in ssmspl_admin (including admin edits)
+#   3. Restore real-time replication afterward
 #
 # Usage:
 #   sudo ./refresh_admin_db.sh
-#   # Or via cron: 0 3 * * * /var/www/ssmspl-admin/scripts/refresh_admin_db.sh >> /var/log/ssmspl_admin_refresh.log 2>&1
+#
+# Only run this if:
+#   - Replication is broken and cannot be repaired
+#   - ssmspl_admin has become corrupted
+#   - You explicitly want to discard all admin edits
 
 set -euo pipefail
 
@@ -13,9 +26,28 @@ ADMIN_DB="ssmspl_admin"
 ADMIN_USER="ssmspl_admin_user"
 DUMP_FILE="/tmp/ssmspl_sync_dump_$(date +%Y%m%d_%H%M%S).sql"
 
-echo "[$(date)] === Starting refresh: $SYNC_DB → $ADMIN_DB ==="
+echo "[$(date)] === EMERGENCY RESET: $SYNC_DB → $ADMIN_DB ==="
+echo "[$(date)] WARNING: This will overwrite all admin edits and reset replication."
+echo "[$(date)] Waiting 5 seconds — press Ctrl+C to abort..."
+sleep 5
 
-# Step 1: Dump ssmspl_sync (excluding replication objects)
+# Step 1: Stop admin containers to free DB connections
+echo "[$(date)] Stopping admin containers..."
+docker stop admin-backend admin-frontend 2>/dev/null || true
+
+# Step 2: Drop existing subscription (if any)
+echo "[$(date)] Dropping existing subscription..."
+sudo -u postgres psql -d "$ADMIN_DB" -c "
+    ALTER SUBSCRIPTION admin_sub DISABLE;
+    ALTER SUBSCRIPTION admin_sub SET (slot_name = NONE);
+    DROP SUBSCRIPTION admin_sub;
+" 2>/dev/null || true
+# Drop the replication slot in ssmspl_sync
+sudo -u postgres psql -d "$SYNC_DB" -c "
+    SELECT pg_drop_replication_slot('admin_sub');
+" 2>/dev/null || true
+
+# Step 3: Dump ssmspl_sync (excluding replication objects)
 echo "[$(date)] Dumping $SYNC_DB..."
 sudo -u postgres pg_dump -d "$SYNC_DB" \
     --no-owner --no-privileges \
@@ -26,42 +58,73 @@ sudo -u postgres pg_dump -d "$SYNC_DB" \
 DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)
 echo "[$(date)] Dump complete: $DUMP_FILE ($DUMP_SIZE)"
 
-# Step 2: Restore into ssmspl_admin
+# Step 4: Restore into ssmspl_admin
 echo "[$(date)] Restoring into $ADMIN_DB..."
 ERRORS=$(sudo -u postgres psql -d "$ADMIN_DB" -f "$DUMP_FILE" 2>&1 | grep -cE "^(ERROR|FATAL)" || true)
 if [ "$ERRORS" -gt 0 ]; then
     echo "[$(date)] WARNING: $ERRORS error(s) during restore — check logs"
 fi
 
-# Step 3: Re-grant permissions to admin user
+# Step 5: Re-grant permissions to admin user
 echo "[$(date)] Re-granting permissions to $ADMIN_USER..."
 sudo -u postgres psql -d "$ADMIN_DB" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO $ADMIN_USER;"
 sudo -u postgres psql -d "$ADMIN_DB" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO $ADMIN_USER;"
 
-# Step 4: Reset all sequences to match restored data
+# Step 6: Reset all sequences to match restored data
 echo "[$(date)] Resetting sequences..."
 sudo -u postgres psql -d "$ADMIN_DB" -c "
 DO \$\$
-DECLARE r RECORD;
+DECLARE
+    r RECORD;
+    max_val BIGINT;
 BEGIN
     FOR r IN
-        SELECT sequencename, split_part(sequencename, '_id_seq', 1) AS tbl
-        FROM pg_sequences WHERE schemaname = 'public'
+        SELECT s.relname AS seqname, t.relname AS tablename, a.attname AS colname
+        FROM pg_class s
+        JOIN pg_depend d ON d.objid = s.oid
+        JOIN pg_class t ON t.oid = d.refobjid
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+        WHERE s.relkind = 'S'
     LOOP
-        EXECUTE format(
-            'SELECT setval(''public.%I'', COALESCE((SELECT MAX(id) FROM public.%I), 1))',
-            r.sequencename, r.tbl
-        );
+        EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I', r.colname, r.tablename) INTO max_val;
+        IF max_val > 0 THEN
+            PERFORM setval(r.seqname::regclass, max_val);
+        END IF;
     END LOOP;
 END \$\$;
 "
 
-# Step 5: Post-restore health check
-echo "[$(date)] Verifying critical tables..."
-TABLE_COUNT=$(sudo -u postgres psql -d "$ADMIN_DB" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';")
-echo "[$(date)] Tables in $ADMIN_DB: $TABLE_COUNT"
+# Step 7: Recreate cascading replication (ssmspl_sync → ssmspl_admin)
+echo "[$(date)] Re-creating replication slot..."
+sudo -u postgres psql -d "$SYNC_DB" -c "SELECT pg_create_logical_replication_slot('admin_sub', 'pgoutput');"
 
-# Step 6: Cleanup
+echo "[$(date)] Re-creating subscription..."
+sudo -u postgres psql -d "$ADMIN_DB" -c "
+    CREATE SUBSCRIPTION admin_sub
+    CONNECTION 'dbname=ssmspl_sync host=/var/run/postgresql'
+    PUBLICATION admin_pub
+    WITH (copy_data = false, create_slot = false, slot_name = 'admin_sub');
+"
+
+# Step 8: Post-restore health check
+echo "[$(date)] Verifying..."
+TABLE_COUNT=$(sudo -u postgres psql -d "$ADMIN_DB" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';")
+SYNC_TICKETS=$(sudo -u postgres psql -d "$SYNC_DB" -t -c "SELECT count(*) FROM tickets;")
+ADMIN_TICKETS=$(sudo -u postgres psql -d "$ADMIN_DB" -t -c "SELECT count(*) FROM tickets;")
+echo "[$(date)] Tables: $TABLE_COUNT | Sync tickets: $SYNC_TICKETS | Admin tickets: $ADMIN_TICKETS"
+
+SUB_STATUS=$(sudo -u postgres psql -d "$ADMIN_DB" -t -c "SELECT pid FROM pg_stat_subscription WHERE subname='admin_sub';")
+if [ -n "$SUB_STATUS" ]; then
+    echo "[$(date)] Replication: ACTIVE (worker PID: $SUB_STATUS)"
+else
+    echo "[$(date)] WARNING: Replication worker not started — check pg logs"
+fi
+
+# Step 9: Restart admin containers
+echo "[$(date)] Restarting admin containers..."
+docker start admin-backend admin-frontend
+
+# Step 10: Cleanup
 rm -f "$DUMP_FILE"
 
-echo "[$(date)] === Refresh complete ==="
+echo "[$(date)] === Reset complete ==="
