@@ -11,32 +11,16 @@ import api from "@/lib/api";
 
 const ROUTES = [
   {
-    name: "Dabhol \u2013 Dhopave",
-    phones: ["02348-248900", "9767248900", "7709250800"],
+    name: "Gateway of India Office",
+    phones: ["022-22884535", "022-22885220", "+91 8591254683"],
   },
   {
-    name: "Jaigad \u2013 Tawsal",
-    phones: ["02354-242500", "8550999884", "8550999880"],
+    name: "Mandwa Jetty Office",
+    phones: ["02141-237087", "02141-237464"],
   },
   {
-    name: "Dighi \u2013 Agardande",
-    phones: ["9156546700", "8550999887"],
-  },
-  {
-    name: "Veshvi \u2013 Bagmandale",
-    phones: ["02350-223300", "8767980300", "9322819161"],
-  },
-  {
-    name: "Vasai \u2013 Bhayander",
-    phones: ["8624063900", "8600314710"],
-  },
-  {
-    name: "Ambet \u2013 Mahpral",
-    phones: ["8624063900", "7709250800"],
-  },
-  {
-    name: "Virar \u2013 Saphale",
-    phones: ["9371002900", "8459803521"],
+    name: "Alibag Office",
+    phones: ["02141-225403", "+91 8805401558"],
   },
 ];
 
