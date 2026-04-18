@@ -285,7 +285,7 @@ ${itemRows}
 <div class="dash"></div>
 <div class="note">NOTE: Tantrik Durustimule Velevar na sutlyas va ushira pohochlyas company jababdar rahanar nahi.</div>
 <div class="center note">Ferry Boatit Ticket Dakhvaa.</div>
-<div class="center note">HAPPY JOURNEY - www.carferry.online</div>
+<div class="center note">HAPPY JOURNEY - www.pnp.example.com</div>
 <div class="dash"></div>
 <div class="header-line"><span>DATE: ${dateStr} ${time}</span><span>BY: ${escHtml(createdBy)}</span></div>
 <div>TICKET MEMO NO: ${ticketNo}</div>
