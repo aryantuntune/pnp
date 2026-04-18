@@ -575,7 +575,7 @@ export default function UsersPage() {
                 maxLength={255}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="e.g. john@ssmspl.com (optional)"
+                placeholder="e.g. john@pnp.example.com (optional)"
                 className="mt-1.5"
               />
             </div>

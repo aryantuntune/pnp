@@ -235,7 +235,7 @@ export default function BranchesPage() {
       const data = await fetchAllBranches();
       const rows = formatRows(data);
       const html = `<!DOCTYPE html>
-<html><head><title>SSMSPL - Branch List</title>
+<html><head><title>PNP - Branch List</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
   h1 { font-size: 18px; margin: 0; }
@@ -246,7 +246,7 @@ export default function BranchesPage() {
   tr:nth-child(even) { background: #f9fafb; }
   @media print { body { margin: 0; } }
 </style></head><body>
-<h1>SSMSPL - Branch List</h1>
+<h1>PNP - Branch List</h1>
 <div class="sub">${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} &bull; ${data.length} record(s)</div>
 <table><thead><tr>${EXPORT_HEADERS.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
 <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
@@ -264,7 +264,7 @@ export default function BranchesPage() {
       const rows = formatRows(data);
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);
-      doc.text("SSMSPL - Branch List", 14, 15);
+      doc.text("PNP - Branch List", 14, 15);
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}  |  ${data.length} record(s)`, 14, 22);

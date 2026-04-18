@@ -450,7 +450,7 @@ export default function BackupsTab() {
               <Input
                 type="email"
                 required
-                placeholder="e.g. admin@ssmspl.com"
+                placeholder="e.g. admin@pnp.example.com"
                 value={addEmail}
                 onChange={(e) => setAddEmail(e.target.value)}
               />

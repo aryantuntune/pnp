@@ -2513,7 +2513,7 @@ export default function TicketingPage() {
                   <ol className="space-y-1 list-decimal list-inside text-muted-foreground">
                     <li>Download and install <strong>QZ Tray</strong> from <a href="https://qz.io/download" target="_blank" rel="noreferrer" className="text-blue-600 underline">qz.io/download</a></li>
                     <li>Launch QZ Tray — it appears as an icon in the system tray (bottom-right)</li>
-                    <li>Download the <a href="/ssmspl-qz.crt" download className="text-blue-600 underline">SSMSPL certificate</a> below</li>
+                    <li>Download the <a href="/ssmspl-qz.crt" download className="text-blue-600 underline">PNP certificate</a> below</li>
                     <li>Right-click the QZ Tray icon → <strong>Advanced</strong> → <strong>Site Manager</strong> → click <strong>+</strong> → import the downloaded certificate</li>
                     <li>Click <strong>Refresh</strong> above</li>
                   </ol>
