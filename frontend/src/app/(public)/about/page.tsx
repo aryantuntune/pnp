@@ -4,19 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 const ferryRoutes = [
-  "Dabhol \u2013 Dhopave",
-  "Jaigad \u2013 Tawsal",
-  "Dighi \u2013 Agardande",
-  "Veshvi \u2013 Bagmandale",
-  "Vasai \u2013 Bhayander",
-  "Virar \u2013 Saphale (Jalsar)",
-  "Ambet \u2013 Mahpral",
+  "Gateway of India \u2013 Mandwa Jetty (incl. free bus to Alibag)",
 ];
 
 const stats = [
-  { value: "20+", label: "YEARS OF SERVICE" },
-  { value: "7", label: "FERRY ROUTES" },
-  { value: "65+", label: "EMPLOYEES" },
+  { value: "25+", label: "YEARS OF SERVICE" },
+  { value: "1", label: "FERRY ROUTE" },
+  { value: "350+", label: "CAPACITY PER SAILING" },
   { value: "1M+", label: "PASSENGERS SERVED" },
 ];
 
@@ -64,7 +58,7 @@ const commitments = [
   {
     title: "Reliable Service",
     description:
-      "Operating 7 days a week, in all seasons. Our ferries have been running continuously since 2003 with minimal disruptions.",
+      "Operating 7 days a week with 7 daily sailings each direction. Continuous service since 1999 with minimal disruptions.",
     icon: (
       <svg
         className="w-8 h-8 text-amber-400"
@@ -113,7 +107,7 @@ export default function AboutPage() {
             About Us
           </h1>
           <p className="text-lg md:text-xl text-cyan-100 mb-6">
-            Maharashtra&apos;s First Ferry Boat Service Since 2003
+            Gateway to Alibag &mdash; Catamaran Ferry Since 1999
           </p>
           <nav className="flex items-center justify-center gap-2 text-sm">
             <Link
@@ -135,10 +129,10 @@ export default function AboutPage() {
             Who We Are
           </span>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-6">
-            Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd.
+            PNP Maritime Services Pvt. Ltd.
           </h2>
           <p className="text-gray-600 leading-relaxed text-base md:text-lg">
-            Suvarnadurga Shipping and Marine Services is the transportation company that serves the Nation &amp; saves most valuable fuel.
+            PNP Maritime Services is a government-approved catamaran ferry operator providing fast, comfortable sea travel between Gateway of India (Mumbai) and Mandwa Jetty, with a free connecting bus to Alibag.
           </p>
         </div>
       </section>
@@ -175,16 +169,16 @@ export default function AboutPage() {
 
               <div className="space-y-4 text-gray-600 leading-relaxed">
                 <p>
-                  Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd. is a Company which is started by Dr. Mokal C.J. (Ex. MLA, Dapoli &ndash; Mandangad) with Dr. Mokal Y.C. as a Managing Director, in October 2003. We have skilled Staff of about 65 at different sites. We have approved Ticket Rates &amp; all necessary permits by Maharashtra Maritime board with Annual Inspections for requirements on Ferry Boat. Company is very particular about all life guarding apparatus on Ferry boat, for the safety of tourists &amp; public. Company Pay the Tax in the form of leavy by each ferry boat to the Government of about- four lakhs per year.
+                  PNP Maritime Services Pvt. Ltd. (CIN: U63090MH1999PTC121461) was incorporated on 25th August 1999 with a vision to provide comfortable, reliable sea travel between Mumbai and the Konkan coast.
                 </p>
                 <p>
-                  We began by starting a Ferry-Boat Service at Dabhol-Dhopave, which was a first Ferry Boat Service in Maharashtra. Before this ferry boat service there was no substitute for Dapoli to Guhagar journey, except Straight Highway (NH. 17) &amp; that was too expensive in the form of money &amp; time. Using ferry boat, you save a road journey by about 3 hrs. &amp; fuel as well. Its also a relief from cumbersome Road Traffic &amp; mishaps on the highway.
+                  PNP operates the only air-conditioned catamaran service on the Gateway of India to Mandwa Jetty route. Our catamarans accommodate over 350 passengers per sailing, offering two seating classes &mdash; Main Deck and AC Deck. All vessels are approved by the Maharashtra Maritime Board and undergo annual safety inspections.
                 </p>
                 <p>
-                  After Successful Service in Dabhol; we started another service in Veshvi &ndash; Bagmandle. This time we made a shortcut for traveling from Veshvi (Ratnagiri) to Bagmandle (Raigad). By the time, we had great confidence in our services, and we started a new ferry at Tawsal (Guhagar) to Jaigad (Ratnagiri). After this huge success we took an advantage to start ferry services At Rohini &ndash; Agardande.
+                  To make the full Mumbai&ndash;Alibag journey seamless, every sailing includes a complimentary connecting bus service from Mandwa Jetty to Alibag ST Stand. Passengers reach Alibag from Gateway of India in under 2 hours, avoiding the long road route entirely.
                 </p>
                 <p>
-                  Suvarnadurga Shipping and Marine Services is the transportation company that serves the Nation &amp; saves most valuable fuel. We hope, you will enjoy our Safe, Quick and Refreshing Ferry Services all the time.
+                  With 7 daily sailings in each direction, 365 days a year, PNP Maritime remains the preferred choice for thousands of passengers travelling between Mumbai and Alibag.
                 </p>
               </div>
             </div>
@@ -316,10 +310,10 @@ export default function AboutPage() {
               Head Office
             </h4>
             <p className="text-white/90 text-sm">
-              Dabhol FerryBoat Jetty, Dapoli
+              Apollo Bandar, Colaba
             </p>
             <p className="text-white/90 text-sm">
-              Dist. Ratnagiri, Maharashtra - 415712
+              Mumbai MH-400001
             </p>
           </div>
 
@@ -345,18 +339,18 @@ export default function AboutPage() {
             </h4>
             <p className="text-white/90 text-sm">
               <a
-                href="tel:02348248900"
+                href="tel:02222884535"
                 className="hover:text-white transition-colors"
               >
-                02348-248900
+                022-22884535
               </a>
             </p>
             <p className="text-white/90 text-sm">
               <a
-                href="tel:+919767248900"
+                href="tel:+918591254683"
                 className="hover:text-white transition-colors"
               >
-                +91 9767248900
+                +91 8591254683
               </a>
             </p>
           </div>
@@ -383,18 +377,10 @@ export default function AboutPage() {
             </h4>
             <p className="text-white/90 text-sm">
               <a
-                href="mailto:ssmsdapoli@rediffmail.com"
+                href="mailto:pnpipl11@gmail.com"
                 className="hover:text-white transition-colors"
               >
-                ssmsdapoli@rediffmail.com
-              </a>
-            </p>
-            <p className="text-white/90 text-sm">
-              <a
-                href="mailto:y.mokal@rediffmail.com"
-                className="hover:text-white transition-colors"
-              >
-                y.mokal@rediffmail.com
+                pnpipl11@gmail.com
               </a>
             </p>
           </div>
