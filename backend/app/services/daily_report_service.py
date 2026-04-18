@@ -246,7 +246,7 @@ def _build_daily_report_pdf(
     elements: list = []
 
     # --- Header ---
-    elements.append(Paragraph("SUVARNADURGA SHIPPING & MARINE SERVICES PVT. LTD.", styles["company"]))
+    elements.append(Paragraph("PNP MARITIME SERVICES PVT. LTD.", styles["company"]))
     elements.append(Paragraph("Daily Collection Report", styles["title"]))
     elements.append(Paragraph(
         f"Date: {report_date.strftime('%d %B %Y')}",
