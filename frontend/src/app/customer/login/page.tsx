@@ -124,13 +124,13 @@ function CustomerLoginContent() {
             >
               <Image
                 src="/images/logos/logo-white.png"
-                alt="Suvarnadurga Shipping"
+                alt="PNP Maritime Services"
                 width={56}
                 height={56}
                 className="object-contain drop-shadow-lg"
               />
               <span className="text-3xl font-bold text-white tracking-tight">
-                SSMSPL
+                PNP Maritime
               </span>
             </Link>
           </div>
@@ -255,7 +255,7 @@ function CustomerLoginContent() {
                 <div className="w-full border-t border-white/10"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 text-white/40">New to SSMSPL?</span>
+                <span className="px-4 text-white/40">New to PNP Maritime?</span>
               </div>
             </div>
 
@@ -282,7 +282,7 @@ function CustomerLoginContent() {
 
           {/* Footer */}
           <p className="text-center text-white/30 text-sm mt-8">
-            &copy; {new Date().getFullYear()} SSMSPL. All rights reserved.
+            &copy; {new Date().getFullYear()} PNP Maritime Services Pvt. Ltd. All rights reserved.
           </p>
         </div>
       </div>
