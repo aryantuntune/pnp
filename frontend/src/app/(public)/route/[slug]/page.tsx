@@ -22,8 +22,8 @@ interface RouteInfo {
   about: string[];
   tourist: string;
   contacts: ContactInfo[];
-  timetableImage?: string;
-  ratecardImage?: string;
+  timetableImage?: string | null;
+  ratecardImage?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
