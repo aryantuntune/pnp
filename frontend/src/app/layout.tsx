@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://pnp.example.com"
+    process.env.NEXT_PUBLIC_APP_URL || "https://pnp.unfurling.ninja"
   ),
   title: "PNP Maritime Services - Ferry Ticketing | Gateway of India to Mandwa",
   description:

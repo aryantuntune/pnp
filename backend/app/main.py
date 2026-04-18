@@ -158,7 +158,7 @@ app = FastAPI(
     ],
     contact={
         "name": "PNP Engineering",
-        "email": "engineering@pnp.example.com",
+        "email": "engineering@pnp.unfurling.ninja",
     },
     license_info={
         "name": "Proprietary",

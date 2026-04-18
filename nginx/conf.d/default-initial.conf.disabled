@@ -3,13 +3,13 @@
 # 1. Rename default.conf to default-ssl.conf
 # 2. Rename this file to default.conf
 # 3. Start nginx: docker compose -f docker-compose.prod.yml up nginx -d
-# 4. Run certbot: docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d carferry.online -d www.carferry.online -d api.carferry.online --email your@email.com --agree-tos --no-eff-email
+# 4. Run certbot: docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d pnp.unfurling.ninja -d api.pnp.unfurling.ninja --email your@email.com --agree-tos --no-eff-email
 # 5. Stop nginx, restore default-ssl.conf back to default.conf
 # 6. Start full stack: docker compose -f docker-compose.prod.yml up -d
 
 server {
     listen 80;
-    server_name carferry.online www.carferry.online api.carferry.online;
+    server_name pnp.unfurling.ninja api.pnp.unfurling.ninja;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;

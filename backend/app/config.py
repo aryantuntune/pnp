@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = "noreply@pnp.example.com"
+    SMTP_FROM_EMAIL: str = "noreply@pnp.unfurling.ninja"
     CONTACT_FORM_RECIPIENT: str = "pnpipl11@gmail.com"
 
 
