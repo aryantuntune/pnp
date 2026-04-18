@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     # App
     APP_ENV: str = "development"
-    APP_NAME: str = "SSMSPL"
+    APP_NAME: str = "PNP"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     ADMIN_PORTAL_MODE: bool = False
@@ -74,8 +74,8 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = "noreply@ssmspl.com"
-    CONTACT_FORM_RECIPIENT: str = "ssmsdapoli@rediffmail.com"
+    SMTP_FROM_EMAIL: str = "noreply@pnp.example.com"
+    CONTACT_FORM_RECIPIENT: str = "pnpipl11@gmail.com"
 
 
 @lru_cache

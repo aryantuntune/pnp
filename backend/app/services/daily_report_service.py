@@ -163,11 +163,11 @@ async def _generate_and_send_report(report_date: date):
             # Build PDF with all branches
             pdf_buf = _build_daily_report_pdf(report_date, branch_reports, overall_grand_total)
             recipient_emails = [r.email for r in recipients]
-            filename = f"SSMSPL_Daily_Report_{report_date.strftime('%d_%m_%Y')}.pdf"
+            filename = f"PNP_Daily_Report_{report_date.strftime('%d_%m_%Y')}.pdf"
 
             await email_service.send_daily_report_email(
                 to_emails=recipient_emails,
-                subject=f"SSMSPL Daily Report — {report_date.strftime('%d/%m/%Y')}",
+                subject=f"PNP Daily Report — {report_date.strftime('%d/%m/%Y')}",
                 html_body=_build_brief_email_html(report_date, branch_reports, overall_grand_total),
                 pdf_bytes=pdf_buf.getvalue(),
                 pdf_filename=filename,
@@ -375,7 +375,7 @@ def _build_brief_email_html(
     return f"""
     <div style="max-width:640px;margin:0 auto;font-family:Arial,sans-serif;">
         <div style="background:linear-gradient(135deg,#0a2a38,#1a6b8a);color:white;padding:24px;text-align:center;">
-            <h1 style="margin:0;font-size:22px;">SSMSPL Daily Report</h1>
+            <h1 style="margin:0;font-size:22px;">PNP Daily Report</h1>
             <p style="margin:8px 0 0;opacity:0.9;font-size:14px;">{report_date.strftime('%d %B %Y')}</p>
         </div>
         <div style="padding:24px;background:#ffffff;">
@@ -403,7 +403,7 @@ def _build_brief_email_html(
             </p>
         </div>
         <div style="padding:16px;background:#f8fafc;text-align:center;color:#999;font-size:12px;">
-            Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd.
+            PNP Maritime Services Pvt. Ltd.
         </div>
     </div>
     """

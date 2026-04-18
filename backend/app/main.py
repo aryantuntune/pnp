@@ -67,8 +67,8 @@ app = FastAPI(
     redirect_slashes=False,
     version=settings.APP_VERSION,
     description=(
-        "## SSMSPL Ferry Boat Ticketing System\n\n"
-        "REST API for **Suvarnadurga Shipping & Marine Services Pvt. Ltd.**\n\n"
+        "## PNP Ferry Ticketing System\n\n"
+        "REST API for **PNP Maritime Services Pvt. Ltd.**\n\n"
         "### Features\n"
         "- JWT-based authentication with access & refresh tokens\n"
         "- Role-Based Access Control (RBAC) with 4 roles: Admin, Manager, Billing Operator, Ticket Checker\n"
@@ -157,8 +157,8 @@ app = FastAPI(
         },
     ],
     contact={
-        "name": "SSMSPL Engineering",
-        "email": "engineering@ssmspl.com",
+        "name": "PNP Engineering",
+        "email": "engineering@pnp.example.com",
     },
     license_info={
         "name": "Proprietary",

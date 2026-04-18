@@ -15,7 +15,7 @@ def _build_password_reset_html(reset_link: str, user_name: str) -> str:
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;">
         <div style="background:linear-gradient(135deg,#0a2a38,#1a6b8a);color:white;padding:24px;text-align:center;">
             <h1 style="margin:0;font-size:24px;">Password Reset</h1>
-            <p style="margin:8px 0 0;opacity:0.9;">SSMSPL Ferry Services</p>
+            <p style="margin:8px 0 0;opacity:0.9;">PNP Maritime Ferry Services</p>
         </div>
         <div style="padding:24px;background:#ffffff;">
             <p>Hello {user_name},</p>
@@ -36,7 +36,7 @@ def _build_password_reset_html(reset_link: str, user_name: str) -> str:
             </p>
         </div>
         <div style="padding:16px;background:#f8fafc;text-align:center;color:#999;font-size:12px;">
-            Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd.
+            PNP Maritime Services Pvt. Ltd.
         </div>
     </div>
     """
@@ -50,7 +50,7 @@ async def send_password_reset_email(to_email: str, reset_link: str, user_name: s
 
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Password Reset - SSMSPL Ferry Services"
+        msg["Subject"] = "Password Reset - PNP Maritime Ferry Services"
         msg["From"] = settings.SMTP_FROM_EMAIL
         msg["To"] = to_email
 
@@ -76,7 +76,7 @@ def _build_otp_email_html(otp: str, user_name: str, purpose: str) -> str:
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;">
         <div style="background:linear-gradient(135deg,#0a2a38,#1a6b8a);color:white;padding:24px;text-align:center;">
             <h1 style="margin:0;font-size:24px;">Verification Code</h1>
-            <p style="margin:8px 0 0;opacity:0.9;">SSMSPL Ferry Services</p>
+            <p style="margin:8px 0 0;opacity:0.9;">PNP Maritime Ferry Services</p>
         </div>
         <div style="padding:24px;background:#ffffff;">
             <p>Hello {user_name},</p>
@@ -90,7 +90,7 @@ def _build_otp_email_html(otp: str, user_name: str, purpose: str) -> str:
             <p style="color:#666;font-size:14px;">If you did not request this code, please ignore this email.</p>
         </div>
         <div style="padding:16px;background:#f8fafc;text-align:center;color:#999;font-size:12px;">
-            Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd.
+            PNP Maritime Services Pvt. Ltd.
         </div>
     </div>
     """
@@ -107,7 +107,7 @@ async def send_otp_email(to_email: str, otp: str, user_name: str, purpose: str) 
     try:
         subject = "Verify Your Email" if purpose == "registration" else "Password Reset Code"
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"{subject} - SSMSPL Ferry Services"
+        msg["Subject"] = f"{subject} - PNP Maritime Ferry Services"
         msg["From"] = settings.SMTP_FROM_EMAIL
         msg["To"] = to_email
 
@@ -139,7 +139,7 @@ def _build_contact_form_html(sender_name: str, sender_email: str, sender_phone: 
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;">
         <div style="background:linear-gradient(135deg,#0a2a38,#1a6b8a);color:white;padding:24px;text-align:center;">
             <h1 style="margin:0;font-size:24px;">New Contact Form Message</h1>
-            <p style="margin:8px 0 0;opacity:0.9;">SSMSPL Website</p>
+            <p style="margin:8px 0 0;opacity:0.9;">PNP Maritime Website</p>
         </div>
         <div style="padding:24px;background:#ffffff;">
             <table style="width:100%;border-collapse:collapse;">
@@ -158,7 +158,7 @@ def _build_contact_form_html(sender_name: str, sender_email: str, sender_phone: 
             </table>
         </div>
         <div style="padding:16px;background:#f8fafc;text-align:center;color:#999;font-size:12px;">
-            Sent from the SSMSPL website contact form
+            Sent from the PNP Maritime website contact form
         </div>
     </div>
     """
@@ -208,7 +208,7 @@ def _build_booking_confirmation_html(booking: dict) -> str:
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;">
         <div style="background:#0284c7;color:white;padding:24px;text-align:center;">
             <h1 style="margin:0;font-size:24px;">Booking Confirmed</h1>
-            <p style="margin:8px 0 0;opacity:0.9;">SSMSPL Ferry Services</p>
+            <p style="margin:8px 0 0;opacity:0.9;">PNP Maritime Ferry Services</p>
         </div>
         <div style="padding:24px;background:#ffffff;">
             <p>Dear Customer,</p>
@@ -250,7 +250,7 @@ def _build_booking_confirmation_html(booking: dict) -> str:
             </p>
         </div>
         <div style="padding:16px;background:#f8fafc;text-align:center;color:#999;font-size:12px;">
-            Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd.
+            PNP Maritime Services Pvt. Ltd.
         </div>
     </div>
     """

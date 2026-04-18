@@ -62,7 +62,7 @@ def _decrypt(hex_string: str) -> str:
 
 
 def generate_order_id(booking_id: int) -> str:
-    return f"SSMSPL_{booking_id}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    return f"PNP_{booking_id}_{int(time.time())}_{uuid.uuid4().hex[:6]}"
 
 
 def build_payment_request(
