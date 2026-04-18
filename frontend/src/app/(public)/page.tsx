@@ -5,80 +5,29 @@ import Link from "next/link";
 
 const ROUTES = [
   {
-    name: "Dabhol – Dhopave",
-    slug: "dabhol-dhopave",
-    image: "/images/routes/dabhol-dhopave.jpg",
-    description:
-      "The very first site which was started on 21.10.2003 & constantly working since its first day at all times and in all seasons.",
-  },
-  {
-    name: "Jaigad – Tawsal",
-    slug: "jaigad-tawsal",
-    image: "/images/routes/jaigad-tawsal.jpg",
-    description:
-      "This Ferry service was started for the easy & better transportation from Guhagar & Ratnagiri thus making Guhagar tehesil easily accessible.",
-  },
-  {
-    name: "Vasai – Bhayander",
-    slug: "vasai-bhayander",
-    image: "/images/routes/vasai-bhayander.jpg",
-    description:
-      "Suvarnadurga Shipping & Marine Ser.Pvt Ltd recently got the opportunity to Serve People in Vasai, Bhayander.This is the SEVENTH route by SSMS",
-  },
-  {
-    name: "Virar – Saphale",
-    slug: "virar-saphale",
+    name: "Gateway of India \u2013 Mandwa Jetty",
+    slug: "gateway-mandwa",
     image: null,
     description:
-      "Suvarnadurga Shipping & Marine Ser.Pvt Ltd proudly introduces its newest milestone, a game changing RORO service between Virar and Saphale (Jalsar).",
-  },
-  {
-    name: "Dighi – Agardande",
-    slug: "dighi-agardande",
-    image: "/images/routes/dighi-agardande.jpg",
-    description:
-      "This Ferry service is oriented towards Tourism & Fishing. Many tourists started preferring their weekends at Alibaug & nearby lovely places.",
-  },
-  {
-    name: "Veshvi – Bagmandale",
-    slug: "veshvi-bagmandale",
-    image: "/images/routes/veshvi-bagmandale.jpg",
-    description:
-      "This service was started in 2007 & saved lots of time and hassle for transportation from Raigad to Ratnagiri.",
-  },
-  {
-    name: "Ambet – Mahpral",
-    slug: "ambet-mahpral",
-    image: "/images/routes/ambet-mahpral.jpg",
-    description:
-      "Ambet \u2013 Mahpral Ferry not only saves Fuel but also saves Time & money as it gives you a Shorter path to travel TOTALLY FREE !!",
-    status: "closed" as const,
+      "The fastest sea route from Mumbai to Alibag. A ~45-minute AC catamaran ride from Gateway of India to Mandwa Jetty, followed by a free connecting bus to Alibag ST Stand.",
   },
 ];
 
 const SERVICES = [
   {
-    title: "Enjoy Our Cruise Service",
-    subtitle: "Give it a Go !",
+    title: "Charter & Tourist Trips",
+    subtitle: "Private Sailings Available",
     image: "/images/backgrounds/cruise-services.jpg",
     description:
-      "Now a days tourism had flourished well in \u2018Konkan Region\u2019. Tourist are always seeking for something new and exciting. Keeping in view this need, we have started CRUISE service like Goa- cruise at various seasons.",
+      "PNP Maritime offers private catamaran charters for corporate events, family outings, and special occasions. Enjoy the scenic Mumbai harbour aboard our AC catamarans.",
     extra:
-      "A programme of about an hour, consists various entertaining programs and cultural activities like Kokani Cultural Events, Goan Fusion, DJ night, Deck Dance for couples, Special games for kids, various Game Shows along with fresh Kokani delicious food on cruise.\nBeing a seasonal service, arrangements are made only during some months & advance booking is necessary for hassle free experience.",
+      "Advance booking required. Contact our Gateway of India office at 022-22884535 for charter enquiries and pricing.",
   },
   {
-    title: "Exclusive Inland Service",
+    title: "Port Operations",
     image: "/images/backgrounds/inland-services.jpg",
     description:
-      "This is a special transportation service for various Materials & Machines at desirable locations.",
-  },
-  {
-    title: "Easy Transportation",
-    image: "/images/backgrounds/inland-services.jpg",
-    description:
-      "As there are many ports in Kokan region, transportation of various products from one location to another through sea has become a necessity. Ferry-Service comes to help for transporting heavy machines like cranes, fork lanes (JCB), boaring machines, large tankers or any other heavy material which is tedious to transport by road.",
-    extra:
-      "As this is a special service, charges depend upon weight, distance, waiting time, fuel & labour etc.\nThis service is started for the economic transportation of heavy materials conveniently through water with proper safety.",
+      "PNP also operates a multipurpose port at Dharamtar, Raigad, handling cargo including coal, steel coils, and cement.",
   },
 ];
 
@@ -106,7 +55,7 @@ export default function HomePage() {
               <path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v-2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42a1.007 1.007 0 00-.66 1.28L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z" />
             </svg>
             <span className="text-white/90 text-sm font-medium">
-              Maharashtra&apos;s Premier Ferry Service
+              Mumbai&apos;s Premier Catamaran Service
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
@@ -117,8 +66,8 @@ export default function HomePage() {
             ?
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed">
-            Experience seamless ferry travel across Maharashtra&apos;s beautiful
-            Konkan coast. Safe, reliable, and scenic journeys since 2003.
+            Experience fast catamaran travel from Gateway of India to Mandwa Jetty.
+            AC and non-AC seating available. Includes free bus to Alibag.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
@@ -148,16 +97,15 @@ export default function HomePage() {
               Our Routes
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-              Ferry Services Across Konkan
+              Ferry Services
             </h2>
             <p className="text-gray-500 max-w-2xl mx-auto">
-              Connecting Maharashtra&apos;s beautiful coastal communities with
-              reliable ferry services since 2003.
+              Connecting Mumbai to Alibag with fast, comfortable catamaran service since 1999.
             </p>
           </div>
 
           {/* First row: 3 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 gap-6 mb-6 max-w-lg mx-auto">
             {ROUTES.slice(0, 3).map((route) => (
               <div
                 key={route.name}
@@ -209,58 +157,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Second row: 4 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {ROUTES.slice(3).map((route) => (
-              <div
-                key={route.name}
-                className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
-              >
-                <div className="relative h-40 overflow-hidden bg-gradient-to-br from-[#0c3547] to-[#1a6b8a]">
-                  {route.image ? (
-                    <Image
-                      src={route.image}
-                      alt={route.name}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <svg className="w-12 h-12 text-white/20" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v-2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42a1.007 1.007 0 00-.66 1.28L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                  {"status" in route && route.status === "closed" && (
-                    <span className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
-                      Closed
-                    </span>
-                  )}
-                  <div className="absolute bottom-3 left-3">
-                    <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-                      {route.name}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-base font-bold text-slate-900 mb-1.5">
-                    {route.name}
-                  </h3>
-                  <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">
-                    {route.description}
-                  </p>
-                  <Link
-                    href={`/route/${route.slug}`}
-                    className="text-sky-600 text-xs font-semibold hover:text-sky-800 transition-colors"
-                  >
-                    Know More &rarr;
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -367,19 +263,19 @@ export default function HomePage() {
                 {[
                   {
                     title: "Safe & Reliable",
-                    text: "All ferries meet strict safety standards with trained crew",
+                    text: "All catamarans meet Maharashtra Maritime Board safety standards",
                   },
                   {
                     title: "On-Time Service",
-                    text: "Running 7 days a week with reliable schedules",
+                    text: "7 daily sailings each direction, 365 days a year",
                   },
                   {
-                    title: "Vehicle Transport",
-                    text: "RORO ferries for cars, bikes, and commercial vehicles",
+                    title: "AC Catamaran",
+                    text: "The only AC catamaran service on the Gateway\u2013Mandwa route",
                   },
                   {
-                    title: "Since 2003",
-                    text: "Over 20 years serving coastal communities",
+                    title: "Since 1999",
+                    text: "Over 25 years serving Mumbai\u2013Alibag travellers",
                   },
                 ].map((item) => (
                   <div key={item.title} className="flex gap-4">
@@ -400,16 +296,16 @@ export default function HomePage() {
             {/* Right: Stats in a 2x2 grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gradient-to-br from-[#0c3547] to-[#1a6b8a] rounded-2xl p-6 md:p-8 text-center">
-                <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">20+</div>
+                <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">25+</div>
                 <div className="text-gray-300 text-sm">Years of Service</div>
               </div>
               <div className="bg-gradient-to-br from-[#0f3a50] to-[#1a5c7a] rounded-2xl p-6 md:p-8 text-center">
-                <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">7</div>
-                <div className="text-gray-300 text-sm">Active Routes</div>
+                <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">1</div>
+                <div className="text-gray-300 text-sm">Active Route</div>
               </div>
               <div className="bg-gradient-to-br from-[#0f3a50] to-[#1a5c7a] rounded-2xl p-6 md:p-8 text-center">
-                <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">65+</div>
-                <div className="text-gray-300 text-sm">Employees</div>
+                <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">350+</div>
+                <div className="text-gray-300 text-sm">Passengers Per Sailing</div>
               </div>
               <div className="bg-gradient-to-br from-[#0c3547] to-[#1a6b8a] rounded-2xl p-6 md:p-8 text-center">
                 <div className="text-3xl md:text-4xl font-bold text-amber-400 mb-1">1M+</div>
@@ -428,7 +324,7 @@ export default function HomePage() {
               About Us
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-white">
-              About Suvarnadurga Shipping
+              About PNP Maritime
             </h2>
           </div>
 
@@ -449,16 +345,13 @@ export default function HomePage() {
             {/* Content — slightly more compact */}
             <div>
               <p className="text-gray-300 leading-relaxed mb-3">
-                Suvarnadurga Shipping &amp; Marine Services Pvt. Ltd. is a Company which is started by Dr. Mokal C.J. (Ex. MLA, Dapoli &ndash; Mandangad) with Dr. Mokal Y.C. as a Managing Director, in October 2003. We have skilled Staff of about 65 at different sites.
+                PNP Maritime Services Pvt. Ltd. has been connecting Mumbai to the Konkan coast since 1999. We operate the only air-conditioned catamaran service on the Gateway of India to Mandwa Jetty route.
               </p>
               <p className="text-gray-300 leading-relaxed mb-3">
-                We have approved Ticket Rates &amp; all necessary permits by Maharashtra Maritime board with Annual Inspections for requirements on Ferry Boat. Company is very particular about all life guarding apparatus on Ferry boat, for the safety of tourists &amp; public.
-              </p>
-              <p className="text-gray-300 leading-relaxed mb-3">
-                We began by starting a Ferry-Boat Service at Dabhol-Dhopave, which was a first Ferry Boat Service in Maharashtra. After Successful Service in Dabhol; we started another service in Veshvi &ndash; Bagmandle, then Tawsal &ndash; Jaigad, and Rohini &ndash; Agardande.
+                Our catamarans accommodate over 350 passengers per sailing across two seating options &mdash; Main Deck and AC Deck. All vessels are approved by the Maharashtra Maritime Board and undergo annual safety inspections.
               </p>
               <p className="text-gray-300 leading-relaxed mb-5">
-                Suvarnadurga Shipping and Marine Services is the transportation company that serves the Nation &amp; saves most valuable fuel. We hope, you will enjoy our Safe, Quick and Refreshing Ferry Services all the time.
+                Every sailing includes a complimentary connecting bus service from Mandwa Jetty to Alibag ST Stand, making the complete Mumbai&ndash;Alibag journey seamlessly connected in under 2 hours.
               </p>
 
               <div className="flex flex-wrap gap-4 mb-5">
@@ -466,19 +359,19 @@ export default function HomePage() {
                   <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-white">65+ Employees</span>
+                  <span className="text-sm font-medium text-white">350+ Capacity</span>
                 </div>
                 <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                   <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-white">7 Active Routes</span>
+                  <span className="text-sm font-medium text-white">1 Active Route</span>
                 </div>
                 <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg">
                   <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-white">1000s of Daily Passengers</span>
+                  <span className="text-sm font-medium text-white">Daily Service</span>
                 </div>
               </div>
 
