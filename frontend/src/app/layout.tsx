@@ -10,11 +10,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://carferry.online"
+    process.env.NEXT_PUBLIC_APP_URL || "https://pnp.example.com"
   ),
-  title: "Suvarnadurga Shipping & Marine Services - Ferry Boat Ticketing",
+  title: "PNP Maritime Services - Ferry Ticketing | Gateway of India to Mandwa",
   description:
-    "Maharashtra's premier ferry service connecting the Konkan coast since 2003. Book ferry tickets for Dabhol-Dhopave, Jaigad-Tawsal, Dighi-Agardande, and more routes.",
+    "Book catamaran ferry tickets from Gateway of India to Mandwa Jetty. AC and Main Deck seating. Includes free bus to Alibag. 7 daily sailings.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -26,12 +26,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SSMSPL Checker",
+    title: "PNP Ferry",
   },
   openGraph: {
-    title: "Suvarnadurga Shipping & Marine Services",
+    title: "PNP Maritime Services",
     description:
-      "Maharashtra's premier ferry service connecting the Konkan coast since 2003.",
+      "Gateway of India to Mandwa Jetty catamaran ferry. Includes free bus to Alibag.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
 };

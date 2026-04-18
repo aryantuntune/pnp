@@ -1,7 +1,7 @@
 {
-  "name": "SSMSPL Ticket Checker",
-  "short_name": "Checker",
-  "description": "Ferry ticket verification app for Suvarnadurga Shipping & Marine Services",
+  "name": "PNP Maritime Ferry",
+  "short_name": "PNP Ferry",
+  "description": "Ferry ticket system for PNP Maritime Services Pvt. Ltd.",
   "start_url": "/dashboard/verify",
   "scope": "/",
   "display": "standalone",

@@ -60,24 +60,24 @@ export default function Header() {
       <div className="bg-[#0c3547] text-white text-sm">
         <div className="max-w-7xl mx-auto px-4 py-2 flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center gap-4 flex-wrap">
-            <a href="tel:+919767248900" className="flex items-center gap-1 hover:text-orange-300 transition-colors">
+            <a href="tel:02222884535" className="flex items-center gap-1 hover:text-orange-300 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              +91 9767248900
+              022-22884535
             </a>
-            <a href="mailto:ssmsdapoli@rediffmail.com" className="hidden sm:flex items-center gap-1 hover:text-orange-300 transition-colors">
+            <a href="mailto:pnpipl11@gmail.com" className="hidden sm:flex items-center gap-1 hover:text-orange-300 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              ssmsdapoli@rediffmail.com
+              pnpipl11@gmail.com
             </a>
           </div>
           <div className="hidden sm:flex items-center gap-1 text-amber-400">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Operating: 6:00 AM - 10:00 PM (7 Days)
+            Operating: 8:15 AM - 8:15 PM (Daily)
           </div>
         </div>
       </div>
@@ -89,15 +89,15 @@ export default function Header() {
           <Link href="/" className="flex items-center gap-3 group">
             <Image
               src="/images/logos/logo.png"
-              alt="Suvarnadurga Shipping"
+              alt="PNP Maritime Services"
               width={44}
               height={44}
               className="object-contain"
             />
             <div className="hidden sm:block leading-tight">
-              <span className="font-bold text-[#0c3547] text-base group-hover:text-[#0891b2] transition-colors">Suvarnadurga</span>
+              <span className="font-bold text-[#0c3547] text-base group-hover:text-[#0891b2] transition-colors">PNP Maritime</span>
               <br />
-              <span className="text-xs text-amber-500">Shipping &amp; Marine Services</span>
+              <span className="text-xs text-amber-500">Catamaran Ferry Service</span>
             </div>
           </Link>
 
@@ -137,14 +137,6 @@ export default function Header() {
               </>
             ) : (
               <>
-                <a
-                  href="https://supriyahouseboat.bookingjini.in"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors"
-                >
-                  Houseboat Booking
-                </a>
                 <Link
                   href="/customer/login"
                   className="text-sm font-semibold text-sky-600 hover:text-sky-800 transition-colors"
@@ -214,14 +206,6 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <a
-                    href="https://supriyahouseboat.bookingjini.in"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-center text-sm font-semibold text-amber-600"
-                  >
-                    Houseboat Booking
-                  </a>
                   <Link href="/customer/login" onClick={() => setMobileMenuOpen(false)} className="text-center text-sm font-semibold text-sky-600">
                     Login
                   </Link>
