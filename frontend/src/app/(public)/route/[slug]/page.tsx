@@ -300,8 +300,8 @@ export default function RoutePage({
               {/* Schedule & Rates */}
               {hasScheduleSection && (
                 <ScheduleAndRates
-                  timetableImage={route.timetableImage}
-                  ratecardImage={route.ratecardImage}
+                  timetableImage={route.timetableImage ?? undefined}
+                  ratecardImage={route.ratecardImage ?? undefined}
                   routeName={route.name}
                 />
               )}
