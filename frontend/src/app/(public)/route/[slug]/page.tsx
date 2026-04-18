@@ -31,139 +31,25 @@ interface RouteInfo {
 /* ------------------------------------------------------------------ */
 
 const ROUTE_DATA: Record<string, RouteInfo> = {
-  "dabhol-dhopave": {
-    name: "Dabhol \u2013 Dhopave",
-    subtitle: "Making it convenient to travel from Dapoli to Guhagar or vice versa through road and ferry combination.",
-    image: "/images/routes/dabhol-dhopave.jpg",
-    about: [
-      "The very first site started by Suvarnadurga shipping & Marine Services Pvt. Ltd. Since 21st October 2003, this ferryboat service is constantly busy and has continued its service irrespective of adverse weather conditions.",
-      "Dabhol is twenty-seven kilometers away from Dapoli. Both these destinations have great places to visit and marvelous tourist spots. Dapoli, also called as Mini \u2013 Mahabaleshwar because of its cool & soothing environment. Fresh Seafood is Dapoli\u2019s specialty.",
-      "Dapoli is also famous for \u2018Kokan Krishi Vidyapeeth\u2019 an Agricultural University. Dapoli Homeopathic Medical College, Agril. Engineering College and some other educational institutes have made Dapoli the greatest educational hub. As far as road distance is concerned, approximate distance from following locations to Dapoli is as Mumbai-220 km, Poona-220 km, Kolhapur-220 km, Satara- 150 km, Sangali -180 km, Mahabalshwar \u2013 100 km.",
-      "Guhaghar is a lovely location along with amazing clean beaches & temples. It is also known for ENRON Power Project. Famous \u2018Gopal Gad\u2019 fort is located at Hedvi, near Guhaghar. Velneshwar is one of the favorite destinations you may visit. \u2018GanpatiPule\u2019, Ratnagiri is mere 66 kilometers from Guhaghar. Dhopave is fourteen kilometers from Guhagar for the Ferry destination. Guhagar is easily approachable from Poona :270 km, Mumbai: 270 km, Kolhapur: 180 km, Satara: 150 km, Karad :100 km, Sangali-130 km.",
-      "Dapoli & Guhaghar were not easily accessible before ferry boat service. Now, it is very convenient to travel from Dapoli to Guhagar or vice versa through road and ferry combination. A sweet & short Holiday Package with nice seafood & konkani food thus can be arranged for these locations & this has become possible due to ferry service.",
-      "Ferries are connected with each other too. You have choice of Dabhol- Dhopave Ferry for Ratnagiri visit, ferry service at Tawsal -Jaigad (Guhagar \u2013Ratnagiri). Shriwardhan, Harihareshwar, Dive-Agar can be visited through Veshvi \u2013 Bagmandale (Mandangad-Dapoli \u2013 Raigad). You may extend your route up to Alibaug, Murud janjeera through Rohini- Agardanda Ferry boat Service (Shrivardhan \u2013 Murud, Raigad). Thus, this ferry service proves to be miraculously useful to connect the dots through your destination routes!",
-    ],
-    tourist:
-      "Nearby tourist destinations include resorts, lake resorts, hotels, bungalows & second homes. Home stay with home food is one of the concepts you may try at Guhagar. Popular spots include Velneshwar temple, Gopal Gad Fort, Kokan Krishi Vidyapeeth, and the scenic beaches of both Dapoli and Guhaghar.",
-    contacts: [
-      { label: "Dabhol Office", phones: ["02348-248900", "9767248900"] },
-      { label: "Dhopave", phones: ["7709250800"] },
-    ],
-    timetableImage: "/images/timetables/dabhol-dhopave.jpg",
-    ratecardImage: "/images/ratecards/dabhol.jpg",
-  },
-  "jaigad-tawsal": {
-    name: "Jaigad \u2013 Tawsal",
-    subtitle: "Places like Ganpati Pule, Thiba Palace, Bhate beach, Pawas are one of the most sought after destinations.",
-    image: "/images/routes/jaigad-tawsal.jpg",
-    about: [
-      "Easy transportation from Guhaghar to Ratnagiri was the main aim while Suvarnadurga Shipping & Marine Services Pvt. Ltd. started this ferry service. Due to this Ferry, Guhagar became easily accessible from Ratnagiri (Kolhapur region) as well as from Pune and Mumbai. Ever since then, Guhaghar has flourished as a great tourists destination. Even educational organizations have been showing interest in Guhaghar. Recently, well equipped Engineering College was also started in Velaneshwar.",
-      "Guhaghar is a lovely location along with amazing clean beaches & temples. It is also known for ENRON Power Project. Famous \u2018Gopal Gad\u2019 fort is located at Hedvi, near Guhaghar. Velneshwar is one of favourite destinations you may visit. Hedvi beach, Vyadeshwar Mandir, Durga Devi Mandir are the main attractions. \u2018GanpatiPule\u2019, Ratnagiri is mere 66 kilometers from Guhaghar. Guhagar is easily approachable from Poona :270 kms, Mumbai: 270kms, Kolhapur: 180kms, Satara: 150kms, Karad :100kms, Sangali-130kms.",
-      "Another miracle took place because of this service was that; because of this ferry service, fishing business proliferated by leaps and bounds due to very easy transportation of fish containers. Reachability to Ratnagiri from Guhaghar and vice versa was possible within very short time span as compared to previous methods of transportation. From Ratnagiri, fish can be transported further to Goa or Mangalore (Kerala) for further sale or processing.",
-      "District place like Ratnagiri became easily accessible from Guhagar and Dabhol as well because of the ferry service. Ratnagiri, has quite a number of tourists places and the city is also being developed very fast. Places like famous Ganpati Pule Mandir, Thiba Palace, Bahte beach, Pawas are one of the most sought after destinations by tourists who visit Ratnagiri.",
-      "Visiting such destinations through ferry is really a very lovely experience. Saved time, fuel and money is added bonus..!!",
-    ],
-    tourist:
-      "Famous Ganpati Pule Mandir, Thiba Palace, Bahte beach, Pawas, Hedvi beach, Vyadeshwar Mandir, Durga Devi Mandir, Velneshwar temple, and the Engineering College at Velaneshwar. The service benefits fishing operations and economic accessibility to Ratnagiri district.",
-    contacts: [
-      { label: "Jaigad", phones: ["02354-242500", "8550999884"] },
-      { label: "Tawsal", phones: ["8550999880"] },
-    ],
-    timetableImage: "/images/timetables/jaigad-tawsal.jpg",
-    ratecardImage: "/images/ratecards/jaigad.jpg",
-  },
-  "dighi-agardande": {
-    name: "Dighi \u2013 Agardande",
-    subtitle: "One of the advantages of this ferry service is that, you get directly connected to NH-17",
-    image: "/images/routes/dighi-agardande.jpg",
-    about: [
-      "Development of tourism and fishing is the main aim of this ferry service. As this location happens to be near Mumbai, it is a great boon to Mumbaites, because Alibaug, one of their favourite destinations is now within the reach because of this exciting service. Locations like Murud- Janjeera, Kashid beach (famous for bird watching) can be covered easily.",
-      "Fish like Pomfret, Rawas, Prawns are abundantly available in Dighi Creek. Previously local fishermen had no market for these commercially valuable fish family. Ferry service has changed the whole scenario. Now, because of better and easy transportation facility, fresh fish can be made available from Deghee to Alibag, Mumbai and some other destinations.",
-      "One of the advantages of this ferry service is that, you get directly connected to NH-17 and then either to Murud \u2013 Janjeera, Rewas, or to Harihareshwar and Shrivardhan. Ferry service link to Veshvi- bagmandale, Dabhol \u2013 Dhopave & Tawsal \u2013 Jaigad gives a memorable experience.",
-    ],
-    tourist:
-      "Key destinations include Murud-Janjeera Fort, Kashid Beach (famous for bird watching), Alibaug, Harihareshwar, Shrivardhan, and Rewas. The route connects to NH-17, providing easy access to these attractions.",
-    contacts: [
-      { label: "Dighi", phones: ["9156546700"] },
-      { label: "Agardande", phones: ["8550999887"] },
-    ],
-    timetableImage: "/images/timetables/dighi-agardande.png",
-    ratecardImage: "/images/ratecards/dighi.jpg",
-  },
-  "veshvi-bagmandale": {
-    name: "Veshvi \u2013 Bagmandale",
-    subtitle: "Since 2007, this ferry service has made the journey from Raigad to Ratnagiri very easy and quick.",
-    image: "/images/routes/veshvi-bagmandale.jpg",
-    about: [
-      "This ferry service was started by Suvarnadurga Shipping & Marine Services Pvt. Ltd. in 2007. Till then, journey from Raigad to Ratnagiri via Mandangad was very time consuming and hectic.",
-      "There are some tourist spots at Shrivardhan such as Harihareshwar, Dive-Aagar, Borli etc. Velas beach is famous for its \u2018Kasav Mahotsav\u2019 (Turtle Festival). Once you are there, you have a choice visit Dapoli or Murud, Alibaug for their exotic locations.",
-      "You may arrange your tour as Veshvi \u2013 Kelshi (Mahalaxmi Temple) \u2013 Anjarle Beach \u2013 Harnai Beach \u2013 Suvarnadurga Fort \u2013 Murud (Dapoli) beach \u2013 Dapoli (Konkan Krishi Vidyapeeth) \u2013 Ladghar beach \u2013 Burondi (Lord Parshuram Statue) \u2013 Kolthare Beach \u2013 Kolishwar Temple \u2013 Dabhol (Chandika Mandir). Once you are at Dabhol, you may join the Ferry Service.",
-      "Another alternative is to join \u2018Rohini \u2013 Agardanda\u2019 Ferry once you reach Harihareshwar. Then Shrivardhan and Divegar. From \u2018Rohini Ferry\u2019 you may visit Murud \u2013 Janjeera, Nandgaon, Kashid beach, Alibaug, Rewas and some other places. You can continue your journey via NH-17 also either from Shrivardhan, Mhasala or Mangaon.",
-    ],
-    tourist:
-      "Must-visit destinations include Velas Beach (Kasav Mahotsav / Turtle Festival), Harihareshwar, Dive-Aagar, Borli, Kelshi Mahalaxmi Temple, Anjarle Beach, Harnai Beach, Suvarnadurga Fort, Ladghar Beach, Burondi (Lord Parshuram Statue), Kolthare Beach, Kolishwar Temple, and Dabhol Chandika Mandir.",
-    contacts: [
-      { label: "Veshvi Office", phones: ["02350-223300"] },
-      { label: "Bagmandale", phones: ["9322819161"] },
-    ],
-    timetableImage: "/images/timetables/veshvi-bagmandale.jpg",
-    ratecardImage: "/images/ratecards/veshvi.jpg",
-  },
-  "vasai-bhayander": {
-    name: "Vasai \u2013 Bhayander",
-    subtitle: "Suvarnadurga Shipping & Marine Ser.Pvt Ltd recently got the opportunity to Serve People in Vasai, Bhayander.",
-    image: "/images/routes/vasai-bhayander.jpg",
-    about: [
-      "Suvarnadurga Shipping & Marine Ser.Pvt Ltd recently got the opportunity to Serve People in Vasai Bhaindar. This is the seventh route by SSMS. Maharashtra Maritime Board permitted this RORO service under the SAGARMALA PROJECT Of the central Government. Though its Provisional, Suvarnadurga Shipping & Marine Services will surely make it Permanent as Suvarnadurga has 21 Years of Experience for RoRo service at different creeks covering All over Maharashtra almost. For now, as many studies of Tides Jetty levels etc are going on Vasai Bhaindar RoRo service has some limitations of Timing so we are with the Latest Time Table which is subject to change depending on Tide levels.",
-      "Vasai is well known for its historical importance as Vasai killa which is a bit neglected but with great historical impact. It can develop tourist destinations in the future due to RoRo services. Vasai is also known as Maharashtra\u2019s GOA as It has Portuguese culture. We can bloom this village as a Tourist destination with a Goan impact. Vasai is well known for its fruits by RoRo service this Trading can also progress in the future.",
-      "Bhayander is a marketplace for all and well connected with all routes. Bhayander with rapidly growing market can provide all the favorable features with RoRo services. Tourism will surely increase with RoRo so SSMS is introducing Different TIME Table for Saturday & Sunday. All time Tables are available on our website.",
-    ],
-    tourist:
-      "Vasai Fort (Vasai Killa) with its Portuguese cultural heritage, nearby beaches, and historical sites. Bhayander is a growing marketplace well connected with all routes.",
-    contacts: [
-      { label: "Vasai Office", phones: ["8624063900"] },
-      { label: "Bhayander Office", phones: ["8600314710"] },
-    ],
-    timetableImage: "/images/timetables/vasai-bhayander.jpg",
-    ratecardImage: "/images/ratecards/vasai.png",
-  },
-  "ambet-mahpral": {
-    name: "Ambet \u2013 Mahpral",
-    subtitle: "Free Ferry Service \u2014 Currently Closed",
-    status: "closed" as const,
-    image: "/images/routes/ambet-mahpral.jpg",
-    about: [
-      "This Ferry Service by Suvarnadurga Shipping & Marine Ser. is the new (5th) Ferry Route which is established as ALTERNATIVE for Ambet Bridge Which needs Repair, so it\u2019s a Ro-Ro Service which is a great relief for all the people traveling to Mumbai Pune, etc from Dapoli & Mandangad; as without this Ferry, one has to travel a long distance Via Mahad.",
-      "Ambet \u2013 Mahpral Ferry not only saves Fuel but also saves Time & money as it gives you a Shorter path to travel which takes only 2 mins while traveling by Mahad will take More than 1hr. that is more than 40kms; so This Ferry Service is actually an essential service because in any emergency Medical or any other this will be the fastest route to approach the NH 17 or to travel to Mumbai from Dapoli & Mandangad.",
-      "Repair & Maintenance of Ambet bridge was started from 08.02.21 to 27.06.2021 & to serve the common people we Suvarnadurga & Shipping & marine Serv. Pvt. Ltd started & conducted ferry service for 5 months successfully.",
-      "This service has started from 12.04.2022 due to repair & maintenance of Ambet bridge. This time, PWD MAHAD UNDER GOVERNMENT OF MAHARASHTRA has allowed us to offer this service TOTALLY FREE FOR ALL. This service will start from 6.00 AM in the morning to 12.00 PM on regular basis. (CURRENTLY CLOSED)",
-    ],
-    tourist:
-      "The route serves local communities traveling between Ambet and Mahpral, providing a vital short crossing that eliminates a lengthy 40+ km road detour via Mahad.",
-    contacts: [
-      { label: "Mahpral", phones: ["8624063900"] },
-      { label: "Ambet", phones: ["7709250800"] },
-    ],
-    timetableImage: "/images/timetables/ambet-mahpral.jpg",
-  },
-  "virar-saphale": {
-    name: "Virar \u2013 Saphale (Jalsar)",
-    subtitle: "From 1 Hr 20 Mins to Just 15 Mins! A New Landmark in Connectivity",
+  "gateway-mandwa": {
+    name: "Gateway of India \u2013 Mandwa Jetty",
+    subtitle: "The fastest sea route from Mumbai to Alibag. ~45 min catamaran + free connecting bus.",
     image: null,
     about: [
-      "Suvarnadurga Shipping & Marine Services Pvt. Ltd., with an impeccable 21-year legacy of safe and efficient maritime service, proudly introduces its newest milestone \u2013 a game-changing RORO service between Virar and Saphale (Jalsar). Imagine cutting your commute from 1 hour 20 minutes down to just 15 minutes. Not only are you saving time, but you\u2019re also significantly reducing fuel expenses\u2014no more long drives, traffic stress, or unnecessary fuel consumption.",
-      "This waterway isn\u2019t just a shortcut\u2014it\u2019s a smarter, greener, and more scenic route, aligning with government sustainability guidelines and promoting eco-friendly transport for a better tomorrow.",
-      "Once you dock at Jalsar (Saphale side), you gain access to some of Maharashtra\u2019s most historic and scenic destinations, ideal for one-day escapes, nature treks, and cultural exploration. Tandulwadi Fort (15 KM from Jalsar) \u2013 an 800-year-old hill fort perched at 1,524 feet, offering breathtaking views of the Arabian Sea. Bhavangad Fort (11 KM) \u2013 Built in 1737 by Chimaji Appa, this coastal fort stands as a testament to Maratha bravery.",
-      "Other nearby attractions include Dativare Fort (also known as Hira Dongar), Shede Dev Temple (a century-old shrine dedicated to Lord Shiva, a spiritual hub during Maha Shivaratri), and Makunsar Village (home to Shri Datta Mandir and Chamunda Devi Mandir). Skip the traffic. Embrace the river. Let Suvarnadurga RORO be your gateway to a refreshing, responsible, and rewarding journey.",
+      "PNP Maritime Services operates the only air-conditioned catamaran service from Gateway of India, Apollo Bandar, Mumbai, to Mandwa Jetty, Alibaug. The crossing takes approximately 45\u201355 minutes, offering passengers spectacular views of the Mumbai harbour and the open sea.",
+      "Gateway of India is one of Mumbai\u2019s most iconic landmarks, located at Apollo Bandar, Colaba. Ferries depart from the jetty adjacent to the monument, making it easily accessible from South Mumbai by bus, taxi, or local train to Churchgate.",
+      "Upon arrival at Mandwa Jetty, passengers board a complimentary PNP bus that connects directly to Alibag ST Stand. The bus journey takes approximately 40\u201345 minutes, completing the full Mumbai\u2013Alibag journey in under 2 hours \u2014 far faster and more scenic than the road route.",
+      "Alibag is a popular weekend destination from Mumbai, known for its beaches, forts, and seafood. The Kolaba Fort (accessible by foot at low tide), Alibag beach, and Varsoli beach are among the top attractions. Murud-Janjira Fort, Kashid Beach, and Revdanda are also accessible from Alibag.",
     ],
     tourist:
-      "Nearby attractions include Tandulwadi Fort (15 km, 800 years old, 1524 ft elevation), Bhavangad Fort (11 km, built in 1737 by Chimaji Appa), Dativare Fort (Hira Dongar), Shede Dev Temple (a major Maha Shivaratri hub), and Makunsar Village (Shri Datta Mandir and Chamunda Devi Mandir).",
+      "Popular destinations near Alibag: Kolaba Fort, Alibag Beach, Varsoli Beach, Kashid Beach (45 km), Murud-Janjira Fort (55 km), Revdanda Fort, and Harihareshwar. Alibag is also known for fresh seafood and Konkani cuisine.",
     contacts: [
-      { label: "Virar Office", phones: ["9371002900"] },
-      { label: "Saphale Office", phones: ["8459803521"] },
+      { label: "Gateway of India Office", phones: ["022-22884535", "022-22885220", "+91 8591254683"] },
+      { label: "Mandwa Jetty Office", phones: ["02141-237087", "02141-237464"] },
+      { label: "Alibag Office", phones: ["02141-225403", "+91 8805401558"] },
     ],
-    timetableImage: "/images/timetables/virar-saphale.png",
-    ratecardImage: "/images/ratecards/virar.png",
+    timetableImage: null,
+    ratecardImage: null,
   },
 };
 
