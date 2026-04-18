@@ -242,13 +242,13 @@ export default function AppSidebar({
             <div className="flex items-center gap-2">
               <Image
                 src="/images/logos/logo-white.png"
-                alt="SSMSPL"
+                alt="PNP Maritime"
                 width={28}
                 height={28}
                 className="object-contain"
               />
               <span className="text-base font-bold text-sidebar-active-foreground">
-                SSMSPL
+                PNP Maritime
               </span>
             </div>
           )}
@@ -276,13 +276,13 @@ export default function AppSidebar({
               <div className="flex items-center gap-2">
                 <Image
                   src="/images/logos/logo-white.png"
-                  alt="SSMSPL"
+                  alt="PNP Maritime"
                   width={28}
                   height={28}
                   className="object-contain"
                 />
                 <span className="text-base font-bold text-sidebar-active-foreground">
-                  SSMSPL
+                  PNP Maritime
                 </span>
               </div>
             </div>

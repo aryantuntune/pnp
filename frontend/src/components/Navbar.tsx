@@ -30,13 +30,13 @@ export default function Navbar({ user }: NavbarProps) {
       <div className="flex items-center gap-3">
         <Image
           src="/images/logos/logo-white.png"
-          alt="Suvarnadurga Shipping"
+          alt="PNP Maritime Services"
           width={36}
           height={36}
           className="object-contain"
         />
         <div>
-          <span className="text-xl font-bold tracking-wide">SSMSPL</span>
+          <span className="text-xl font-bold tracking-wide">PNP Maritime</span>
           <span className="ml-3 text-blue-300 text-sm">Ferry Ticketing System</span>
         </div>
       </div>
