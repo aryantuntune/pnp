@@ -89,7 +89,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://api.pnp.unfurling.ninja
+        NEXT_PUBLIC_API_URL: https://pnp.unfurling.ninja
         NEXT_PUBLIC_APP_URL: https://pnp.unfurling.ninja
         NEXT_PUBLIC_APP_NAME: PNP
         INTERNAL_API_URL: http://backend:8000
