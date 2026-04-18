@@ -414,9 +414,8 @@ export default function ContactPage() {
                 iconBg="bg-orange-100"
                 title="Head Office Address"
               >
-                <p>Dabhol FerryBoat Jetty,</p>
-                <p>Dapoli, Dist. Ratnagiri,</p>
-                <p>Maharashtra - 415712</p>
+                <p>PNP Maritime Services Pvt. Ltd.,</p>
+                <p>Mumbai, Maharashtra</p>
               </ContactInfoCard>
 
               {/* Phone Numbers */}
@@ -425,8 +424,8 @@ export default function ContactPage() {
                 iconBg="bg-blue-100"
                 title="Phone Numbers"
               >
-                <p>Dabhol: 02348-248900, 9767248900</p>
-                <p>Veshvi: 02350-223300, 8767980300</p>
+                <p>022-22884535, 022-22885220</p>
+                <p>+91 8591254683</p>
               </ContactInfoCard>
 
               {/* Email Addresses */}
@@ -435,8 +434,7 @@ export default function ContactPage() {
                 iconBg="bg-emerald-100"
                 title="Email Addresses"
               >
-                <p>ssmsdapoli@rediffmail.com</p>
-                <p>y.mokal@rediffmail.com</p>
+                <p>info@pnpmaritime.com</p>
               </ContactInfoCard>
 
               {/* Operating Hours */}
@@ -505,22 +503,15 @@ export default function ContactPage() {
                     Jetty Locations
                   </h3>
                   <p className="text-xs text-white/50 mt-1">
-                    {9} locations across the coast
+                    2 locations across the coast
                   </p>
                 </div>
 
                 {/* Scrollable location rows */}
                 <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 lg:max-h-[460px]">
                   {[
-                    { name: "Dabhol Ferry", area: "Dabhol, Maharashtra", link: "https://maps.app.goo.gl/VW3Eo1RjeG7s7Azj8", color: "bg-amber-400" },
-                    { name: "Dhopave Ferry", area: "Dhopave, Guhagar", link: "https://maps.app.goo.gl/nTz53CDUQu1a8cwR6", color: "bg-sky-400" },
-                    { name: "Jaigad Tawsal Ferry", area: "Jaigad, Ratnagiri", link: "https://maps.app.goo.gl/mptkW5dPf5JQHAkC6", color: "bg-emerald-400" },
-                    { name: "Tawsal Ferry", area: "Tawsal, Guhagar", link: "", color: "bg-orange-400" },
-                    { name: "Dighi Jetty", area: "Dighi, Raigad", link: "https://maps.app.goo.gl/mptkW5dPf5JQHAkC6", color: "bg-purple-400" },
-                    { name: "Vesvi Bagmandale Ferry", area: "Veshvi, Ratnagiri", link: "", color: "bg-rose-400" },
-                    { name: "Vasai Bhayander Ferry", area: "Vasai, Palghar", link: "", color: "bg-teal-400" },
-                    { name: "Virar Saphale Ferry", area: "Marambalpada Jetty", link: "https://maps.app.goo.gl/AKDzPtVtQh6fnRQV7", color: "bg-cyan-400" },
-                    { name: "Saphale Ferry", area: "Saphale, Palghar", link: "", color: "bg-lime-400" },
+                    { name: "Gateway of India", area: "Apollo Bandar, Colaba, Mumbai", link: "https://maps.app.goo.gl/VW3Eo1RjeG7s7Azj8", color: "bg-amber-400" },
+                    { name: "Mandwa Jetty", area: "Mandwa, Alibaug, Raigad", link: "https://maps.app.goo.gl/nTz53CDUQu1a8cwR6", color: "bg-sky-400" },
                   ].map((loc) => (
                     <div
                       key={loc.name}

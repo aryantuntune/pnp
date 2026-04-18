@@ -46,12 +46,12 @@ export default function ForgotPasswordPage() {
           <Link href="/" className="inline-flex items-center space-x-3">
             <Image
               src="/images/logos/logo-white.png"
-              alt="Suvarnadurga Shipping"
+              alt="PNP Maritime Services"
               width={56}
               height={56}
               className="object-contain drop-shadow-lg"
             />
-            <span className="text-3xl font-bold text-white">SSMSPL</span>
+            <span className="text-3xl font-bold text-white">PNP Maritime</span>
           </Link>
           <p className="mt-2 text-white/70 text-sm">Admin Portal</p>
         </div>
@@ -162,7 +162,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <p className="text-center text-sm text-white/50 mt-6">
-          &copy; {new Date().getFullYear()} SSMSPL. All rights reserved.
+          &copy; {new Date().getFullYear()} PNP Maritime Services Pvt. Ltd. All rights reserved.
         </p>
       </div>
     </div>

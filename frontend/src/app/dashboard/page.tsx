@@ -32,12 +32,7 @@ const formatCurrency = (amount: number) =>
 
 // Branch display order: grouped by route (from → to)
 const BRANCH_ORDER = [
-  "Dabhol", "Dhopave",
-  "Veshvi", "Bagmandale",
-  "Jaigad", "Tavsal",
-  "Agardanda", "Dighi",
-  "Vasai", "Bhayander",
-  "Virar", "Safale",
+  "GATEWAY OF INDIA", "MANDWA JETTY",
 ];
 
 const PAYMENT_MODE_ORDER = ["Cash", "UPI", "Online"];

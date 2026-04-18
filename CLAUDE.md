@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SSMSPL (Suvarnadurga Shipping & Marine Services Pvt. Ltd.) — Ferry Boat Ticketing System. Full-stack monorepo with a FastAPI async backend and Next.js frontend communicating via REST API.
+PNP Maritime Services Pvt. Ltd. — Ferry Boat Ticketing System. White-labeled from SSMSPL platform. Full-stack monorepo with a FastAPI async backend and Next.js frontend communicating via REST API. Internal naming (DB names, cookie keys, bundle IDs) retains `ssmspl_` prefix by design.
 
 ## Development Commands
 
