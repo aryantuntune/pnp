@@ -35,19 +35,18 @@ export default function HomePage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative bg-[#0c3547] overflow-hidden min-h-screen flex items-center">
-        {/* Background Video */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
+      <section className="relative overflow-hidden min-h-screen flex items-center bg-gradient-to-br from-[#0a2a38] via-[#0c3547] to-[#1a5c7a]">
+        {/* Animated wave decoration */}
+        <div className="absolute inset-0 opacity-20">
+          <svg className="absolute bottom-0 w-full h-64" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <path fill="#1a6b8a" d="M0,192L60,181.3C120,171,240,149,360,160C480,171,600,213,720,213.3C840,213,960,171,1080,165.3C1200,160,1320,192,1380,208L1440,224L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z" />
+          </svg>
+          <svg className="absolute bottom-0 w-full h-48" viewBox="0 0 1440 320" preserveAspectRatio="none">
+            <path fill="#0891b2" fillOpacity="0.5" d="M0,224L80,208C160,192,320,160,480,170.7C640,181,800,235,960,234.7C1120,235,1280,181,1360,154.7L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z" />
+          </svg>
+        </div>
         {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-black/30" />
 
         <div className="relative max-w-7xl mx-auto px-4 py-24 md:py-32 text-center w-full">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-6">

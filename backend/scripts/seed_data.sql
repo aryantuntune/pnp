@@ -138,33 +138,19 @@ ON CONFLICT (id) DO NOTHING;
 --    CONFIRM passenger rates with client before going live.
 --    Vehicles/goods deactivated (is_active=FALSE).
 -- ============================================================
+-- Only active items get rates (deactivated items don't need rates).
+-- rate >= 1 constraint enforced by DDL.
 INSERT INTO item_rates (levy, rate, item_id, route_id, is_active)
 VALUES
-    -- Deactivated vehicle items
-    (0.00,   0.00,  1, 1, FALSE),
-    (0.00,   0.00,  2, 1, FALSE),
-    (0.00,   0.00,  3, 1, FALSE),
-    (0.00,   0.00,  4, 1, FALSE),
-    (0.00,   0.00,  5, 1, FALSE),
-    (0.00,   0.00,  6, 1, FALSE),
-    (0.00,   0.00,  7, 1, FALSE),
-    (0.00,   0.00,  8, 1, FALSE),
-    (0.00,   0.00,  9, 1, FALSE),
-    (0.00,   0.00, 10, 1, FALSE),
     -- Active passenger items (CONFIRM FINAL RATES WITH CLIENT)
     (0.00, 285.00, 11, 1, TRUE),   -- PASSENGER - MAIN DECK
     (0.00, 325.00, 12, 1, TRUE),   -- PASSENGER - AC DECK
-    -- Deactivated goods items
-    (0.00,   0.00, 13, 1, FALSE),
-    (0.00,   0.00, 14, 1, FALSE),
-    (0.00,   0.00, 15, 1, FALSE),
-    (0.00,   0.00, 16, 1, FALSE),
-    -- Tourist/pass items — rates TBD, set to 0 (CONFIRM WITH CLIENT)
-    (0.00,   0.00, 17, 1, TRUE),
-    (0.00,   0.00, 18, 1, TRUE),
-    (0.00,   0.00, 19, 1, TRUE),
-    (0.00,   0.00, 20, 1, TRUE),
-    (0.00,   0.00, 21, 1, TRUE)
+    -- Tourist/pass items — placeholder rate of 1 (CONFIRM WITH CLIENT before go-live)
+    (0.00,   1.00, 17, 1, TRUE),
+    (0.00,   1.00, 18, 1, TRUE),
+    (0.00,   1.00, 19, 1, TRUE),
+    (0.00,   1.00, 20, 1, TRUE),
+    (0.00,   1.00, 21, 1, TRUE)
 ON CONFLICT (item_id, route_id) DO UPDATE SET
     rate = EXCLUDED.rate, levy = EXCLUDED.levy, is_active = EXCLUDED.is_active, updated_at = NOW();
 

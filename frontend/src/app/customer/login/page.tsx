@@ -97,21 +97,8 @@ function CustomerLoginContent() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Video Background */}
-      <div className="fixed inset-0 z-0">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover"
-          style={{ filter: "brightness(0.5)" }}
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
-        {/* Fallback gradient when video hasn't loaded */}
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-900 via-blue-800 to-cyan-700 -z-10" />
-      </div>
+      {/* Gradient Background */}
+      <div className="fixed inset-0 z-0 bg-gradient-to-br from-[#0a2a38] via-[#0c3547] to-[#1a5c7a]" />
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-12">
