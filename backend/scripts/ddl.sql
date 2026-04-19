@@ -484,6 +484,13 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date DATE;
 -- PATCH: Add branch_id to boats
 ALTER TABLE boats ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id);
 
+-- PATCH: Add missing user_sessions columns (branch/route/geo tracking)
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS route_id  INTEGER REFERENCES routes(id);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS latitude  NUMERIC(10, 7);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS isp       VARCHAR(100);
+
 -- PATCH: Remove branch_id from item_rates (revert to route-only pricing)
 DROP INDEX IF EXISTS uq_item_rate_direction;
 ALTER TABLE item_rates DROP COLUMN IF EXISTS branch_id;
