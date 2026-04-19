@@ -40,14 +40,14 @@ ON CONFLICT (id) DO UPDATE SET
 -- ============================================================
 -- 3. USERS (3 test accounts — all Password@123)
 -- ============================================================
-INSERT INTO users (id, email, username, full_name, hashed_password, role, is_active, is_verified)
+INSERT INTO users (id, email, username, full_name, hashed_password, role, route_id, active_branch_id, is_active, is_verified)
 VALUES
     (uuid_generate_v4(), 'superadmin@ssmspl.com',       'superadmin', 'Super Administrator',
-     '$2b$12$40jxkhNDTRR7btlgX0mTIuom3jXuB3r5OT0J2dh0ep5Q3iK3YDUD.', 'SUPER_ADMIN',      TRUE, TRUE),
+     '$2b$12$40jxkhNDTRR7btlgX0mTIuom3jXuB3r5OT0J2dh0ep5Q3iK3YDUD.', 'SUPER_ADMIN',      NULL, NULL, TRUE, TRUE),
     (uuid_generate_v4(), 'admin@pnp.example.com',       'admin',      'PNP Admin',
-     '$2b$12$40jxkhNDTRR7btlgX0mTIuom3jXuB3r5OT0J2dh0ep5Q3iK3YDUD.', 'ADMIN',            TRUE, TRUE),
+     '$2b$12$40jxkhNDTRR7btlgX0mTIuom3jXuB3r5OT0J2dh0ep5Q3iK3YDUD.', 'ADMIN',            NULL, NULL, TRUE, TRUE),
     (uuid_generate_v4(), 'billing@pnp.example.com',     'billing',    'PNP Billing Operator',
-     '$2b$12$40jxkhNDTRR7btlgX0mTIuom3jXuB3r5OT0J2dh0ep5Q3iK3YDUD.', 'BILLING_OPERATOR', TRUE, TRUE)
+     '$2b$12$40jxkhNDTRR7btlgX0mTIuom3jXuB3r5OT0J2dh0ep5Q3iK3YDUD.', 'BILLING_OPERATOR', 1, 101, TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================

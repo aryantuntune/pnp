@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class BranchBase(BaseModel):
-    name: str = Field(..., max_length=15, description="Branch name", examples=["Old Goa"])
+    name: str = Field(..., max_length=50, description="Branch name", examples=["Old Goa"])
     address: str = Field(..., max_length=255, description="Branch address", examples=["Old Goa Jetty, Goa 403402"])
     contact_nos: str | None = Field(None, max_length=255, description="Contact numbers", examples=["0832-2456789"])
     latitude: float | None = Field(None, description="Latitude coordinate", examples=[15.501330000000000])
@@ -32,7 +32,7 @@ class BranchCreate(BranchBase):
 
 
 class BranchUpdate(BaseModel):
-    name: str | None = Field(None, max_length=15, description="Updated branch name")
+    name: str | None = Field(None, max_length=50, description="Updated branch name")
     address: str | None = Field(None, max_length=255, description="Updated branch address")
     contact_nos: str | None = Field(None, max_length=255, description="Updated contact numbers")
     latitude: float | None = Field(None, description="Updated latitude")
